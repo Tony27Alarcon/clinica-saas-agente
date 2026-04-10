@@ -383,16 +383,23 @@ export class WebhookController {
             AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId)
         );
 
-        // Step G: Enviar y guardar respuesta
+        // Step G: Guardar respuesta en DB (antes de enviar, para que quede en historial
+        //         aunque el envío por Kapso falle transitoriamente)
         if (respuesta && respuesta.trim()) {
-            await logger.stage('G', 'clinicas.KapsoService.enviarMensaje', async () => {
-                logger.info(`[Clinicas] Enviando respuesta: "${respuesta.substring(0, 80)}${respuesta.length > 80 ? '...' : ''}"`);
-                await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
-            });
-
-            await logger.stage('H', 'clinicas.saveMessage (respuesta)', () =>
+            await logger.stage('G', 'clinicas.saveMessage (respuesta)', () =>
                 ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', respuesta)
             );
+
+            try {
+                await logger.stage('H', 'clinicas.KapsoService.enviarMensaje', async () => {
+                    logger.info(`[Clinicas] Enviando respuesta: "${respuesta.substring(0, 80)}${respuesta.length > 80 ? '...' : ''}"`);
+                    await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
+                });
+            } catch (sendError) {
+                // El mensaje ya fue guardado en DB (step G). El fallo de envío
+                // se loguea como error pero no rompe el pipeline.
+                logger.error('[Clinicas] Step H: fallo al enviar por Kapso (respuesta ya guardada en DB)', sendError);
+            }
         } else {
             logger.info('[Clinicas] Step G: sin texto — respuesta gestionada vía tool de envío');
         }
@@ -468,16 +475,20 @@ export class WebhookController {
             AiService.generarRespuestaAdmin(historial, staffMember, company, contact, conversation, phoneNumberId)
         );
 
-        // Step G: Enviar y guardar respuesta
+        // Step G: Guardar respuesta en DB (antes de enviar, mismo criterio que pipeline clínicas)
         if (respuesta && respuesta.trim()) {
-            await logger.stage('G', 'admin.KapsoService.enviarMensaje', async () => {
-                logger.info(`[Admin] Enviando respuesta: "${respuesta.substring(0, 80)}${respuesta.length > 80 ? '...' : ''}"`);
-                await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
-            });
-
-            await logger.stage('H', 'admin.saveMessage (respuesta)', () =>
+            await logger.stage('G', 'admin.saveMessage (respuesta)', () =>
                 ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', respuesta)
             );
+
+            try {
+                await logger.stage('H', 'admin.KapsoService.enviarMensaje', async () => {
+                    logger.info(`[Admin] Enviando respuesta: "${respuesta.substring(0, 80)}${respuesta.length > 80 ? '...' : ''}"`);
+                    await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
+                });
+            } catch (sendError) {
+                logger.error('[Admin] Step H: fallo al enviar por Kapso (respuesta ya guardada en DB)', sendError);
+            }
         } else {
             logger.info('[Admin] Step G: sin texto a enviar');
         }

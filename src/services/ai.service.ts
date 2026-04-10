@@ -188,11 +188,18 @@ ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
 
             const steps = (result as any).steps || [];
             const allToolCalls = steps.flatMap((s: any) => s.toolCalls || []);
-            const usedInteractive = allToolCalls.some((tc: any) =>
-                ['sendInteractiveButtons', 'sendInteractiveList'].includes(tc.toolName)
-            );
+            const allToolResults = steps.flatMap((s: any) => s.toolResults || []);
 
-            // Si usó interactivos, descartar texto residual (el interactivo ya tiene el mensaje)
+            // Solo descartar el texto si el tool interactivo tuvo ÉXITO (ok: true).
+            // Si Kapso no está configurado, el tool retorna { ok: false } y debemos
+            // preservar el texto para guardarlo en DB y que el polling lo encuentre.
+            const usedInteractive = allToolCalls.some((tc: any) => {
+                if (!['sendInteractiveButtons', 'sendInteractiveList'].includes(tc.toolName)) return false;
+                const res = allToolResults.find((tr: any) => tr.toolCallId === tc.toolCallId);
+                return res?.result?.ok === true;
+            });
+
+            // Si usó interactivos exitosamente, descartar texto residual (el interactivo ya tiene el mensaje)
             if (usedInteractive) {
                 if (resultText) logger.info(`[IA Clinicas] Descartando texto residual tras interactivo.`);
                 return '';
