@@ -27,6 +27,7 @@ import {
     createAdminGetContactSummaryTool,
     createAdminSendMessageToPatientTool,
     createAdminGetDailySummaryTool,
+    createAdminConnectGoogleCalendarTool,
 } from '../tools/clinicas-admin.tools';
 
 const google = createGoogleGenerativeAI({
@@ -605,7 +606,7 @@ Zona horaria: ${company.timezone || 'America/Bogota'} — Moneda: ${company.curr
 
 TONO: Directo y profesional. Respuestas concisas. Sin saludos repetidos en cada turno.
 
-HERRAMIENTAS DISPONIBLES (7):
+HERRAMIENTAS DISPONIBLES (8):
 1. searchContacts — Busca pacientes/leads por nombre, teléfono o estado.
 2. getUpcomingAppointments — Consulta citas próximas (próximos N días).
 3. getFreeSlots — Slots disponibles para agendar.
@@ -613,6 +614,7 @@ HERRAMIENTAS DISPONIBLES (7):
 5. getContactSummary — Resumen completo de un paciente (perfil + citas + historial).
 6. sendMessageToPatient — Envía un mensaje WhatsApp a un paciente desde la clínica.
 7. getDailySummary — Resumen del día: citas, leads nuevos, escalaciones, follow-ups.
+8. connectGoogleCalendar — Envía al staff un link para conectar su Google Calendar. Usar cuando diga "conectar calendario", "vincular Google Calendar" o cuando quiera que el agente cree citas en su agenda personal.
 
 REGLAS:
 - Después de cada tool call, genera texto que resuma el resultado para el staff.
@@ -625,7 +627,7 @@ REGLAS:
                 system: systemPrompt,
                 messages: historial,
                 temperature: 0.5,
-                maxSteps: 5,
+                maxSteps: 25,
                 tools: {
                     searchContacts:          createAdminSearchContactsTool(company.id),
                     getUpcomingAppointments: createAdminGetAppointmentsTool(company.id),
@@ -634,6 +636,12 @@ REGLAS:
                     getContactSummary:       createAdminGetContactSummaryTool(company.id),
                     sendMessageToPatient:    createAdminSendMessageToPatientTool(company.id, phoneNumberId),
                     getDailySummary:         createAdminGetDailySummaryTool(company.id, company.timezone || 'America/Bogota'),
+                    connectGoogleCalendar:   createAdminConnectGoogleCalendarTool(
+                        staffMember.id,
+                        company.id,
+                        staffMember.phone,
+                        phoneNumberId
+                    ),
                 },
             } as any);
 

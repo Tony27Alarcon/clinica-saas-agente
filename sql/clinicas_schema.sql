@@ -165,6 +165,19 @@ CREATE TABLE IF NOT EXISTS clinicas.staff (
 
 COMMENT ON TABLE clinicas.staff IS 'Médicos y asesores. Reciben notificación cuando el agente agenda una cita. Se usan para distribución de carga (Fase 2).';
 
+-- =============================================================================
+-- MIGRACIÓN: OAuth 2.0 de Google Calendar para staff
+-- Ejecutar en Supabase SQL Editor (idempotente con IF NOT EXISTS)
+-- =============================================================================
+ALTER TABLE clinicas.staff
+    ADD COLUMN IF NOT EXISTS gcal_refresh_token TEXT,
+    ADD COLUMN IF NOT EXISTS gcal_email          TEXT,
+    ADD COLUMN IF NOT EXISTS gcal_connected_at   TIMESTAMPTZ;
+
+COMMENT ON COLUMN clinicas.staff.gcal_refresh_token IS 'Refresh token OAuth2 de Google Calendar. Permite crear citas en nombre del staff sin que vuelva a autorizar.';
+COMMENT ON COLUMN clinicas.staff.gcal_email          IS 'Email de la cuenta Google que autorizó el acceso (extraído del id_token).';
+COMMENT ON COLUMN clinicas.staff.gcal_connected_at   IS 'Timestamp de la última autorización OAuth exitosa.';
+
 
 -- =============================================================================
 -- TABLA: contacts (Leads y pacientes)

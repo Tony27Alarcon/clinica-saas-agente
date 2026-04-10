@@ -3,6 +3,8 @@ import { env } from './config/env';
 import { logger, addLogSink } from './utils/logger';
 import { LogService } from './services/log.service';
 import { WebhookController } from './controllers/webhook.controller';
+import { OAuth2Client } from 'google-auth-library';
+import { ClinicasDbService } from './services/clinicas-db.service';
 
 // ============================================================================
 // Wiring del sink de persistencia: cada log emitido por el logger se buffer-ea
@@ -57,6 +59,151 @@ app.use(express.json());
 
 // Main webhook route for Kapso
 app.post('/webhook', WebhookController.handleKapsoWebhook);
+
+// ─── Google OAuth 2.0 (Google Calendar del staff) ────────────────────────────
+
+/**
+ * Inicia el flujo OAuth 2.0 de Google Calendar para un staff.
+ * El agente admin genera este link y se lo manda al staff por WhatsApp.
+ *
+ * Query params requeridos:
+ *   - staff_id:   UUID del miembro del staff
+ *   - company_id: UUID de la clínica
+ */
+app.get('/auth/google/start', (req, res) => {
+    const { staff_id, company_id } = req.query;
+
+    if (!staff_id || !company_id) {
+        res.status(400).send('Faltan parámetros: staff_id y company_id son requeridos.');
+        return;
+    }
+
+    if (!env.GOOGLE_OAUTH_CLIENT_ID || !env.GOOGLE_OAUTH_CLIENT_SECRET || !env.GOOGLE_OAUTH_REDIRECT_URI) {
+        res.status(503).send('Google OAuth no está configurado en este servidor.');
+        return;
+    }
+
+    const oauth2Client = new OAuth2Client(
+        env.GOOGLE_OAUTH_CLIENT_ID,
+        env.GOOGLE_OAUTH_CLIENT_SECRET,
+        env.GOOGLE_OAUTH_REDIRECT_URI
+    );
+
+    const state = Buffer.from(
+        JSON.stringify({ staffId: staff_id, companyId: company_id })
+    ).toString('base64');
+
+    const authUrl = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt:      'consent', // Fuerza siempre el consent screen para garantizar refresh_token
+        scope: [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'openid',
+        ],
+        state,
+    });
+
+    res.redirect(authUrl);
+});
+
+/**
+ * Callback de Google OAuth 2.0.
+ * Google redirige aquí tras la autorización del staff.
+ */
+app.get('/auth/google/callback', async (req, res) => {
+    const { code, state, error: oauthError } = req.query;
+
+    if (oauthError) {
+        logger.warn(`[OAuth Callback] Error de Google: ${oauthError}`);
+        res.status(400).send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <h2>❌ Acceso cancelado</h2>
+            <p>No se conectó Google Calendar. Puedes cerrar esta ventana y pedirle al asistente que te envíe el link nuevamente.</p>
+            </body></html>
+        `);
+        return;
+    }
+
+    if (!code || !state) {
+        res.status(400).send('Parámetros inválidos.');
+        return;
+    }
+
+    let staffId: string;
+    let companyId: string;
+    try {
+        const decoded = JSON.parse(Buffer.from(state as string, 'base64').toString('utf8'));
+        staffId   = decoded.staffId;
+        companyId = decoded.companyId;
+        if (!staffId || !companyId) throw new Error('state incompleto');
+    } catch (err) {
+        logger.warn(`[OAuth Callback] State inválido: ${(err as Error).message}`);
+        res.status(400).send('El link de autorización es inválido o expiró.');
+        return;
+    }
+
+    try {
+        const oauth2Client = new OAuth2Client(
+            env.GOOGLE_OAUTH_CLIENT_ID,
+            env.GOOGLE_OAUTH_CLIENT_SECRET,
+            env.GOOGLE_OAUTH_REDIRECT_URI
+        );
+
+        const { tokens } = await oauth2Client.getToken(code as string);
+
+        if (!tokens.refresh_token) {
+            logger.error(`[OAuth Callback] Google no devolvió refresh_token para staff ${staffId}`);
+            res.status(500).send(`
+                <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+                <h2>⚠️ Error de autorización</h2>
+                <p>Google no entregó los permisos necesarios. Por favor pide al asistente que te envíe un nuevo link.</p>
+                </body></html>
+            `);
+            return;
+        }
+
+        // Extraer email del id_token
+        oauth2Client.setCredentials(tokens);
+        let email = '';
+        if (tokens.id_token) {
+            try {
+                const ticket  = await oauth2Client.verifyIdToken({ idToken: tokens.id_token });
+                const payload = ticket.getPayload();
+                email = payload?.email || '';
+            } catch (idTokenErr) {
+                logger.warn(`[OAuth Callback] No se pudo verificar id_token: ${(idTokenErr as Error).message}`);
+            }
+        }
+
+        await ClinicasDbService.saveStaffOAuthTokens(staffId, {
+            refreshToken: tokens.refresh_token,
+            email,
+        });
+
+        logger.info(`[OAuth Callback] Staff ${staffId} conectó Google Calendar (${email})`);
+
+        res.send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px;max-width:480px;margin:0 auto">
+            <h2 style="color:#22c55e">✅ ¡Google Calendar conectado!</h2>
+            <p>Tu cuenta <strong>${email}</strong> fue vinculada correctamente.</p>
+            <p>Desde ahora el asistente puede crear citas en tu calendario automáticamente.</p>
+            <p style="color:#6b7280;font-size:14px">Puedes cerrar esta ventana.</p>
+            </body></html>
+        `);
+
+    } catch (err: any) {
+        logger.error(`[OAuth Callback] Error intercambiando code: ${err.message}`);
+        res.status(500).send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <h2>❌ Error del servidor</h2>
+            <p>No se pudo completar la autorización. Intenta nuevamente más tarde.</p>
+            </body></html>
+        `);
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Healthcheck / Root
 app.get('/', (req, res) => {

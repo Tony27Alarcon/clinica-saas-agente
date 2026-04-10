@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { JWT } from 'google-auth-library';
+import { JWT, OAuth2Client } from 'google-auth-library';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -58,6 +58,26 @@ export class GoogleCalendarService {
         });
 
         return google.calendar({ version: 'v3', auth });
+    }
+
+    /**
+     * Crea un cliente OAuth2 autenticado con el refresh_token de un staff.
+     * El access_token se renueva automáticamente en cada petición.
+     * El staff debe haber autorizado previamente via /auth/google/start.
+     */
+    private static getOAuthClient(refreshToken: string): ReturnType<typeof google.calendar> {
+        if (!env.GOOGLE_OAUTH_CLIENT_ID || !env.GOOGLE_OAUTH_CLIENT_SECRET) {
+            throw new Error('GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET no configurados');
+        }
+
+        const oauth2Client = new OAuth2Client(
+            env.GOOGLE_OAUTH_CLIENT_ID,
+            env.GOOGLE_OAUTH_CLIENT_SECRET,
+            env.GOOGLE_OAUTH_REDIRECT_URI
+        );
+        oauth2Client.setCredentials({ refresh_token: refreshToken });
+
+        return google.calendar({ version: 'v3', auth: oauth2Client });
     }
 
     /**
@@ -182,6 +202,10 @@ export class GoogleCalendarService {
 
     /**
      * Crea un evento en Google Calendar al reservar una cita.
+     *
+     * Modo Service Account (legacy): calendarId explícito, sin refreshToken.
+     * Modo OAuth staff: refreshToken presente → usa 'primary' del staff, ignora calendarId.
+     *
      * @returns El eventId del evento creado (para guardar en appointments.gcal_event_id).
      */
     static async createAppointmentEvent(params: {
@@ -192,8 +216,10 @@ export class GoogleCalendarService {
         endAt: string;
         timezone: string;
         attendeeEmail?: string;
+        refreshToken?: string;  // Si presente, usa OAuth del staff en lugar del SA
     }): Promise<string> {
-        const calendar = this.getClient();
+        const calendar   = params.refreshToken ? this.getOAuthClient(params.refreshToken) : this.getClient();
+        const calendarId = params.refreshToken ? 'primary' : params.calendarId;
 
         const event: any = {
             summary: params.summary,
@@ -207,7 +233,7 @@ export class GoogleCalendarService {
         }
 
         const res = await calendar.events.insert({
-            calendarId: params.calendarId,
+            calendarId,
             requestBody: event,
             sendUpdates: params.attendeeEmail ? 'all' : 'none',
         });
@@ -215,7 +241,8 @@ export class GoogleCalendarService {
         const eventId = res.data.id;
         if (!eventId) throw new Error('Google Calendar no retornó un eventId al crear el evento');
 
-        logger.info(`[GCal] Evento creado: ${eventId} (${params.summary})`);
+        const mode = params.refreshToken ? 'OAuth' : 'SA';
+        logger.info(`[GCal] Evento creado (${mode}): ${eventId} (${params.summary})`);
         return eventId;
     }
 

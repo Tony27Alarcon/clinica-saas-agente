@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { ClinicasDbService } from '../services/clinicas-db.service';
 import { KapsoService } from '../services/kapso.service';
+import { env } from '../config/env';
 
 /**
  * Tool: searchContacts
@@ -185,6 +186,57 @@ export const createAdminGetDailySummaryTool = (companyId: string, timezone: stri
             return { ok: true, data: summary };
         } catch (err: any) {
             logger.error(`[Admin Tool] getDailySummary error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+/**
+ * Tool: connectGoogleCalendar
+ *
+ * Genera un link de autorización OAuth 2.0 de Google y se lo envía al
+ * staff que está chateando con el agente admin por WhatsApp.
+ * Todos los parámetros vienen del closure — el LLM no controla ninguno.
+ *
+ * @param staffId       UUID del staff (clinicas.staff)
+ * @param companyId     UUID de la clínica (para construir el URL y validar en callback)
+ * @param staffPhone    Teléfono del staff en E.164 sin + (para enviar el mensaje WA)
+ * @param phoneNumberId phoneNumberId del canal WhatsApp de la clínica
+ */
+export const createAdminConnectGoogleCalendarTool = (
+    staffId: string,
+    companyId: string,
+    staffPhone: string,
+    phoneNumberId: string
+) => tool({
+    description: 'Envía al staff un link por WhatsApp para conectar su Google Calendar con la clínica. Usar cuando el staff pida conectar su calendario, vincular Google Calendar, o cuando quiera que el agente cree citas en su agenda personal.',
+    inputSchema: z.object({}),
+    execute: async () => {
+        try {
+            if (!env.GOOGLE_OAUTH_REDIRECT_URI) {
+                return { ok: false, error: 'Google OAuth no está configurado en el servidor' };
+            }
+
+            // Extraer base URL desde GOOGLE_OAUTH_REDIRECT_URI
+            // ej: https://mi-app.railway.app/auth/google/callback → https://mi-app.railway.app
+            let baseUrl = '';
+            try {
+                const parsed = new URL(env.GOOGLE_OAUTH_REDIRECT_URI);
+                baseUrl = `${parsed.protocol}//${parsed.host}`;
+            } catch {
+                baseUrl = env.GOOGLE_OAUTH_REDIRECT_URI.replace('/auth/google/callback', '');
+            }
+
+            const startUrl = `${baseUrl}/auth/google/start?staff_id=${encodeURIComponent(staffId)}&company_id=${encodeURIComponent(companyId)}`;
+
+            const mensaje = `Para conectar tu Google Calendar con el asistente, abre este link y autoriza el acceso con tu cuenta de Google:\n\n${startUrl}\n\nEs personal — no lo compartas con nadie.`;
+
+            await KapsoService.enviarMensaje(staffPhone, mensaje, phoneNumberId);
+
+            logger.info(`[Admin Tool] connectGoogleCalendar: link enviado a ${staffPhone} (staff: ${staffId})`);
+            return { ok: true, linkSent: true, to: staffPhone };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] connectGoogleCalendar error: ${err.message}`);
             return { ok: false, error: err.message };
         }
     },

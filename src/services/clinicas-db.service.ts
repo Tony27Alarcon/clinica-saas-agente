@@ -852,4 +852,60 @@ export class ClinicasDbService {
             return { ok: false, error: (error as Error).message };
         }
     }
+
+    // ─── OAuth 2.0 Google Calendar (staff) ────────────────────────────────────
+
+    /**
+     * Persiste el refresh_token y email de Google Calendar para un staff.
+     * Se llama una vez tras el callback OAuth exitoso.
+     * Sobrescribe tokens anteriores si el staff vuelve a autorizar.
+     */
+    static async saveStaffOAuthTokens(
+        staffId: string,
+        tokens: { refreshToken: string; email: string }
+    ): Promise<void> {
+        try {
+            const { error } = await db()
+                .from('staff')
+                .update({
+                    gcal_refresh_token: tokens.refreshToken,
+                    gcal_email:         tokens.email,
+                    gcal_connected_at:  new Date().toISOString(),
+                })
+                .eq('id', staffId);
+
+            if (error) throw error;
+            logger.info(`[Clinicas] OAuth tokens guardados para staff ${staffId} (${tokens.email})`);
+        } catch (error) {
+            logger.error(`[Clinicas] saveStaffOAuthTokens: ${(error as Error).message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Recupera el refresh_token de Google Calendar del staff.
+     * Retorna null si el staff no ha conectado su Google Calendar.
+     */
+    static async getStaffOAuthTokens(
+        staffId: string
+    ): Promise<{ refreshToken: string; email: string } | null> {
+        try {
+            const { data, error } = await db()
+                .from('staff')
+                .select('gcal_refresh_token, gcal_email')
+                .eq('id', staffId)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data || !(data as any).gcal_refresh_token) return null;
+
+            return {
+                refreshToken: (data as any).gcal_refresh_token,
+                email:        (data as any).gcal_email || '',
+            };
+        } catch (error) {
+            logger.error(`[Clinicas] getStaffOAuthTokens: ${(error as Error).message}`);
+            return null;
+        }
+    }
 }
