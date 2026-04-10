@@ -310,7 +310,7 @@ ${comercialesCtx}
                 system: systemPrompt,
                 messages: historial,
                 temperature: 0.7,
-                maxSteps: 5,
+                maxSteps: 25,
                 tools: {
                     updateContactProfile: createUpdateContactProfileTool(contacto.id),
                     createContactNote: createCreateContactNoteTool(contacto.id),
@@ -522,7 +522,7 @@ ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
                 system: systemPrompt,
                 messages: historial,
                 temperature: 0.7,
-                maxSteps: 5,
+                maxSteps: 25,
                 tools: {
                     updateContactProfile: createClinicasUpdateContactTool(contact.id),
                     escalateToHuman: createClinicasEscalateTool(conversation.id),

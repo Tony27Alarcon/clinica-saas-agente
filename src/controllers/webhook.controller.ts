@@ -107,7 +107,7 @@ export class WebhookController {
                         event?.phone_number_id ||
                         event?.message?.phone_number_id ||
                         event?.conversation?.phone_number_id ||
-                        '122946594240393';
+                        env.KAPSO_PHONE_NUMBER_ID;
                     const body = NotificationService.buildSystemErrorBody({
                         message:
                             'El pipeline se cayó procesando un mensaje. Revisar logs en `logs_eventos` filtrando por el request_id de abajo.',
@@ -224,7 +224,16 @@ export class WebhookController {
             event.phone_number_id ||
             event.message?.phone_number_id ||
             event.conversation?.phone_number_id ||
-            '122946594240393'; // Fallback provided by user screenshot
+            env.KAPSO_PHONE_NUMBER_ID;
+        
+        if (!phoneNumberId) {
+            logger.error('No se pudo determinar el phone_number_id para el evento. Abortando procesamiento.', {
+                messageId,
+                from,
+            });
+            return;
+        }
+
         const messageType =
             event.type ||
             event.message?.type ||

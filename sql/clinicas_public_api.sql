@@ -26,7 +26,14 @@ AS $$
             SELECT jsonb_build_object(
                 'name',             c.name,
                 'slug',             c.slug,
-                'wa_phone_display', c.wa_phone_display,
+                'wa_phone_display', (
+                    SELECT COALESCE(ch.display_name, ch.phone_number)
+                    FROM clinicas.channels ch
+                    WHERE ch.company_id = c.id
+                      AND ch.provider = 'whatsapp'
+                      AND ch.active = true
+                    LIMIT 1
+                ),
                 'timezone',         c.timezone,
                 'currency',         c.currency,
                 'country_code',     c.country_code,

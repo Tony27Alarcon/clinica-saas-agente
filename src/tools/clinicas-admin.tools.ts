@@ -59,18 +59,26 @@ export const createAdminGetAppointmentsTool = (companyId: string) => tool({
 /**
  * Tool: getFreeSlots
  * Retorna slots de disponibilidad libres para agendar citas.
+ * Si la clínica tiene Google Calendar configurado, consulta freebusy en tiempo real.
+ * Si no, usa la tabla availability_slots de BD como fallback.
  */
 export const createAdminGetFreeSlotsTool = (companyId: string) => tool({
-    description: 'Consulta los horarios disponibles para agendar citas. Opcionalmente filtrado por tratamiento.',
+    description: 'Consulta los horarios disponibles para agendar citas. Usa Google Calendar si está configurado, o los slots de la base de datos.',
     inputSchema: z.object({
         treatmentId: z.string().uuid().optional().describe('UUID del tratamiento para filtrar slots compatibles'),
+        slotDurationMin: z.number().int().min(15).max(240).optional().describe('Duración del slot en minutos (del tratamiento seleccionado)'),
         limit: z.number().int().min(1).max(50).default(10).describe('Máximo de slots a retornar'),
     }),
     execute: async (args) => {
         try {
-            const slots = await ClinicasDbService.getFreeSlots(companyId, args.treatmentId, args.limit);
-            logger.info(`[Admin Tool] getFreeSlots: ${slots.length} slots disponibles`);
-            return { ok: true, data: slots, total: slots.length };
+            const result = await ClinicasDbService.getFreeSlotsMerged(
+                companyId,
+                args.treatmentId,
+                args.slotDurationMin,
+                args.limit
+            );
+            logger.info(`[Admin Tool] getFreeSlots: ${result.slots.length} slots (source: ${result.source})`);
+            return { ok: true, data: result.slots, total: result.slots.length, source: result.source };
         } catch (err: any) {
             logger.error(`[Admin Tool] getFreeSlots error: ${err.message}`);
             return { ok: false, error: err.message };
@@ -81,14 +89,17 @@ export const createAdminGetFreeSlotsTool = (companyId: string) => tool({
 /**
  * Tool: updateAppointmentStatus
  * Actualiza el estado de una cita. Verifica ownership antes de operar.
+ * Si la cita tiene evento en Google Calendar, lo sincroniza automáticamente.
  */
 export const createAdminUpdateAppointmentTool = (companyId: string) => tool({
-    description: 'Actualiza el estado de una cita (completada, cancelada, no-show, confirmada, reprogramada). Si se completa, se crean follow-ups automáticamente.',
+    description: 'Actualiza el estado de una cita (completada, cancelada, no-show, confirmada, reprogramada). Si se completa, se crean follow-ups automáticamente. Si se cancela o reprograma, se sincroniza con Google Calendar.',
     inputSchema: z.object({
         appointmentId: z.string().uuid().describe('UUID de la cita a actualizar'),
         status: z.enum(['completed', 'no_show', 'cancelled', 'confirmed', 'rescheduled'])
             .describe('Nuevo estado de la cita'),
         notes: z.string().max(500).optional().describe('Notas adicionales sobre la actualización'),
+        newStartsAt: z.string().optional().describe('ISO 8601: nueva fecha/hora de inicio (requerido si status=rescheduled)'),
+        newEndsAt: z.string().optional().describe('ISO 8601: nueva fecha/hora de fin (requerido si status=rescheduled)'),
     }),
     execute: async (args) => {
         try {
@@ -96,7 +107,9 @@ export const createAdminUpdateAppointmentTool = (companyId: string) => tool({
                 companyId,
                 args.appointmentId,
                 args.status,
-                args.notes
+                args.notes,
+                args.newStartsAt,
+                args.newEndsAt
             );
             logger.info(`[Admin Tool] updateAppointmentStatus: ${args.appointmentId} → ${args.status}`);
             return result;

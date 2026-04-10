@@ -1,6 +1,8 @@
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { normalizePhone } from '../utils/phone';
+import { env } from '../config/env';
+import { GoogleCalendarService, GCalConfig } from './google-calendar.service';
 
 /**
  * Acceso al schema `clinicas` via PostgREST.
@@ -416,13 +418,15 @@ export class ClinicasDbService {
         companyId: string,
         appointmentId: string,
         newStatus: string,
-        notes?: string
+        notes?: string,
+        newStartsAt?: string,
+        newEndsAt?: string
     ): Promise<any> {
         try {
-            // Verificar ownership
+            // Verificar ownership y leer gcal_event_id
             const { data: appt, error: fetchErr } = await db()
                 .from('appointments')
-                .select('id, company_id, availability_slot_id')
+                .select('id, company_id, slot_id, gcal_event_id, scheduled_at')
                 .eq('id', appointmentId)
                 .maybeSingle();
 
@@ -436,6 +440,9 @@ export class ClinicasDbService {
                 updated_at: new Date().toISOString(),
             };
             if (notes) updates.notes = notes;
+            if (newStatus === 'rescheduled' && newStartsAt) {
+                updates.scheduled_at = newStartsAt;
+            }
 
             const { data, error } = await db()
                 .from('appointments')
@@ -456,15 +463,48 @@ export class ClinicasDbService {
                     });
             }
 
-            // Si se cancela, liberar el slot
-            if (newStatus === 'cancelled' && (appt as any).availability_slot_id) {
-                await db()
-                    .from('availability_slots')
-                    .update({ is_booked: false })
-                    .eq('id', (appt as any).availability_slot_id)
-                    .then(({ error: slotErr }: any) => {
-                        if (slotErr) logger.warn(`[Clinicas] liberar slot: ${slotErr.message}`);
-                    });
+            // Si se cancela, liberar el slot de BD (si aplica) y eliminar evento GCal
+            if (newStatus === 'cancelled') {
+                if ((appt as any).slot_id) {
+                    await db()
+                        .from('availability_slots')
+                        .update({ is_booked: false })
+                        .eq('id', (appt as any).slot_id)
+                        .then(({ error: slotErr }: any) => {
+                            if (slotErr) logger.warn(`[Clinicas] liberar slot: ${slotErr.message}`);
+                        });
+                }
+
+                if ((appt as any).gcal_event_id) {
+                    const gcalCfg = await this.getGCalConfig(companyId);
+                    if (gcalCfg) {
+                        GoogleCalendarService.cancelAppointmentEvent(
+                            gcalCfg.calendarId,
+                            (appt as any).gcal_event_id
+                        ).catch((err: Error) =>
+                            logger.warn(`[Clinicas] GCal cancel ${(appt as any).gcal_event_id}: ${err.message}`)
+                        );
+                    }
+                }
+            }
+
+            // Si se reprograma y hay evento GCal, mover el evento
+            if (newStatus === 'rescheduled' && newStartsAt && (appt as any).gcal_event_id) {
+                const gcalCfg = await this.getGCalConfig(companyId);
+                const company = await this.getCompanyById(companyId);
+                const tz = company?.timezone || 'America/Bogota';
+
+                if (gcalCfg && newEndsAt) {
+                    GoogleCalendarService.rescheduleAppointmentEvent({
+                        calendarId: gcalCfg.calendarId,
+                        gcalEventId: (appt as any).gcal_event_id,
+                        newStartAt: newStartsAt,
+                        newEndAt: newEndsAt,
+                        timezone: tz,
+                    }).catch((err: Error) =>
+                        logger.warn(`[Clinicas] GCal reschedule ${(appt as any).gcal_event_id}: ${err.message}`)
+                    );
+                }
             }
 
             return { ok: true, data };
@@ -610,6 +650,206 @@ export class ClinicasDbService {
                 escalatedConversations: [],
                 pendingFollowUps: 0,
             };
+        }
+    }
+
+    // ─── Google Calendar ───────────────────────────────────────────────────────
+
+    /**
+     * Obtiene la configuración de Google Calendar de una clínica.
+     * Retorna null si la clínica no tiene GCal configurado o está inactivo.
+     */
+    static async getGCalConfig(companyId: string): Promise<GCalConfig | null> {
+        try {
+            const { data, error } = await db()
+                .from('gcal_config')
+                .select('calendar_id, work_start, work_end, work_days, default_slot_min')
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .maybeSingle();
+
+            if (error || !data) return null;
+
+            // Necesitamos la timezone de la clínica
+            const company = await this.getCompanyById(companyId);
+
+            return {
+                calendarId: (data as any).calendar_id,
+                workStart: (data as any).work_start,
+                workEnd: (data as any).work_end,
+                workDays: (data as any).work_days,
+                defaultSlotMin: (data as any).default_slot_min,
+                timezone: company?.timezone || 'America/Bogota',
+            };
+        } catch (error) {
+            logger.error(`[Clinicas] getGCalConfig: ${(error as Error).message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Lookup de una clínica por ID. Helper interno para obtener timezone.
+     */
+    static async getCompanyById(companyId: string): Promise<any | null> {
+        try {
+            const { data, error } = await db()
+                .from('companies')
+                .select('id, name, timezone')
+                .eq('id', companyId)
+                .maybeSingle();
+
+            if (error || !data) return null;
+            return data;
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Retorna slots de disponibilidad usando Google Calendar si la clínica tiene
+     * GCal configurado, o la tabla availability_slots de BD como fallback.
+     *
+     * Si GCal está configurado pero falla con un error de red/credenciales,
+     * se loggea el warning y se retorna vacío (no se hace fallback silencioso
+     * a BD para evitar ofrecer slots desactualizados).
+     */
+    static async getFreeSlotsMerged(
+        companyId: string,
+        treatmentId?: string,
+        slotDurationMin?: number,
+        limit: number = 10
+    ): Promise<{ slots: any[]; source: 'gcal' | 'db' }> {
+        // Intentar GCal primero
+        if ((env as any).GOOGLE_SERVICE_ACCOUNT_JSON) {
+            try {
+                const gcalConfig = await this.getGCalConfig(companyId);
+
+                if (gcalConfig) {
+                    const duration = slotDurationMin ?? gcalConfig.defaultSlotMin;
+                    const lookAhead = (env as any).GCAL_LOOK_AHEAD_DAYS || 14;
+                    const gcalSlots = await GoogleCalendarService.getAvailableSlots(
+                        gcalConfig,
+                        duration,
+                        limit,
+                        lookAhead
+                    );
+                    logger.info(`[Clinicas] GCal slots: ${gcalSlots.length} (company: ${companyId})`);
+                    return { slots: gcalSlots, source: 'gcal' };
+                }
+            } catch (err: any) {
+                logger.warn(`[Clinicas] GCal freebusy error, retornando vacío: ${err.message}`);
+                return { slots: [], source: 'gcal' };
+            }
+        }
+
+        // Fallback: slots de BD (clínica sin GCal configurado)
+        const dbSlots = await this.getFreeSlots(companyId, treatmentId, limit);
+        return { slots: dbSlots, source: 'db' };
+    }
+
+    /**
+     * Reserva una cita unificando GCal (slots con prefix "gcal_") y BD (UUID).
+     *
+     * - Slot GCal: crea evento en Google Calendar + INSERT en appointments sin slot_id.
+     * - Slot BD: usa el RPC book_appointment() existente con locking FOR UPDATE NOWAIT.
+     */
+    static async bookAppointmentMerged(params: {
+        companyId: string;
+        contactId: string;
+        slotId: string;
+        treatmentId?: string;
+        notes?: string;
+        startsAt?: string;
+        endsAt?: string;
+        contactName?: string;
+        contactEmail?: string;
+    }): Promise<{ ok: boolean; appointment?: any; gcalEventId?: string; error?: string }> {
+        const { companyId, contactId, slotId, treatmentId, notes, startsAt, endsAt, contactName, contactEmail } = params;
+
+        // ── Slot de Google Calendar ───────────────────────────────────────────
+        if (slotId.startsWith('gcal_')) {
+            if (!startsAt || !endsAt) {
+                return { ok: false, error: 'Para slots de GCal se requieren startsAt y endsAt' };
+            }
+
+            try {
+                const gcalConfig = await this.getGCalConfig(companyId);
+                if (!gcalConfig) {
+                    return { ok: false, error: 'La clínica no tiene Google Calendar configurado' };
+                }
+
+                // Crear evento en Google Calendar
+                const summary = `Cita MedAgent — ${contactName || 'Paciente'}`;
+                const description = [
+                    `Contacto: ${contactName || 'Paciente'} (${contactId})`,
+                    treatmentId ? `Tratamiento ID: ${treatmentId}` : '',
+                    notes ? `Notas: ${notes}` : '',
+                ].filter(Boolean).join('\n');
+
+                const gcalEventId = await GoogleCalendarService.createAppointmentEvent({
+                    calendarId: gcalConfig.calendarId,
+                    summary,
+                    description,
+                    startAt: startsAt,
+                    endAt: endsAt,
+                    timezone: gcalConfig.timezone,
+                    attendeeEmail: contactEmail,
+                });
+
+                // Insertar en BD sin slot_id
+                const { data: appointment, error: insertErr } = await db()
+                    .from('appointments')
+                    .insert([{
+                        company_id: companyId,
+                        contact_id: contactId,
+                        treatment_id: treatmentId || null,
+                        slot_id: null,
+                        gcal_event_id: gcalEventId,
+                        scheduled_at: startsAt,
+                        status: 'scheduled',
+                        notes: notes || null,
+                    }])
+                    .select()
+                    .single();
+
+                if (insertErr) {
+                    // Rollback del evento GCal
+                    GoogleCalendarService.cancelAppointmentEvent(gcalConfig.calendarId, gcalEventId)
+                        .catch((e: Error) => logger.warn(`[Clinicas] rollback GCal event: ${e.message}`));
+                    throw insertErr;
+                }
+
+                // Actualizar status del contacto
+                await db()
+                    .from('contacts')
+                    .update({ status: 'agendado', updated_at: new Date().toISOString() })
+                    .eq('id', contactId);
+
+                return { ok: true, appointment, gcalEventId };
+
+            } catch (error) {
+                logger.error(`[Clinicas] bookAppointmentMerged (GCal): ${(error as Error).message}`);
+                return { ok: false, error: (error as Error).message };
+            }
+        }
+
+        // ── Slot de BD (UUID) → flujo existente ──────────────────────────────
+        try {
+            const { data, error } = await (supabase as any)
+                .schema('clinicas')
+                .rpc('book_appointment', {
+                    p_company_id: companyId,
+                    p_contact_id: contactId,
+                    p_slot_id: slotId,
+                    p_treatment_id: treatmentId ?? null,
+                    p_notes: notes ?? null,
+                });
+
+            if (error) throw error;
+            return { ok: true, appointment: data };
+        } catch (error) {
+            logger.error(`[Clinicas] bookAppointmentMerged (BD): ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
         }
     }
 }

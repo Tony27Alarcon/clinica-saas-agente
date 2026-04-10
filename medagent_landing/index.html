@@ -4,132 +4,277 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MedAgent | Tu Asistente Inteligente</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <!-- Use Epilogue for playful bold display and Outfit for clean sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@500;700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="watermark watermark-1">MED</div>
     
-    <!-- Navbar -->
-    <nav class="navbar">
-        <div class="container nav-content">
-            <div class="logo">MEDAGENT</div>
-            <div class="nav-social">
-                <span>IG</span>
-                <span>WA</span>
+    <!-- Navbar flotante tipo pastilla -->
+    <div class="nav-wrapper">
+        <nav class="navbar pill-card">
+            <div class="logo">
+                <span class="logo-icon">✨</span> MedAgent
             </div>
-        </div>
-    </nav>
+            <div class="nav-links">
+                <a href="#beneficios">Beneficios</a>
+                <a href="#precios">Precios</a>
+                <a href="#testimonios">El Impacto</a>
+            </div>
+            <div class="nav-actions">
+                <a href="https://wa.me/573000000000" class="btn btn-dark btn-sm">Probar ahora</a>
+            </div>
+        </nav>
+    </div>
 
-    <!-- Hero -->
-    <header class="hero container">
-        <div class="hero-image">
-            <img src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=800" alt="Clínica Estética">
+    <!-- Hero centralizado -->
+    <header class="hero container text-center">
+        <div class="hero-badge">
+            <span class="avatars">👩‍⚕️🧑‍⚕️🏥</span>
+            <span class="badge-text">Más de 100 clínicas felices</span>
         </div>
-        <div class="hero-text">
-            <h1>El equipo de ventas que tu clínica nunca tuvo</h1>
-            <p>MedAgent fue creado para dueños de clínicas estéticas que desean agendar más citas, calificar leads y reducir inasistencias de forma automática, sin perder el trato profesional y delicado que sus pacientes merecen.</p>
-            <a href="https://wa.me/573000000000" class="btn">SABER MÁS <span>↓</span></a>
+        
+        <h1 class="hero-title">
+            <span class="decorate-left">✧</span>
+            El equipo de ventas que tu clínica nunca tuvo
+            <span class="decorate-right">〰️</span>
+        </h1>
+        
+        <p class="hero-subtitle">
+            MedAgent fue creado para dueños de clínicas estéticas que desean agendar más citas, calificar leads y reducir inasistencias de forma automática, sin perder el trato humano.
+        </p>
+        
+        <div class="hero-cta">
+            <a href="https://wa.me/573000000000" class="btn btn-dark btn-lg">Quiero mi asistente ⚡</a>
+            <a href="#beneficios" class="btn btn-outline btn-lg">Saber Más</a>
+        </div>
+        
+        <!-- Tarjetas decorativas superpuestas -->
+        <div class="hero-cards-display">
+            <div class="pop-card card-blue">
+                <div class="card-emoji">💬</div>
+                <h3>Chat Inteligente</h3>
+            </div>
+            <div class="pop-card card-pink card-main">
+                <div class="card-emoji">✌️</div>
+                <h3>Calificación 24/7</h3>
+                <div class="badge">IT'S MAGIC</div>
+            </div>
+            <div class="pop-card card-orange">
+                <div class="card-emoji">📅</div>
+                <h3>Agendamiento</h3>
+            </div>
         </div>
     </header>
 
-    <div class="divider"><span>✧</span></div>
-
-    <!-- Features Split -->
-    <section class="features-split container">
-        <div class="features-list">
-            <h2>¿Qué hará por ti?</h2>
-            <div class="feature-item">
-                <span class="icon">♡</span>
-                <p><strong>Calificación automática.</strong> Filtra curiosos y atiende solo a leads reales listos para comprar su tratamiento.</p>
+    <!-- Características (Estilo Dark Neopop) -->
+    <section id="beneficios" class="features-section container">
+        <div class="feature-layout-dark pill-card-large">
+            <div class="feature-text">
+                <h2>Descubre el verdadero<br>piloto automático</h2>
+                <p>Nuestro método filtra curiosos y atiende solo a leads reales listos para comprar su tratamiento. Se integra directo en tu WhatsApp actual en 10 minutos. Nosotros configuramos a tu asistente con tu catálogo.</p>
+                <a href="https://wa.me/573000000000" class="btn btn-lavender">Cotizar setup gratis</a>
             </div>
-            <div class="feature-item">
-                <span class="icon">✧</span>
-                <p><strong>Agendamiento sin fricción.</strong> Reserva citas directamente en el chat sin mandar a tus pacientes a formularios externos.</p>
+            <div class="feature-cards-grid">
+                <div class="feature-mini-card">
+                    <span class="icon">🎯</span>
+                    <h4>Calificación Automática</h4>
+                    <p>Filtros inteligentes activos</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">✨</span>
+                    <h4>Reducción No-Shows</h4>
+                    <p>Recordatorios 24h antes</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">📋</span>
+                    <h4>Historia Clínica</h4>
+                    <p>PDF previo a consulta</p>
+                </div>
+                <div class="feature-mini-card" style="background:#B2A4FF; color:#18181A; border: none;">
+                    <span class="icon">🚀</span>
+                    <h4>Agendamiento</h4>
+                    <p style="color:#18181A; font-weight: 500;">Sin formularios externos</p>
+                </div>
             </div>
-            <div class="feature-item">
-                <span class="icon">❀</span>
-                <p><strong>Reducción de No-Shows.</strong> Recordatorios automatizados 24h antes con instrucciones pre-cita.</p>
-            </div>
-            <div class="feature-item">
-                <span class="icon">✒️</span>
-                <p><strong>Historia clínica lista.</strong> Recolección de antecedentes en PDF antes de que el paciente llegue a consulta.</p>
-            </div>
-        </div>
-        <div class="features-highlight">
-            <h2>Y lo mejor... ¡no necesitas equipo técnico!</h2>
-            <p>Nuestro método está pensado para clínicas sin equipo de IT. Se integra a tu WhatsApp actual en 10 minutos. Nosotros configuramos a tu asistente con el tono de tu marca, tus restricciones y catálogo de precios.</p>
-            <img src="https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&q=80&w=800" alt="Atención al cliente">
-            <a href="https://wa.me/573000000000" class="btn btn-full">QUIERO MI ASISTENTE AHORA</a>
         </div>
     </section>
 
-    <div class="divider"><span>✧</span></div>
-    
-    <div class="watermark watermark-2">AGENT</div>
+    <!-- Pricing -->
+    <section id="precios" class="pricing-section container">
+        <h2 class="text-center section-title">Planes diseñados para tu clínica <span class="sparkle">🚀</span></h2>
+        
+        <div class="pricing-grid">
+            <!-- Starter -->
+            <div class="price-card">
+                <div class="price-header">
+                    <div class="price-title">Starter <span class="title-sub">(Ideal para empezar)</span></div>
+                    <div class="price-amount">$99<span>USD / mes</span></div>
+                </div>
+                <div class="price-overage">
+                    <strong>Overage:</strong> $0.20 / conv. adicional
+                </div>
+                <ul class="price-features">
+                    <li>200 conversaciones mensuales (clínica pequeña).</li>
+                    <li>Fase 1 y Fase 2 (Calificación y Agendamiento).</li>
+                    <li>Manejo de 1 calendario.</li>
+                </ul>
+                <a href="https://wa.me/573000000000" class="btn btn-outline btn-full">Comenzar Starter</a>
+            </div>
 
-    <!-- Testimonials / ROI -->
-    <section class="testimonials container">
-        <h2 class="section-title">El impacto real</h2>
+            <!-- Growth -->
+            <div class="price-card price-card-popular">
+                <div class="badge" style="top:-15px; bottom:auto; right:30px; font-size:0.9rem; padding:0.4rem 1.2rem; transform: rotate(3deg);">MÁS ELEGIDO 🔥</div>
+                <div class="price-header">
+                    <div class="price-title">Growth</div>
+                    <div class="price-amount">$199<span>USD / mes</span></div>
+                </div>
+                <div class="price-overage">
+                    <strong>Overage:</strong> $0.15 / conv. adicional
+                </div>
+                <ul class="price-features">
+                    <li>600 conversaciones mensuales.</li>
+                    <li>Todas las fases operativas (Calificación, Agendamiento).</li>
+                    <li>Recordatorios automáticos 24h antes.</li>
+                    <li>Historia Clínica enviada por PDF.</li>
+                    <li>Seguimiento post-tratamiento.</li>
+                    <li>Soporta múltiples médicos y calendarios.</li>
+                </ul>
+                <a href="https://wa.me/573000000000" class="btn btn-full btn-growth">Quiero escalar mi clínica</a>
+            </div>
+
+            <!-- Enterprise -->
+            <div class="price-card card-enterprise">
+                <div class="price-header">
+                    <div class="price-title">Enterprise</div>
+                    <div class="price-amount">$399+<span>USD / mes</span></div>
+                </div>
+                <div class="price-overage overage-light">
+                    <strong>Incluido:</strong> Volumen flexible y avanzado.
+                </div>
+                <ul class="price-features">
+                    <li>Más de 1,500 conversaciones.</li>
+                    <li>Gestión para múltiples sucursales.</li>
+                    <li>Integración vía API con su propio CRM legacy.</li>
+                    <li>Soporte técnico preferencial.</li>
+                </ul>
+                <a href="https://wa.me/573000000000" class="btn btn-dark btn-full">Hablar con Ventas</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Impacto / Testimoniales -->
+    <section id="testimonios" class="testimonials container">
+        <h2 class="text-center section-title">El impacto real <span class="sparkle">🌿</span></h2>
+        
         <div class="testimonial-grid">
-            <div class="test-card">
-                <p>El agente respondió a las 11pm, calificó al lead y agendó la cita. A la mañana siguiente yo ya tenía su ficha médica en mi correo. ¡Impresionante!</p>
+            <div class="test-card shadow-pop">
+                <div class="quote-icon">“</div>
+                <p>El agente respondió a las 11pm, calificó al lead y agendó la cita. A la mañana siguiente yo ya tenía su ficha médica en mi correo.</p>
                 <div class="author">
                     <img src="https://images.unsplash.com/photo-1594824432247-495c0245a640?auto=format&fit=crop&w=150&q=80" alt="Doctora">
-                    <span>Dra. Silva M.</span>
+                    <div class="author-info">
+                        <strong>Dra. Silva M.</strong>
+                        <span>Clínica Estética</span>
+                    </div>
                 </div>
             </div>
-            <div class="test-card">
-                <p>Antes perdíamos horas respondiendo precios en Instagram. Ahora la IA filtra y solo atiendo en la clínica a pacientes que van a pagar su tratamiento.</p>
+            
+            <div class="test-card shadow-pop card-green-tint">
+                <div class="quote-icon">“</div>
+                <p>Antes perdíamos horas respondiendo precios en Instagram. Ahora la IA filtra y solo atiendo a pacientes que van a pagar su tratamiento.</p>
                 <div class="author">
                     <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=150&q=80" alt="Administradora">
-                    <span>Camila P.</span>
+                    <div class="author-info">
+                        <strong>Camila P.</strong>
+                        <span>MedSpa Manager</span>
+                    </div>
                 </div>
             </div>
-            <div class="test-card">
+            
+            <div class="test-card shadow-pop">
+                <div class="quote-icon">“</div>
                 <p>Los recordatorios automáticos por WhatsApp bajaron nuestras inasistencias a la mitad. Es una herramienta que se pagó sola en 3 días.</p>
                 <div class="author">
                     <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80" alt="Gerente">
-                    <span>Ana S.</span>
+                    <div class="author-info">
+                        <strong>Ana S.</strong>
+                        <span>Directora Comercial</span>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <div class="divider"><span>✧</span></div>
-
-    <!-- Pricing / Bonus -->
-    <section class="bonus container">
-        <div class="bonus-text">
-            <h2>Beneficios Exclusivos Para Quien Se Inscriba Hoy!</h2>
-            <div class="bonus-item">
-                <span class="icon">✓</span>
-                <p><strong>Setup Bonificado:</strong> Entrenamiento inicial de la IA con tu lista de precios ($250 USD) 100% gratis.</p>
+    <!-- Bonus -->
+    <section class="bonus-section container">
+        <div class="bonus-wrapper shadow-pop">
+            <div class="bonus-content">
+                <h2>¡Beneficios Exclusivos!</h2>
+                <div class="bonus-item">
+                    <div class="b-icon">🎉</div>
+                    <div>
+                        <strong>Setup Bonificado</strong>
+                        <p>Entrenamiento inicial de la IA con tu lista de precios ($250 USD) 100% gratis.</p>
+                    </div>
+                </div>
+                <div class="bonus-item">
+                    <div class="b-icon">📈</div>
+                    <div>
+                        <strong>Updates Mensuales</strong>
+                        <p>Mejores prompts derivados del análisis de miles de conversaciones en todo LATAM.</p>
+                    </div>
+                </div>
+                <div class="urgency-banner">
+                    ⚠️ Cupos de Onboarding limitados a 10 por mes.
+                </div>
+                <div class="mt-4">
+                    <a href="https://wa.me/573000000000" class="btn btn-dark btn-full">HAZ CLICK PARA IMPLEMENTARLO AHORA</a>
+                </div>
             </div>
-            <div class="bonus-item">
-                <span class="icon">✓</span>
-                <p><strong>Actualizaciones mensuales:</strong> Mejores prompts de venta derivados del análisis de miles de conversaciones en todo LATAM.</p>
-            </div>
-            <p class="bonus-note">Acceso a la <strong>red privada de clínicas MedAgent</strong> donde Tony comparte estrategias de automatización de ventas y marketing clínico.</p>
-            <p class="urgency">Mas atención: los cupos de Onboarding son limitados a 10 por mes y pueden agotarse en cualquier momento.</p>
-        </div>
-        <div class="bonus-image-card">
-            <img src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&q=80&w=800" alt="Beneficios">
-            <div class="card-footer">
-                <h3>CLIQUE EN EL BOTÓN Y GARANTICE SU ASISTENTE!</h3>
-                <a href="https://wa.me/573000000000" class="btn btn-full">QUIERO IMPLEMENTARLO AHORA</a>
+            <div class="bonus-image">
+                <img src="https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?auto=format&fit=crop&q=80&w=800" alt="Consultorio">
             </div>
         </div>
     </section>
 
     <footer class="footer container">
-        <p>Todos los derechos reservados © MedAgent 2026</p>
-        <div class="footer-social">
-            <span>IG</span>
-            <span>WA</span>
+        <div class="footer-inner shadow-pop">
+            <div class="logo">
+                <span class="logo-icon">✨</span> MedAgent
+            </div>
+            <p>Rediseñado con pasión artificial. Todos los derechos reservados © 2026</p>
+            <div class="nav-social">
+                <a href="#">Instagram</a>
+                <a href="#">WhatsApp</a>
+            </div>
         </div>
     </footer>
+
+    <script>
+        let lastScroll = 0;
+        const navWrapper = document.querySelector('.nav-wrapper');
+        
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            
+            if (currentScroll <= 0) {
+                navWrapper.classList.remove('nav-hidden');
+                return;
+            }
+            
+            if (currentScroll > lastScroll && !navWrapper.classList.contains('nav-hidden')) {
+                // Scroll hacia abajo -> esconder
+                navWrapper.classList.add('nav-hidden');
+            } else if (currentScroll < lastScroll && navWrapper.classList.contains('nav-hidden')) {
+                // Scroll hacia arriba -> mostrar
+                navWrapper.classList.remove('nav-hidden');
+            }
+            lastScroll = currentScroll;
+        });
+    </script>
 </body>
 </html>
