@@ -1,0 +1,34 @@
+{
+  "name": "agentes-backend",
+  "version": "1.0.0",
+  "description": "Backend para integración Kapso y Gemini",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.43",
+    "@kapso/whatsapp-cloud-api": "^0.2.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "ai": "^6.0.116",
+    "axios": "^1.7.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.10",
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

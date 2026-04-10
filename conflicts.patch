@@ -1,0 +1,756 @@
+diff --cc src/config/env.ts
+index 20f5316,d02f023..0000000
+--- a/src/config/env.ts
++++ b/src/config/env.ts
+@@@ -7,12 -8,12 +8,18 @@@ export const env = 
+      SUPABASE_SERVICE_KEY: process.env.SUPABASE_SERVICE_KEY || '',
+      GEMINI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
+      KAPSO_API_URL: process.env.KAPSO_API_URL || '',
+++<<<<<<< HEAD
+ +    KAPSO_API_TOKEN: process.env.KAPSO_API_TOKEN || process.env.KAPSO_API_KEY || '',
+ +    KAPSO_WEBHOOK_SECRET: process.env.KAPSO_WEBHOOK_SECRET || '',
+ +    GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3-flash-preview'
+++=======
++     KAPSO_API_TOKEN: process.env.KAPSO_API_TOKEN || '',
++     KAPSO_WEBHOOK_SECRET: process.env.KAPSO_WEBHOOK_SECRET || ''
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+  };
+  
+- const missing = Object.entries(env).filter(([k, v]) => !v && k !== 'PORT');
++ const optionalKeys = ['PORT', 'NODE_ENV', 'KAPSO_WEBHOOK_SECRET'];
++ const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
+  if (missing.length > 0) {
+      console.warn(`[WARN] Faltan variables de entorno críticas: ${missing.map(m => m[0]).join(', ')}`);
+  }
+diff --cc src/controllers/webhook.controller.ts
+index ee44efc,08a6b72..0000000
+--- a/src/controllers/webhook.controller.ts
++++ b/src/controllers/webhook.controller.ts
+@@@ -9,206 -6,68 +9,268 @@@ import { supabase } from '../config/sup
+  
+  export class WebhookController {
+      /**
+-      * Procesa el webhook entrante de Kapso
++      * Procesa el webhook entrante de Kapso.
++      * Responde 200 inmediatamente y procesa en segundo plano.
+       */
+      static async handleKapsoWebhook(req: Request, res: Response): Promise<void> {
+++<<<<<<< HEAD
+ +        try {
+ +            // 0. Validar Secreto del Webhook (Seguridad)
+ +            const secret = req.headers['x-kapso-secret'] || req.body.secret;
+ +            if (env.KAPSO_WEBHOOK_SECRET && secret !== env.KAPSO_WEBHOOK_SECRET) {
+ +                logger.warn('Intento de acceso al webhook con secreto inválido.');
+ +                res.status(401).send('Unauthorized: Secret mismatch');
+ +                return;
+ +            }
+ +
+ +            // 1. Loguear el cuerpo para depuración
+ +            logger.info(`Cuerpo del Webhook: ${JSON.stringify(req.body)}`);
+ +
+ +            // 2. Normalizar a un array de eventos (Soporte para Batching de Kapso)
+ +            const body = req.body;
+ +            let events: any[] = [];
+ +            
+ +            if (body.batch === true && Array.isArray(body.data)) {
+ +                events = body.data;
+ +            } else {
+ +                // Si no es batch, tratamos el body (o body.data/payload) como un solo evento
+ +                const singleData = body.data || body.payload || body;
+ +                events = [singleData];
+ +            }
+ +
+ +            // 3. Procesar cada evento secuencialmente
+ +            for (const event of events) {
+ +                const interactive = event.message?.interactive || event.interactive;
+ +                const flowResponse = interactive?.nfm_reply?.response_json || interactive?.flow_reply?.response_json;
+ +
+ +                // Extraer datos con soporte para múltiples formatos (V1, V2, Batched)
+ +                const from = event.from || 
+ +                             event.message?.from || 
+ +                             event.sender || 
+ +                             event.contact?.phone || 
+ +                             event.phone_number;
+ +
+ +                const senderName = event.senderName || 
+ +                                   event.name || 
+ +                                   event.contact?.name || 
+ +                                   event.conversation?.contact_name || 
+ +                                   'Desconocido';
+ +
+ +                const text = event.text?.body || 
+ +                             event.text || 
+ +                             event.body || 
+ +                             event.message?.text?.body || 
+ +                             event.message?.text || 
+ +                             event.message?.button?.text ||
+ +                             // Soporte para botones interactivos (Reply Buttons)
+ +                             event.message?.interactive?.button_reply?.title ||
+ +                             event.message?.interactive?.button_reply?.id ||
+ +                             event.message?.interactive?.list_reply?.title ||
+ +                             event.message?.interactive?.list_reply?.id ||
+ +                             event.interactive?.button_reply?.title ||
+ +                             event.interactive?.button_reply?.id ||
+ +                             event.interactive?.list_reply?.title ||
+ +                             event.interactive?.list_reply?.id ||
+ +                             (flowResponse ? JSON.stringify(flowResponse) : '') ||
+ +                             event.message?.kapso?.content ||
+ +                             '';
+ +
+ +                // Extraer URLs seguras y directas proveídas por Kapso (enlaces firmados a S3)
+ +                const safeKapsoUrl = event.message?.kapso?.media_url || 
+ +                                     event.message?.kapso?.media_data?.url ||
+ +                                     event.kapso?.media_url ||
+ +                                     event.kapso?.media_data?.url ||
+ +                                     '';
+ +
+ +                const metaDirectUrl = event.mediaUrl || 
+ +                                     event.media?.url || 
+ +                                     event.message?.image?.url || 
+ +                                     event.message?.audio?.url || 
+ +                                     event.message?.video?.url || 
+ +                                     event.message?.document?.url || 
+ +                                     event.message?.sticker?.url ||
+ +                                     '';
+ +                
+ +                // Extraer el media_id como último recurso, preferiremos safeKapsoUrl
+ +                const mediaId = event.message?.image?.id ||
+ +                                event.message?.audio?.id ||
+ +                                event.message?.video?.id ||
+ +                                event.message?.document?.id ||
+ +                                event.message?.sticker?.id ||
+ +                                '';
+ +
+ +                const messageId = event.id || event.message?.id;
+ +                const phoneNumberId = event.phone_number_id || event.message?.phone_number_id || event.conversation?.phone_number_id || "122946594240393"; // Fallback provided by user screenshot
+ +                const messageType = event.type || event.message?.type || (safeKapsoUrl || metaDirectUrl || mediaId ? 'media' : 'text');
+ +
+ +                // Si no hay remitente ni contenido (texto o media), es un evento de estado (visto, entregado) o inválido
+ +                if (!from || (!text && !safeKapsoUrl && !metaDirectUrl && !mediaId)) {
+ +                    logger.info(`Evento de Kapso ignorado (posible notificación de estado o datos incompletos). ID: ${messageId}`);
+ +                    continue;
+ +                }
+ +
+ +                // --- CONFIRMACIÓN DE LECTURA ---
+ +                if (messageId) {
+ +                    KapsoService.marcarComoLeido(messageId, phoneNumberId).catch(err => 
+ +                        logger.error(`Error al marcar como leído: ${err.message}`)
+ +                    );
+ +                }
+ +
+ +                // --- COMANDOS ESPECIALES (Testing) ---
+ +                if (text.trim().toLowerCase() === '/borrar') {
+ +                    logger.info(`Comando /borrar detectado para el número: ${from}`);
+ +                    await DbService.deleteContacto(from);
+ +                    await KapsoService.enviarMensaje(from, "✅ *Historial borrado exitosamente.* El siguiente 'Hola' será tratado como una conversación nueva.", phoneNumberId);
+ +                    continue; // No procesamos más este mensaje
+ +                }
+ +
+ +                // --- PIPELINE DE PROCESAMIENTO ---
+ +                
+ +                // A. Obtener o crear Contacto
+ +                logger.info(`[Step A] Buscando/Creando contacto para ${from}`);
+ +                const contacto = await DbService.getOrCreateContacto(from, senderName);
+ +
+ +                // B. Obtener o crear Conversación activa
+ +                logger.info(`[Step B] Buscando/Creando conversación para contacto ${contacto.id}`);
+ +                const { conversacion, agente } = await DbService.getOrCreateConversacion(contacto.id, 'CLARA');
+ +
+ +                // Procesar Media si existe
+ +                const folder = `contactos/${contacto.id}`;
+ +                let finalMediaUrl = safeKapsoUrl || metaDirectUrl;
+ +                let mediaInfo = null;
+ +
+ +                // NO procesar stickers como media (se tratarán como texto)
+ +                const isSticker = messageType === 'sticker' || event.message?.sticker || event.sticker;
+ +
+ +                if (!isSticker) {
+ +                    if (safeKapsoUrl) {
+ +                        // RUTA PRIMARIA: URL Pública de Kapso
+ +                        logger.info(`[Media] Descargando via URL segura de Kapso: ${safeKapsoUrl}`);
+ +                        mediaInfo = await MediaService.procesarMedia(safeKapsoUrl, folder, undefined, mediaId, phoneNumberId);
+ +                    } else if (mediaId) {
+ +                        // RUTA SECUNDARIA: Descargar via media_id + proxy Kapso
+ +                        logger.info(`[Media] Descargando via media_id: ${mediaId}`);
+ +                        mediaInfo = await MediaService.procesarMediaPorId(mediaId, phoneNumberId, folder);
+ +                    } else if (metaDirectUrl) {
+ +                        // RUTA FALLBACK: URL directa de Meta
+ +                        logger.info(`[Media] Descargando via URL directa (riesgo de 401): ${metaDirectUrl}`);
+ +                        mediaInfo = await MediaService.procesarMedia(metaDirectUrl, folder, undefined, mediaId, phoneNumberId);
+ +                    }
+ +                }
+ +                if (mediaInfo && mediaInfo.publicUrl) {
+ +                    finalMediaUrl = mediaInfo.publicUrl;
+ +                    logger.info(`[Media] Subida a Supabase: ${finalMediaUrl}`);
+ +                    
+ +                    // Guardar en media_assets
+ +                    await supabase.from('media_assets').insert([{
+ +                        contacto_id: contacto.id,
+ +                        rol: 'user',
+ +                        kind: mediaInfo.kind,
+ +                        url_publica: finalMediaUrl,
+ +                        metadata: { mime_type: mediaInfo.mimeType }
+ +                    }]);
+ +                }
+ +
+ +
+ +                // C. Guardar mensaje entrante
+ +                logger.info(`[Step C] Guardando mensaje entrante en conv ${conversacion.id}`);
+ +                await DbService.saveMensaje(conversacion.id, text, 'contacto', {
+ +                    raw_payload: event,
+ +                    media_url: finalMediaUrl,
+ +                    mime_type: mediaInfo?.mimeType,
+ +                    media_kind: mediaInfo?.kind,
+ +                    interactive_payload: interactive,
+ +                    message_type: messageType,
+ +                    phone_number_id: phoneNumberId
+ +                });
+ +
+ +                // D. Cargar historial
+ +                logger.info(`[Step D] Cargando historial para conv ${conversacion.id}`);
+ +                const historial = await DbService.getHistorialMensajes(conversacion.id, 25);
+ +
+ +                // E. Generar respuesta IA
+ +                logger.info(`[Step E] Solicitando respuesta a AI Service...`);
+ +                const respuestaAgente = await AiService.generarRespuesta(historial, agente, contacto, conversacion.id, phoneNumberId);
+ +
+ +                // F. Enviar vía Kapso (solo si hay texto)
+ +                if (respuestaAgente && respuestaAgente.trim()) {
+ +                    logger.info(`[Step F] Enviando respuesta a Kapso: ${respuestaAgente.substring(0, 50)}...`);
+ +                    await KapsoService.enviarMensaje(from, respuestaAgente, phoneNumberId);
+ +                } else {
+ +                    logger.info(`[Step F] Sin texto a enviar. La IA gestionó la respuesta mediante una herramienta de envío.`);
+ +                }
+ +
+ +                // G. Guardar respuesta en BD (solo si hay texto)
+ +                if (respuestaAgente && respuestaAgente.trim()) {
+ +                    logger.info(`[Step G] Guardando respuesta en BD.`);
+ +                    await DbService.saveMensaje(conversacion.id, respuestaAgente, 'agente');
+ +                }
+ +            }
+ +
+ +            res.status(200).send('OK');
+ +        } catch (error) {
+ +            logger.error(`Error en WebhookController: ${(error as Error).message}`);
+ +            res.status(500).send('Internal Server Error');
+++=======
++         const { from, senderName, text, mediaUrl } = req.body;
++ 
++         if (!from || (!text && !mediaUrl)) {
++             logger.warn('Webhook recibido sin remitente, texto o imagen. Ignorando pero retornando 200 para evitar reintentos.');
++             res.status(200).send('OK: Ignored');
++             return;
++         }
++ 
++         logger.info(`Webhook Kapso recibido de ${from}: ${text}`);
++ 
++         // Responder 200 inmediatamente para evitar timeouts y reintentos de Kapso
++         res.status(200).send('OK');
++ 
++         // Procesar asincrónicamente (fire-and-forget)
++         WebhookController.processMessage(from, senderName, text, mediaUrl, req.body)
++             .catch((error) => {
++                 logger.error(`Error en procesamiento async del webhook: ${(error as Error).message}`);
++             });
++     }
++ 
++     /**
++      * Procesamiento asíncrono del mensaje entrante.
++      * Separado del handler HTTP para que la respuesta ya haya sido enviada.
++      */
++     private static async processMessage(
++         from: string,
++         senderName: string,
++         text: string | undefined,
++         mediaUrl: string | undefined,
++         rawPayload: Record<string, unknown>
++     ): Promise<void> {
++         // 1. Obtener o crear Contacto en Supabase
++         const contacto = await DbService.getOrCreateContacto(from, senderName || 'Desconocido');
++ 
++         // 2. Obtener o crear Conversación activa con el Agente CLARA
++         const { conversacion, agente } = await DbService.getOrCreateConversacion(contacto.id, 'CLARA');
++ 
++         // 3. Guardar el mensaje entrante del usuario
++         await DbService.saveMensaje(conversacion.id, text || '', 'contacto', {
++             raw_payload: rawPayload,
++             media_url: mediaUrl
++         });
++ 
++         // 4. Cargar historial para darle contexto a la IA
++         const historial = await DbService.getHistorialMensajes(conversacion.id, 15);
++ 
++         // 5. Generar respuesta con Gemini
++         const respuestaAgente = await AiService.generarRespuesta(historial, agente);
++ 
++         // 6. Guardar respuesta del agente ANTES de enviar por Kapso
++         //    Si Kapso falla, al menos la respuesta queda persistida
++         await DbService.saveMensaje(conversacion.id, respuestaAgente, 'agente');
++ 
++         // 7. Enviar respuesta por Kapso (fallo aislado)
++         try {
++             await KapsoService.enviarMensaje(from, respuestaAgente);
++         } catch (kapsoError) {
++             logger.error(`Kapso envío falló para ${from}, pero respuesta ya guardada: ${(kapsoError as Error).message}`);
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+          }
+      }
+  }
+diff --cc src/services/ai.service.ts
+index 3c96473,294a49d..0000000
+--- a/src/services/ai.service.ts
++++ b/src/services/ai.service.ts
+@@@ -25,148 -10,51 +25,178 @@@ import { getColombianContext } from '..
+  export class AiService {
+      /**
+       * Genera una respuesta utilizando Gemini basado en el historial y las instrucciones.
+ -     * Utiliza las mejores prácticas del SDK de Vercel (Tools, Multimodal, maxSteps).
+       */
+ -    static async generarRespuesta(historial: CoreMessage[], agente: any) {
+ +    static async generarRespuesta(historial: any[], agente: any, contacto: any, conversacionId: any, phoneNumberId: string) {
+          try {
+ +            logger.info(`[IA] Generando respuesta para ${contacto?.telefono || 'desconocido'} (Conv: ${conversacionId})`);
+ +            
+ +            // Extracción robusta de instrucciones (soporta formato plano y por secciones)
+              const inst = agente.instrucciones || {};
+ -            const guardrails = inst.guardrails ? inst.guardrails.join(' / ') : '';
+ -            const scoring = inst.scoring ? JSON.stringify(inst.scoring) : '';
+ +            
+ +            // Función auxiliar para buscar campos en las secciones del agente v2
+ +            const getField = (fieldName: string, fallback: string = '') => {
+ +                if (inst[fieldName]) return inst[fieldName];
+ +                for (const section in inst) {
+ +                    if (typeof inst[section] === 'object' && inst[section][fieldName]) return inst[section][fieldName];
+ +                }
+ +                return fallback;
+ +            };
+ +
+ +            const objetivoCol = getField('objetivo_principal') || getField('objetivo') || 'Atender clientes';
+ +            const contextoEmpresa = inst.seccion_2_contexto_empresa ? JSON.stringify(inst.seccion_2_contexto_empresa) : (inst.empresa || '');
+ +            const personalidad = inst.seccion_3_personalidad_y_tono ? JSON.stringify(inst.seccion_3_personalidad_y_tono) : '';
+ +            const reglasOp = inst.seccion_4_reglas_operativas ? JSON.stringify(inst.seccion_4_reglas_operativas) : '';
+ +            const guardrails = inst.seccion_10_guardrails?.limites?.join(' / ') || (Array.isArray(inst.guardrails) ? inst.guardrails.join(' / ') : '');
+ +            const scoring = inst.seccion_8_criterios_calificacion ? JSON.stringify(inst.seccion_8_criterios_calificacion) : (inst.scoring ? JSON.stringify(inst.scoring) : '');
+ +            
+ +            const timeCtx = getColombianContext();
+  
+ -            const systemPrompt = `Eres ${agente.nombre || 'CLARA'}. Rol: ${agente.rol || 'Asistente'}.
+ -Objetivo: ${inst.objetivo || 'Atender clientes'}.
+ -Zonas: ${inst.zona || 'No definida'}.
+ +            // Cargar últimos archivos multimedia del contacto
+ +            const ultimosMedia = await DbService.getUltimosMedia(contacto.id, 5);
+ +            const mediaContactoCtx = ultimosMedia.length > 0
+ +                ? ultimosMedia.map((m: any, i: number) => {
+ +                    const fecha = new Date(m.created_at).toLocaleString('es-CO');
+ +                    const desc = m.descripcion_ia ? `\n   Descripción/Análisis IA: ${m.descripcion_ia}` : '';
+ +                    return `${i + 1}. [${m.kind}] enviado por ${m.rol === 'user' ? 'el usuario' : 'el agente'} el ${fecha}\n   URL: ${m.url_publica}${desc}`;
+ +                }).join('\n\n')
+ +                : 'No hay archivos multimedia recientes intercambiados con este contacto.';
+ +
+ +            // Cargar biblioteca de recursos multimedia (Media Library)
+ +            const biblioteca = await DbService.getBibliotecaMultimedia();
+ +            const bibliotecaCtx = biblioteca.length > 0
+ +                ? biblioteca.map((r: any) => {
+ +                    const tags = Array.isArray(r.tags) && r.tags.length > 0 ? ` [tags: ${r.tags.join(', ')}]` : '';
+ +                    const instruccion = r.instruccion_uso ? `\n   → CUÁNDO USARLO: ${r.instruccion_uso}` : '';
+ +                    return `• [${r.categoria || 'General'}] "${r.nombre}" (${r.tipo})${tags}\n   URL: ${r.url}${instruccion}`;
+ +                  }).join('\n\n')
+ +                : 'No hay recursos disponibles en este momento.';
+ +
+ +            const systemPrompt = `Eres ${agente.nombre || 'CLARA'}. Rol: ${getField('rol') || agente.rol || 'Asistente'}.
+ +Objetivo: ${objetivoCol}.
+ +Contexto Empresa: ${contextoEmpresa}.
+ +Personalidad y Tono: ${personalidad}.
+ +Reglas Operativas: ${reglasOp}.
+  Criterios Scoring: ${scoring}.
+  Restricciones Clave: ${guardrails}.
+ -Instrucciones operativas: Tienes un límite de 6-8 preguntas por calificación. Pregunta de a 1 cosa y guía el proceso. Habla neutro, amigable, profesional y corto. IMPORTANTE: Responde en texto natural como en una conversación normal de chat (sin JSON crudo a menos que uses una herramienta).`;
+ +Instrucciones operativas: Habla neutro, amigable, profesional y corto. Pregunta de a 1 sola cosa por mensaje.
+ +EVITA REPETIR SALUDOS: Si el historial muestra que ya saludaste al usuario o ya se saludaron, NO vuelvas a decir "¡Hola!" o "Qué bueno saludarle". Sigue directamente con la respuesta o la siguiente pregunta de calificación.
+ +IMPORTANTE: Tienes herramientas para enviar BOTONES, LISTAS, AUDIO, IMÁGENES, DOCUMENTOS y UBICACIONES. Úsalas cuando sea más claro o útil que responder solo con texto, y según las variantes de bienvenida y cierres definidos en tus instrucciones (secciones 5, 9 y 11).
+ +CRÍTICO: Cuando uses una herramienta de envío (botones, lista, imagen, audio, etc.) y esta se ejecute exitosamente, NO añadas texto adicional en tu respuesta. La herramienta ya envía el mensaje al usuario.
+ +
+++<<<<<<< HEAD
+ +--- CONTEXTO TEMPORAL (COLOMBIA) ---
+ +Hoy es: ${timeCtx.fullDate}
+ +Hora actual: ${timeCtx.time}
+ +Parte del día: ${timeCtx.partOfDay}
+ +------------------------------------
+ +
+ +--- CONTEXTO DEL CONTACTO ACTUAL ---
+ +Nombre: ${contacto?.nombre || 'Desconocido'}
+ +Teléfono: ${contacto?.telefono || 'Desconocido'}
+ +Temperatura actual: ${contacto?.temperatura || 'No definida'}
+ +Notas Previas: ${contacto?.nota || 'Ninguna'}
+ +
+ +ÚLTIMOS ARCHIVOS MULTIMEDIA INTERCAMBIADOS CON ESTE CONTACTO:
+ +${mediaContactoCtx}
+ +------------------------------------
+ +
+ +--- BIBLIOTECA DE RECURSOS MULTIMEDIA (Media Library) ---
+ +Tienes acceso a los siguientes recursos que PUEDES enviar proactivamente usando tus herramientas (sendImage, sendDocument).
+ +Cada recurso incluye instrucciones de cuándo usarlo. Síguelas con criterio.
+ +
+ +${bibliotecaCtx}
+ +---------------------------------------------------------`;
+ +
+ +            // LOG DE CONTEXTO (Depuración)
+ +            logger.info(`[IA] Enviando ${historial.length} mensajes de historial a Gemini.`);
+ +            if (historial.length > 0) {
+ +                const last = historial[historial.length - 1];
+ +                logger.info(`[IA] Último mensaje del historial (${last.role}): "${typeof last.content === 'string' ? last.content.substring(0, 50) : '[Media/Partes]'}"`);
+ +            }
+ +
+ +            const result = await generateText({
+ +                model: google(env.GEMINI_MODEL),
+ +                system: systemPrompt,
+ +                messages: historial,
+ +                temperature: 0.7,
+ +                maxSteps: 5,
+ +                tools: {
+ +                    updateContactProfile: createUpdateContactProfileTool(contacto.id),
+ +                    createContactNote: createCreateContactNoteTool(contacto.id),
+ +                    assignCommercial: createAssignCommercialAndNotifyTool(conversacionId),
+ +                    sendInteractiveButtons: createSendInteractiveButtonsTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    sendAudio: createSendAudioTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    sendImage: createSendImageTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    sendDocument: createSendDocumentTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    sendLocation: createSendLocationTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    sendInteractiveList: createSendInteractiveListTool(contacto.telefono || contacto.phone, phoneNumberId, conversacionId),
+ +                    listMedia: createListMediaTool(contacto.id)
+ +                }
+ +            } as any);
+ +
+ +            const resultText = result.text || "";
+ +
+ +            // Detectar si la IA usó herramientas
+ +            const steps = (result as any).steps || [];
+ +            const allToolCalls = steps.flatMap((step: any) => step.toolCalls || []);
+ +            const usedAnyTool = allToolCalls.length > 0;
+ +            
+ +            const sendingTools = ['sendInteractiveButtons', 'sendAudio', 'sendImage', 'sendDocument', 'sendLocation', 'sendInteractiveList'];
+ +            const usedSendingTool = allToolCalls.some((tc: any) => sendingTools.includes(tc.toolName));
+ +
+ +            if (!resultText && usedSendingTool) {
+ +                // La IA usó una herramienta de envío: el mensaje ya fue enviado por la tool. Correcto.
+ +                logger.info(`[IA] Respuesta gestionada via herramienta de envío (sin texto adicional).`);
+ +                return ''; 
+ +            }
+ +
+ +            if (!resultText && usedAnyTool && !usedSendingTool) {
+ +                // La IA usó herramientas de CRM (ej. updateContactProfile) pero no generó texto de cierre.
+ +                // Intentaremos forzar una respuesta o simplemente devolver algo amigable.
+ +                logger.info(`[IA] Herramientas de CRM usadas. Generando texto de confirmación simple.`);
+ +                return '¡Entendido! He actualizado la información. ¿En qué más puedo ayudarte?';
+ +            }
+ +
+ +            if (!resultText && !usedAnyTool) {
+ +                // La IA no generó nada: esto es un error real.
+ +                logger.warn(`[IA] Respuesta vacía sin herramientas. FinishReason: ${result.finishReason}`);
+ +                return '¡Hola! Recibí tu mensaje. ¿En qué puedo ayudarte? 😊';
+ +            }
+ +
+ +            logger.info(`[IA] Respuesta generada: "${resultText.substring(0, 80)}${resultText.length > 80 ? '...' : ''}"`);
+ +            return resultText;
+  
+++=======
++             // Timeout de 30 segundos para evitar que Gemini cuelgue el procesamiento
++             const controller = new AbortController();
++             const timeoutId = setTimeout(() => controller.abort(), 30_000);
++ 
++             try {
++                 const { text, steps } = await generateText({
++                     model: google('gemini-2.5-flash'),
++                     system: systemPrompt,
++                     messages: historial,
++                     maxSteps: 15,
++                     maxTokens: 500,
++                     temperature: 0.7,
++                     abortSignal: controller.signal,
++                     // tools: { ... }, // Aquí se pueden registrar herramientas (ej. buscar en DB, cotizar)
++                 });
++ 
++                 clearTimeout(timeoutId);
++ 
++                 if (steps && steps.length > 1) {
++                     logger.info(`El agente tomó ${steps.length} paso(s) de razonamiento previo a responder.`);
++                 }
++ 
++                 return text;
++             } catch (innerError) {
++                 clearTimeout(timeoutId);
++                 throw innerError;
++             }
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+          } catch (error) {
+              logger.error(`Error en generarRespuesta (Gemini): ${(error as Error).message}`);
+ -            // Fallback a texto plano amigable
+              return "En este momento estoy teniendo un pequeño inconveniente técnico. Por favor, intenta escribirme de nuevo en unos minutos.";
+          }
+      }
+diff --cc src/services/db.service.ts
+index 72bb437,47353d4..0000000
+--- a/src/services/db.service.ts
++++ b/src/services/db.service.ts
+@@@ -1,8 -1,14 +1,14 @@@
+  import { supabase } from '../config/supabase';
+  import { logger } from '../utils/logger';
+  import { MediaService } from './media.service';
+ -import { CoreMessage } from 'ai';
+ +import { ModelMessage } from 'ai';
+  
++ interface MensajeMetadata {
++     raw_payload?: Record<string, unknown>;
++     media_url?: string;
++     [key: string]: unknown;
++ }
++ 
+  export class DbService {
+      /**
+       * Obtiene un contacto por teléfono, o lo crea si no existe.
+@@@ -15,14 -21,17 +21,26 @@@
+                  .eq('telefono', telefono)
+                  .maybeSingle();
+  
++             if (error) throw error;
+              if (data) return data;
+  
+++<<<<<<< HEAD
+ +            const nombreGuardar = nombre ? `${nombre} *No confirmado` : 'Desconocido *No confirmado';
+ +
+ +            const { data: newContact, error: insertError } = await supabase
+ +                .from('contactos')
+ +                .insert([{ telefono, nombre: nombreGuardar, tipo: 'prospecto', temperatura: 'frio' }])
+ +                .select()
+++=======
++             // No encontrado — insertar con manejo de conflicto por race condition
++             const { data: newContact, error: insertError } = await supabase
++                 .from('contactos')
++                 .upsert(
++                     { telefono, nombre, tipo: 'prospecto', temperatura: 'frio' },
++                     { onConflict: 'telefono', ignoreDuplicates: true }
++                 )
++                 .select('id, nombre, telefono')
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+                  .single();
+  
+              if (insertError) throw insertError;
+@@@ -34,72 -43,19 +52,77 @@@
+      }
+  
+      /**
+ -     * Obtiene la conversación activa de un contacto o crea una nueva.
+ +     * Elimina un contacto por su número de teléfono. 
+ +     * Gracias al ON DELETE CASCADE en la BD, se borrarán conversaciones, mensajes, notas y media.
+       */
+ -    static async getOrCreateConversacion(contactoId: string, agenteNombre: string = 'CLARA') {
+ +    static async deleteContacto(telefono: string): Promise<boolean> {
+ +        try {
+ +            const { error } = await supabase
+ +                .from('contactos')
+ +                .delete()
+ +                .eq('telefono', telefono);
+ +
+ +            if (error) throw error;
+ +            return true;
+ +        } catch (error) {
+ +            logger.error(`Error en deleteContacto: ${(error as Error).message}`);
+ +            throw error;
+ +        }
+ +    }
+ +
+ +    static async getOrCreateConversacion(contactoId: number, agenteNombre: string = 'CLARA') {
+          try {
+ -            // 1. Obtener ID e instrucciones del agente
+ -            const { data: agente, error: agError } = await supabase
+ +            // 1. Obtener ID e instrucciones del agente (búsqueda case-insensitive)
+ +            let { data: agente, error: agError } = await supabase
+                  .from('agentes')
+                  .select('id, instrucciones, nombre, rol')
+ -                .eq('nombre', agenteNombre)
+ -                .single();
+ +                .ilike('nombre', agenteNombre)
+ +                .limit(1)
+ +                .maybeSingle();
+  
+++<<<<<<< HEAD
+ +            // PGRST116 = sin resultados con .maybeSingle(). Cualquier otro error sí se lanza.
+ +            if (agError && agError.code !== 'PGRST116') {
+ +                logger.error(`Error al buscar agente '${agenteNombre}': ${agError.message} (code: ${agError.code})`);
+ +                throw agError;
+ +            }
+ +            
+ +            // Auto-recuperación si el agente no existe:
+ +            // Usamos UPSERT (onConflict) para ser idempotente y resistente a race conditions.
+ +            // Si dos requests llegan al mismo tiempo, ambos intentarán hacer upsert pero
+ +            // el constraint UNIQUE en 'nombre' garantiza que solo se crea uno.
+ +            if (!agente) {
+ +                logger.warn(`Agente '${agenteNombre}' no encontrado. Creando automáticamente...`);
+ +                
+ +                const instruccionesDefault = {
+ +                    "objetivo": "Calificar leads de redes sociales (IG/FB/WhatsApp), recolectar datos mínimos, gestionar expectativas y asignar el lead al comercial correcto.",
+ +                    "guardrails": [
+ +                        "No prometer porcentajes de ahorro sin análisis",
+ +                        "No prometer fechas de instalación",
+ +                        "No asegurar legalización automática",
+ +                        "No ofrecer sistemas off-grid",
+ +                        "No pedir datos sensibles (bancarios, contraseñas)"
+ +                    ]
+ +                };
+ +
+ +                const { data: newAgente, error: upsertError } = await supabase
+ +                    .from('agentes')
+ +                    .upsert([{
+ +                        nombre: agenteNombre,
+ +                        rol: 'Asistente Comercial de Primer Filtro',
+ +                        instrucciones: instruccionesDefault,
+ +                        activo: true
+ +                    }], { onConflict: 'nombre', ignoreDuplicates: false })
+ +                    .select('id, instrucciones, nombre, rol')
+ +                    .single();
+ +
+ +                if (upsertError) throw upsertError;
+ +                agente = newAgente;
+ +                logger.info(`Agente '${agenteNombre}' creado exitosamente.`);
+++=======
++             if (agError || !agente) {
++                 throw new Error(`Agente '${agenteNombre}' no encontrado en la base de datos. ${agError?.message || ''}`);
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+              }
+  
+              // 2. Buscar conversación abierta
+@@@ -109,8 -65,10 +132,13 @@@
+                  .eq('contacto_id', contactoId)
+                  .eq('estado', 'abierta')
+                  .order('created_at', { ascending: false })
+++<<<<<<< HEAD
+++=======
++                 .limit(1)
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+                  .maybeSingle();
+  
++             if (convError) throw convError;
+              if (conv) return { conversacion: conv, agente };
+  
+              // 3. Crear nueva si no hay abierta
+@@@ -131,7 -89,7 +159,11 @@@
+      /**
+       * Guarda un mensaje en la base de datos.
+       */
+++<<<<<<< HEAD
+ +    static async saveMensaje(conversacionId: number, contenido: string, rol: 'contacto' | 'agente' | 'sistema', metadata: any = {}) {
+++=======
++     static async saveMensaje(conversacionId: string, contenido: string, rol: 'contacto' | 'agente' | 'sistema', metadata: MensajeMetadata = {}) {
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+          try {
+              const { data, error } = await supabase
+                  .from('mensajes')
+@@@ -149,8 -107,9 +181,9 @@@
+  
+      /**
+       * Obtiene el historial de mensajes formateado para AI SDK.
++      * Trae los últimos N mensajes (desc) y los invierte a orden cronológico.
+       */
+ -    static async getHistorialMensajes(conversacionId: string, limit = 20): Promise<CoreMessage[]> {
+ +    static async getHistorialMensajes(conversacionId: number, limit = 20): Promise<any[]> {
+          try {
+              const { data, error } = await supabase
+                  .from('mensajes')
+@@@ -161,70 -120,30 +194,96 @@@
+  
+              if (error) throw error;
+  
+++<<<<<<< HEAD
+ +            logger.info(`[DB] Historial recuperado para conv ${conversacionId}: ${data?.length || 0} mensajes.`);
+ +            
+ +            const messages: any[] = [];
+ +            const sortedData = data ? data.reverse() : [];
+ +
+ +            for (const m of sortedData) {
+ +                // AI SDK v6: solo acepta 'user' y 'assistant' en messages[]. 
+ +                // Los mensajes 'system' NO van en el array (van en el param 'system' de generateText).
+ +                const role = m.rol === 'contacto' ? 'user' : (m.rol === 'agente' ? 'assistant' : null);
+ +                
+ +                // Omitir mensajes del sistema — no son válidos en ModelMessage[]
+ +                if (!role) continue;
+ +
+ +                let content: any = m.contenido || '';
+ +
+ +                // Si el mensaje fue del usuario y tiene un archivo adjunto
+ +                if (role === 'user' && m.metadata?.media_url) {
+ +                    const urlStr = m.metadata.media_url;
+ +                    const mime: string = m.metadata.mime_type || '';
+ +                    const mKind: string = m.metadata.media_kind || '';
+ +
+ +                    // No procesar stickers como media para la IA (con criterio de "menos stickers")
+ +                    if (mKind === 'sticker' || mime.includes('webp')) {
+ +                        content = m.contenido || '[Sticker]';
+ +                    } else {
+ +                        try {
+ +                            // Extraer mediaId y phoneNumberId del payload original si están guardados
+ +                            const raw = m.metadata?.raw_payload || {};
+ +                            const mediaId = raw.message?.image?.id || raw.message?.audio?.id || raw.message?.video?.id || raw.message?.document?.id || '';
+ +                            const phoneNumberId = m.metadata?.phone_number_id || raw.message?.phone_number_id || raw.phone_number_id || '';
+ +
+ +                            const media = await MediaService.procesarMedia(urlStr, `historial/${conversacionId}`, undefined, mediaId, phoneNumberId);
+ +                            
+ +                            if (media) {
+ +                                content = [
+ +                                    { type: 'text', text: m.contenido || 'Archivo adjunto' }
+ +                                ];
+ +
+ +                                if (media.kind === 'image') {
+ +                                    content.push({ type: 'image', image: media.buffer, mimeType: media.mimeType, mediaType: media.mimeType } as any);
+ +                                } else if (media.kind === 'audio' || media.kind === 'video' || (media.kind === 'document' && (media.mimeType === 'application/pdf' || media.mimeType === 'audio/ogg'))) {
+ +                                    // Gemini soporta audio, video y PDF como 'file' pasando el buffer en 'data'
+ +                                    content.push({ type: 'file', data: media.buffer, mimeType: media.mimeType, mediaType: media.mimeType } as any);
+ +                                } else {
+ +                                    // Fallback para otros documentos
+ +                                    content.push({ type: 'text', text: `[ARCHIVO ADJUNTO: ${media.mimeType}]` });
+ +                                }
+ +                            } else {
+ +                                content = m.contenido || '[Archivo adjunto no disponible]';
+ +                            }
+ +                        } catch (mediaErr: unknown) {
+ +                            logger.warn(`No se pudo procesar media del historial (${urlStr}): ${(mediaErr as Error).message}`);
+ +                            content = m.contenido || '[Archivo adjunto no disponible]';
+++=======
++             // Invertir a orden cronológico (más antiguo primero) para el AI
++             const sortedData = (data || []).reverse();
++ 
++             const messages: CoreMessage[] = await Promise.all(
++                 sortedData.map(async (m) => {
++                     const role = m.rol === 'contacto' ? 'user' : (m.rol === 'agente' ? 'assistant' : 'system');
++                     let content: any = m.contenido || '';
++ 
++                     // Si es un mensaje del usuario y contiene imagen en metadatos, estructuramos como multimodal
++                     if (role === 'user' && m.metadata?.media_url) {
++                         const media = await MediaService.procesarImagen(m.metadata.media_url);
++                         if (media) {
++                             content = [
++                                 { type: 'text', text: m.contenido || 'Archivo adjunto' },
++                                 { type: 'image', image: media.buffer, mimeType: media.mimeType }
++                             ];
++                         } else {
++                             content = `${m.contenido || 'Archivo adjunto'}\n[IMAGEN NO DISPONIBLE O FALLO PROCESAMIENTO]`;
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+                          }
+                      }
+-                 }
+  
+++<<<<<<< HEAD
+ +                // AI SDK v6: Asegurar que content nunca sea vacío/null/undefined
+ +                if (!content || (typeof content === 'string' && content.trim() === '')) {
+ +                    content = role === 'assistant' ? '...' : '[mensaje vacío]';
+ +                }
+ +
+ +                messages.push({ role, content });
+ +            }
+++=======
++                     return { role, content } as CoreMessage;
++                 })
++             );
+++>>>>>>> 612d7ca (fix(webview): async processing, message history sorting, and avoid webhook retries)
+  
+              return messages;
+          } catch (error) {
