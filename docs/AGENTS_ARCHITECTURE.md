@@ -35,12 +35,12 @@ Cuando llega un mensaje, el `WebhookController` sigue este flujo de decisión:
 
 ## 🤖 Tipos de Agentes
 
-### 1. Agente de Calificación (Clínicas - Pacientes)
+### Clinic Agent (Clínicas - Pacientes)
 - **Objetivo:** Filtrar leads, calificar interés y preparar para el agendamiento.
 - **Tools:** `updateContactProfile`, `escalateToHuman`, `sendInteractiveButtons`.
 - **Instrucciones:** Dinámicas, extraídas de la tabla `clinicas.agents.system_prompt`.
 
-### 2. Agente Admin (Clínicas - Staff)
+### Admin Agent (Clínicas - Staff)
 - **Objetivo:** Asistir al personal de la clínica en tareas operativas por WhatsApp.
 - **Herramientas de Poder:**
     - `searchContacts`: Buscar pacientes.
@@ -48,7 +48,7 @@ Cuando llega un mensaje, el `WebhookController` sigue este flujo de decisión:
     - `updateAppointmentStatus`: Cancelar o confirmar citas.
     - `getDailySummary`: Reporte del día.
 
-### 3. Agente Público (Bruno/Clara)
+### Public Agent (Bruno/Clara)
 - **Objetivo:** Demo genérica y prospección multi-propósito.
 - **Características:** Maneja `media_library` (biblioteca de recursos multimedia) y asignación comercial humana.
 
