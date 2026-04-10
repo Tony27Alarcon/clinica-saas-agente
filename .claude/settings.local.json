@@ -6,7 +6,8 @@
       "WebFetch(domain:developers.google.com)",
       "WebSearch",
       "Bash(wc -l \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\"/*.sql)",
-      "Bash(find \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\" -name \"*.sql\" -exec wc -l {} +)"
+      "Bash(find \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\" -name \"*.sql\" -exec wc -l {} +)",
+      "Bash(node:*)"
     ]
   }
 }

@@ -1,6 +1,4 @@
 import { createHash } from 'crypto';
-import { supabase } from '../config/supabase';
-import { DbService } from './db.service';
 import { KapsoService } from './kapso.service';
 import { logger, getContext } from '../utils/logger';
 import { env } from '../config/env';
@@ -176,54 +174,13 @@ function formatTime(ms: number): string {
  * que un fallo individual no aborte el batch.
  */
 export class NotificationService {
-    static async flushPendingForCommercial(
-        userId: string,
-        phoneDestino: string,
-        phoneNumberId: string
-    ): Promise<{ enviados: number; fallidos: number }> {
-        const pendientes = await DbService.getNotificacionesWaPendientes(userId);
-        if (pendientes.length === 0) return { enviados: 0, fallidos: 0 };
-
-        logger.info(`[Outbox] Flush de ${pendientes.length} notificacion(es) pendiente(s) para comercial ${userId}.`);
-
-        let enviados = 0;
-        let fallidos = 0;
-
-        for (const notif of pendientes) {
-            const cuerpo = (notif.contenido || '').trim();
-            if (!cuerpo) {
-                logger.warn(`[Outbox] Notificación ${notif.id} sin contenido, salteada.`);
-                continue;
-            }
-
-            try {
-                await KapsoService.enviarMensaje(phoneDestino, cuerpo, phoneNumberId);
-                await supabase
-                    .from('notificaciones')
-                    .update({ wa_estado: 'enviado', wa_enviado_at: new Date().toISOString() })
-                    .eq('id', notif.id);
-                enviados++;
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                logger.error(`[Outbox] Notificación ${notif.id} sigue fallando: ${msg}`);
-                fallidos++;
-            }
-        }
-
-        logger.info(`[Outbox] Flush ${userId}: ${enviados} enviados, ${fallidos} fallidos.`);
-        return { enviados, fallidos };
-    }
 
     // ========================================================================
-    // SOPORTE: notificaciones al equipo cuando Clara tiene un error de sistema.
+    // SOPORTE: notificaciones al equipo cuando el sistema tiene un error.
     // ========================================================================
-    //
-    // Reusa el mismo outbox que comerciales (`notificaciones.wa_estado`) pero
-    // las notifs de soporte NO tienen user_id (el equipo de soporte no es un
-    // user del CRM): se identifican por `destinatario_phone`.
     //
     // El número de soporte se configura en `env.SUPPORT_PHONE_NUMBER`. Si no
-    // está set, las notificaciones de soporte degradan a "solo log CRITICAL"
+    // está set, las notificaciones degradan a "solo log CRITICAL"
     // (no se rompe nada, pero el equipo no se entera por WhatsApp).
 
     /**
@@ -304,81 +261,27 @@ export class NotificationService {
 
         await NotificationService._persistAndSendSupport(contenido, phoneNumberId, supportPhone, {
             tipo: ctx?.tipo || 'sistema_error',
-            titulo: ctx?.titulo || 'Error de sistema en Clara',
-            referenciaTabla: ctx?.referenciaTabla,
-            referenciaId: ctx?.referenciaId,
+            titulo: ctx?.titulo || 'Error de sistema',
         });
     }
 
     /**
-     * Path interno de "insert + intento de envío" para notificaciones de
-     * soporte. NO pasa por el rate limiter (lo usan tanto `notifySupport`
-     * después del check, como `sendSupportDigest` directamente).
-     *
-     * Nunca tira excepciones — todos los errores quedan en logs.
+     * Envía una notificación al equipo de soporte vía Kapso (fire-and-forget).
+     * No persiste en BD. Si el envío falla, queda en logs CRITICAL.
+     * Nunca tira excepciones.
      */
     private static async _persistAndSendSupport(
         contenido: string,
         phoneNumberId: string,
         supportPhone: string,
-        meta: {
-            tipo: string;
-            titulo: string;
-            referenciaTabla?: string;
-            referenciaId?: number | string | null;
-        }
+        meta: { tipo: string; titulo: string }
     ): Promise<void> {
         try {
-            // 1. Insertar la notificación en estado 'pendiente'.
-            const { data: notif, error: insertError } = await supabase
-                .from('notificaciones')
-                .insert([
-                    {
-                        tipo: meta.tipo,
-                        prioridad: 'alta',
-                        titulo: meta.titulo,
-                        contenido,
-                        user_id: null,
-                        destinatario_phone: supportPhone,
-                        referencia_id: meta.referenciaId ?? null,
-                        referencia_tabla: meta.referenciaTabla || null,
-                        creado_por_tabla: 'sistema',
-                        creado_por_id: null,
-                        wa_estado: 'pendiente',
-                    },
-                ])
-                .select('id')
-                .single();
-
-            if (insertError || !notif) {
-                logger.critical(
-                    'notifySupport: insert en notificaciones falló',
-                    insertError,
-                    { contenidoPreview: contenido.substring(0, 200) }
-                );
-                return;
-            }
-
-            // 2. Intentar envío inmediato. Si falla → queda pendiente para flush.
-            try {
-                await KapsoService.enviarMensaje(supportPhone, contenido, phoneNumberId);
-                await supabase
-                    .from('notificaciones')
-                    .update({
-                        wa_estado: 'enviado',
-                        wa_enviado_at: new Date().toISOString(),
-                    })
-                    .eq('id', notif.id);
-                logger.info(`[Soporte] Notificación ${notif.id} enviada al equipo`);
-            } catch (waErr) {
-                const msg = waErr instanceof Error ? waErr.message : String(waErr);
-                logger.warn(
-                    `[Soporte] Envío WA falló (${msg}). Notificación ${notif.id} queda pendiente.`
-                );
-            }
+            await KapsoService.enviarMensaje(supportPhone, contenido, phoneNumberId);
+            logger.info(`[Soporte] Notificación enviada al equipo (${meta.tipo})`);
         } catch (err) {
             logger.critical(
-                'notifySupport: excepción inesperada',
+                'notifySupport: envío WA falló',
                 err,
                 { contenidoPreview: contenido.substring(0, 200) }
             );
@@ -440,56 +343,6 @@ export class NotificationService {
     }
 
     /**
-     * Variante del flush para notificaciones de soporte (las que tienen
-     * `destinatario_phone` set en lugar de `user_id`). Se dispara desde el
-     * webhook controller cuando el equipo de soporte escribe al WA Business
-     * (eso reabre la ventana de 24h con ese par contacto/phone_number_id).
-     */
-    static async flushPendingForSupport(
-        phoneNumberId: string
-    ): Promise<{ enviados: number; fallidos: number }> {
-        const supportPhone = env.SUPPORT_PHONE_NUMBER;
-        if (!supportPhone) return { enviados: 0, fallidos: 0 };
-
-        const pendientes = await DbService.getNotificacionesSoportePendientes(supportPhone);
-        if (pendientes.length === 0) return { enviados: 0, fallidos: 0 };
-
-        logger.info(
-            `[Outbox Soporte] Flush de ${pendientes.length} notificacion(es) pendiente(s).`
-        );
-
-        let enviados = 0;
-        let fallidos = 0;
-
-        for (const notif of pendientes) {
-            const cuerpo = (notif.contenido || '').trim();
-            if (!cuerpo) {
-                logger.warn(`[Outbox Soporte] Notificación ${notif.id} sin contenido, salteada.`);
-                continue;
-            }
-
-            try {
-                await KapsoService.enviarMensaje(supportPhone, cuerpo, phoneNumberId);
-                await supabase
-                    .from('notificaciones')
-                    .update({
-                        wa_estado: 'enviado',
-                        wa_enviado_at: new Date().toISOString(),
-                    })
-                    .eq('id', notif.id);
-                enviados++;
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
-                logger.error(`[Outbox Soporte] Notificación ${notif.id} sigue fallando: ${msg}`);
-                fallidos++;
-            }
-        }
-
-        logger.info(`[Outbox Soporte] Flush completado: ${enviados} enviados, ${fallidos} fallidos.`);
-        return { enviados, fallidos };
-    }
-
-    /**
      * Helper que arma el cuerpo del WhatsApp de error de sistema con todo el
      * contexto disponible (request_id, contacto, stage, error). Usado por el
      * controller cuando captura una excepción en processEvent.
@@ -511,7 +364,7 @@ export class NotificationService {
                 : '(sin mensaje)';
 
         const lines: string[] = [
-            '🚨 *Error de sistema en Clara*',
+            '🚨 *Error de sistema*',
             '',
             args.message,
             '',
