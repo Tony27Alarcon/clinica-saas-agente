@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-    title: 'MedAgent · Portal de Clínica',
+    title: 'Bruno Lab · Portal de Clínica',
     description: 'Panel de información pública de la clínica',
 };
 

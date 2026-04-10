@@ -85,10 +85,10 @@ export async function generateMetadata(
     const { slug } = await params;
     const profile = await getProfile(slug);
     if (!profile?.company) {
-        return { title: 'Clínica no encontrada · MedAgent' };
+        return { title: 'Clínica no encontrada · Bruno Lab' };
     }
     return {
-        title: `${profile.company.name} · MedAgent`,
+        title: `${profile.company.name} · Bruno Lab`,
         description: `Panel de información de ${profile.company.name}`,
     };
 }
@@ -319,7 +319,7 @@ export default async function ClinicPage(
             <StaffSection staff={staff} />
 
             <div className="page-footer">
-                Generado por <strong>MedAgent</strong> · {new Date().toLocaleDateString('es', { dateStyle: 'long' })}
+                Generado por <strong>Bruno Lab</strong> · {new Date().toLocaleDateString('es', { dateStyle: 'long' })}
             </div>
 
         </div>

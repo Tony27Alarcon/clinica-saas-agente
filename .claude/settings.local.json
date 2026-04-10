@@ -7,7 +7,8 @@
       "WebSearch",
       "Bash(wc -l \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\"/*.sql)",
       "Bash(find \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\" -name \"*.sql\" -exec wc -l {} +)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(find src:*)"
     ]
   }
 }

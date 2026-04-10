@@ -779,7 +779,7 @@ export class ClinicasDbService {
                 }
 
                 // Crear evento en Google Calendar
-                const summary = `Cita MedAgent — ${contactName || 'Paciente'}`;
+                const summary = `Cita Bruno Lab — ${contactName || 'Paciente'}`;
                 const description = [
                     `Contacto: ${contactName || 'Paciente'} (${contactId})`,
                     treatmentId ? `Tratamiento ID: ${treatmentId}` : '',
