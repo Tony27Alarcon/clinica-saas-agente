@@ -65,8 +65,9 @@ export const env = {
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
+// KAPSO_PHONE_NUMBER_ID es opcional porque para clínicas se extrae de la base de datos (multi-tenant).
 const optionalKeys = [
-    'PORT', 'KAPSO_WEBHOOK_SECRET', 'SUPPORT_PHONE_NUMBER',
+    'PORT', 'KAPSO_WEBHOOK_SECRET', 'SUPPORT_PHONE_NUMBER', 'KAPSO_PHONE_NUMBER_ID',
     'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GCAL_LOOK_AHEAD_DAYS',
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
 ];

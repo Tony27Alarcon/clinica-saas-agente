@@ -1,4 +1,4 @@
-# 🥷 Estrategia Guerrilla: Camino a los 50 Clientes (Zero Budget)
+    # 🥷 Estrategia Guerrilla: Camino a los 50 Clientes (Zero Budget)
 
 Este plan está diseñado para ejecutarse sin gastar un solo dólar en publicidad ni depender de seguidores en redes sociales. El objetivo es conseguir **50 clínicas pagando** mediante ejecución pura y validación de ROI (Retorno de Inversión).
 
