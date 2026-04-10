@@ -373,6 +373,16 @@ p {
 }
 .price-card-popular .price-amount span { color: rgba(255,255,255,0.7); }
 
+.price-cop {
+    font-family: var(--font-body);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-top: -0.2rem;
+    margin-bottom: 0.5rem;
+}
+.price-card-popular .price-cop { color: rgba(255,255,255,0.8); }
+
 .price-overage {
     background: var(--grid-line);
     padding: 1rem 1.2rem;
@@ -552,6 +562,36 @@ p {
 .footer .nav-social { display: flex; gap: 1.5rem; }
 .footer .nav-social a { text-decoration: none; color: var(--text-dark); font-weight: 700; font-size: 1rem; }
 
+/* Botón Flotante WhatsApp */
+.btn-wa-float {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 65px;
+    height: 65px;
+    background-color: #25D366;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0px rgba(0,0,0,1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-wa-float:hover {
+    transform: translateY(-5px);
+    box-shadow: 6px 6px 0px rgba(0,0,0,1);
+    color: white;
+}
+
+.btn-wa-float:active {
+    transform: translateY(0);
+    box-shadow: 0px 0px 0px rgba(0,0,0,1);
+}
+
 /* Responsive adjustments */
 @media (max-width: 900px) {
     .feature-layout-dark { grid-template-columns: 1fr; padding: 2.5rem; border-radius: 32px; }
@@ -604,4 +644,15 @@ p {
     .test-card { padding: 1.5rem; border-radius: 24px; box-shadow: 6px 6px 0px rgba(0,0,0,1); }
     
     .footer-inner { padding: 1.5rem; border-radius: 28px; box-shadow: 4px 4px 0px rgba(0,0,0,1); }
+    
+    .btn-wa-float {
+        bottom: 20px;
+        right: 20px;
+        width: 55px;
+        height: 55px;
+    }
+    .btn-wa-float svg {
+        width: 28px;
+        height: 28px;
+    }
 }

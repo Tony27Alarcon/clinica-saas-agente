@@ -47,8 +47,8 @@ Este documento centraliza la visión de negocio, el análisis de mercado y las t
 | Plan | Target | Precio Sugerido (USD) | Diferenciador Clave |
 | :--- | :--- | :--- | :--- |
 | **Starter** | Clínicas pequeñas / Independientes | $99/mes | Solo WhatsApp + Agendamiento básico. |
-| **Professional** | Clínicas en crecimiento | $229/mes | WA + Instagram + Recordatorios No-Show. |
-| **Enterprise** | Redes de clínicas / Consultorios | $429/mes | Multi-agente + PDF Historia Clínica + API. |
+| **Growth** | Clínicas en crecimiento | $199/mes | WA + Recordatorios No-Show + Fases Operativas. |
+| **Enterprise** | Redes de clínicas / Consultorios | $399+/mes | Multi-agente + PDF Historia Clínica + API. |
 
 ---
 
