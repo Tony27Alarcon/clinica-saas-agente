@@ -478,7 +478,11 @@ export class KapsoService {
             });
             logger.info(`Mensaje ${messageId} marcado como leído y activado 'escribiendo'.`);
         } catch (error) {
-            logger.error(`Error en marcarComoLeido: ${(error as Error).message}`);
+            const cause = (error as any)?.cause;
+            const causeDetail = cause
+                ? ` | causa: ${(cause as Error).message ?? cause} (${(cause as any).code ?? ''})`
+                : '';
+            logger.error(`Error en marcarComoLeido: ${(error as Error).message}${causeDetail}`);
         }
     }
 
@@ -528,6 +532,7 @@ export class KapsoService {
         const cacheKey = `${baseUrl}|${graphVersion}|${env.KAPSO_API_TOKEN}`;
 
         if (!this.client || this.clientCacheKey !== cacheKey) {
+            logger.info(`[KapsoService] Inicializando cliente — baseUrl: ${baseUrl} | graphVersion: ${graphVersion}`);
             this.client = new WhatsAppClient({
                 baseUrl,
                 kapsoApiKey: env.KAPSO_API_TOKEN,
@@ -574,6 +579,10 @@ export class KapsoService {
             : typeof error === 'string'
                 ? error
                 : JSON.stringify(error);
-        logger.error(`Error en KapsoService.${context}: ${detail}`);
+        const cause = error?.cause;
+        const causeDetail = cause
+            ? ` | causa: ${(cause as Error).message ?? cause} (${(cause as any).code ?? ''})`
+            : '';
+        logger.error(`Error en KapsoService.${context}: ${detail}${causeDetail}`);
     }
 }
