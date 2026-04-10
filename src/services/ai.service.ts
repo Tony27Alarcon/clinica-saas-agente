@@ -207,7 +207,25 @@ ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
                     system: systemPrompt,
                     messages: [...historial, ...intermediateMessages],
                     temperature: 0.7,
+                    maxSteps: 10,
+                    tools: {
+                        updateContactProfile: createClinicasUpdateContactTool(contact.id),
+                        escalateToHuman: createClinicasEscalateTool(conversation.id),
+                        sendInteractiveButtons: createSendInteractiveButtonsTool(contact.phone, phoneNumberId, conversation.id),
+                        sendInteractiveList: createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
+                    },
                 } as any);
+
+                const followUpSteps = (followUp as any).steps || [];
+                const followUpToolCalls = followUpSteps.flatMap((s: any) => s.toolCalls || []);
+                const followUpUsedInteractive = followUpToolCalls.some((tc: any) =>
+                    ['sendInteractiveButtons', 'sendInteractiveList'].includes(tc.toolName)
+                );
+                if (followUpUsedInteractive) {
+                    if (followUp.text) logger.info(`[IA Clinicas] Descartando texto residual tras interactivo (follow-up).`);
+                    return '';
+                }
+
                 return followUp.text || '¿En qué más puedo ayudarte?';
             }
 
