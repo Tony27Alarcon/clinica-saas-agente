@@ -13,7 +13,9 @@
     "test:seed": "ts-node scripts/testing/seed.ts",
     "test:chat": "ts-node scripts/testing/chat.ts",
     "test:scenario": "ts-node scripts/testing/scenarios.ts",
-    "test:agenda": "ts-node scripts/testing/scenarios-admin.ts"
+    "test:agenda": "ts-node scripts/testing/scenarios-admin.ts",
+    "test:reminders": "ts-node scripts/testing/test-reminders.ts",
+    "test:rebuild": "ts-node scripts/testing/test-rebuild.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",

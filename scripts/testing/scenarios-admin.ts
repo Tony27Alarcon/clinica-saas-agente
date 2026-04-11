@@ -111,6 +111,55 @@ const SCENARIOS: AdminScenario[] = [
             'Quiero ver el perfil completo de María González',
         ],
     },
+    {
+        name: 'admin-completar-cita',
+        description: 'Staff marca una cita como completada y agrega notas clínicas',
+        setup: 'fresh',
+        notes: 'Verifica updateAppointmentStatus(completed) + creación automática de follow-ups via RPC',
+        messages: [
+            '¿Cuáles son las citas de hoy o de los próximos 2 días?',
+            'La cita de María González fue completada exitosamente. Anota que respondió muy bien al tratamiento, sin efectos adversos.',
+        ],
+    },
+    {
+        name: 'admin-reprogramar-cita',
+        description: 'Staff reprograma la cita de un paciente para otra fecha',
+        setup: 'fresh',
+        notes: 'Verifica updateAppointmentStatus(rescheduled) + sincronización GCal si está configurado',
+        messages: [
+            '¿Qué citas tenemos para los próximos 3 días?',
+            'La cita de Carlos Mendoza hay que reprogramarla. El paciente llamó para cambiarla al próximo lunes a las 10am Colombia.',
+        ],
+    },
+    {
+        name: 'admin-leads-calificados',
+        description: 'Staff consulta el listado de leads calificados pendientes de agendar',
+        setup: 'fresh',
+        notes: 'Verifica searchContacts con filtro status=calificado',
+        messages: [
+            'Muéstrame los leads calificados que aún no tienen cita agendada',
+            '¿Cuántos leads nuevos llegaron hoy?',
+        ],
+    },
+    {
+        name: 'admin-no-show',
+        description: 'Staff registra un no-show y deja nota para seguimiento',
+        setup: 'fresh',
+        notes: 'Verifica updateAppointmentStatus(no_show) + nota en la cita',
+        messages: [
+            'Dame las citas de hoy',
+            'La cita de las 9am no vino el paciente. Márcala como no-show y agrega la nota "Se intentó contactar por WhatsApp sin respuesta"',
+        ],
+    },
+    {
+        name: 'admin-resumen-con-escalaciones',
+        description: 'Staff pide resumen del día enfatizando conversaciones escaladas',
+        setup: 'fresh',
+        notes: 'Verifica getDailySummary con pendingFollowUps y escalatedConversations del seed',
+        messages: [
+            'Dame el resumen del día, especialmente cuántas conversaciones están escaladas y pendientes de atender',
+        ],
+    },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

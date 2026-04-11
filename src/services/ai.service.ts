@@ -9,6 +9,13 @@ import {
 import {
     createClinicasUpdateContactTool,
     createClinicasEscalateTool,
+    createClinicasGetServicesTool,
+    createClinicasGetSlotsTool,
+    createClinicasBookAppointmentTool,
+    createClinicasGetNotesTool,
+    createClinicasAddNoteTool,
+    createClinicasEditNoteTool,
+    createClinicasArchiveNoteTool,
 } from '../tools/clinicas.tools';
 import {
     createAdminSearchContactsTool,
@@ -136,7 +143,8 @@ export class AiService {
         agent: any,
         contact: any,
         conversation: any,
-        phoneNumberId: string
+        phoneNumberId: string,
+        company: any
     ): Promise<string> {
         try {
             logger.info(`[IA Clinicas] Generando respuesta para ${contact?.phone} (Conv: ${conversation?.id})`);
@@ -144,7 +152,11 @@ export class AiService {
             const timeCtx = getColombianContext();
 
             // system_prompt viene compilado desde la BD (buildSystemPrompt).
-            // Aquí solo agregamos el contexto dinámico por mensaje: fecha, contacto y reglas de herramientas.
+            // Aquí agregamos contexto dinámico por mensaje: fecha, estado del contacto y
+            // guía de uso de tools. NO repetir lógica de las 4 fases (ya está en el prompt compilado).
+            const contactStatus  = contact?.status || 'prospecto';
+            const isKnownContact = contactStatus !== 'prospecto';
+
             const systemPrompt = `${agent.system_prompt}
 
 --- CONTEXTO OPERATIVO ---
@@ -154,17 +166,47 @@ Hora: ${timeCtx.time} (${timeCtx.partOfDay})
 --- CONTACTO ACTUAL ---
 Nombre: ${contact?.name || 'Desconocido'}
 Teléfono: ${contact?.phone || 'Desconocido'}
-Estado en pipeline: ${contact?.status || 'prospecto'}
+Estado: ${contactStatus}
 Temperatura: ${contact?.temperature || 'frio'}
+${isKnownContact ? '⚠️ Contacto con historial previo — carga notas antes de responder (ver reglas de notas).' : ''}
 
---- HERRAMIENTAS ---
-Tienes herramientas silenciosas (el paciente no las ve directamente como mensajes):
-1. updateContactProfile — Úsala cuando descubras datos del lead (nombre real, email, etc.).
-2. escalateToHuman — Úsala cuando las reglas de escalamiento lo indiquen.
+--- HERRAMIENTAS DISPONIBLES ---
 
-REGLAS DE RESPUESTA:
-- Si utilizas una herramienta interactiva (botones o listas), NO generes un mensaje de texto adicional en tu turno. El texto debe ir completamente en los parámetros de la herramienta.
-- Si SOLO utilizas herramientas silenciosas, SIEMPRE DEBES generar un mensaje de texto final amable que explique qué pasó o continúe la conversación, para que el usuario no se quede esperando.`;
+CRM (silenciosas — no las menciones al paciente):
+  • updateContactProfile → Actualizar nombre, email, status o temperatura cuando lo descubras en la conversación.
+  • escalateToHuman      → Escalar según las reglas definidas en el sistema.
+
+Servicios y agenda (silenciosas — genera siempre un mensaje de texto después):
+  • getServices                           → Catálogo en tiempo real con IDs reales. Úsala cuando el paciente pregunte por servicios, precios o duraciones, y siempre antes de llamar getAvailableSlots.
+  • getAvailableSlots(treatment_id?)      → Disponibilidad real desde Google Calendar. Ofrece EXACTAMENTE 2 opciones. Nunca preguntes "¿cuándo puedes?" de forma abierta.
+  • bookAppointment(slot_id, starts_at, ends_at) → SOLO si el paciente confirmó el horario de forma explícita ("ese me sirve", "perfecto", "agéndame ahí"). Pasa el slot_id y los timestamps exactos del slot.
+
+Notas internas (silenciosas — el paciente nunca sabe que existen):
+  • getNotes(include_archived?)  → Recuperar notas activas del contacto. Ver regla de cuándo llamarla.
+  • addNote(content)             → Guardar observaciones clínicas relevantes: alergias, historial, preferencias, motivo de consulta.
+  • editNote(note_id, content)   → Corregir una nota existente. Requiere note_id obtenido con getNotes.
+  • archiveNote(note_id)         → Marcar nota como obsoleta. La nota se conserva, deja de aparecer en contexto activo.
+
+Interactivas (el mensaje va DENTRO de la tool — NO generes texto adicional en el mismo turno):
+  • sendInteractiveButtons → Hasta 3 opciones de respuesta.
+  • sendInteractiveList    → Más de 3 opciones.
+
+--- ORDEN DE EJECUCIÓN EN CADA TURNO ---
+1. NOTAS (si aplica): Si el estado del contacto no es "prospecto", llama getNotes UNA SOLA VEZ al inicio del turno para cargar contexto previo antes de responder.
+2. RESPUESTA: Genera tu respuesta usando el contexto de las notas y el historial.
+3. SERVICIOS/AGENDA (si el paciente lo pidió): getServices → getAvailableSlots → ofrece 2 opciones → espera confirmación → bookAppointment.
+4. REGISTRO: Al final del turno, si aprendiste algo relevante sobre el paciente → addNote y/o updateContactProfile.
+
+--- MANEJO DE CASOS ESPECIALES ---
+• getAvailableSlots vacío     → "No tenemos turnos disponibles en los próximos días. Te aviso cuando se libere uno, ¿te parece?" Luego escalateToHuman.
+• bookAppointment fallido     → "Ese horario acaba de ocuparse. Déjame buscarte otra opción." Luego llama getAvailableSlots de nuevo.
+• editNote / archiveNote sin note_id → Llama getNotes primero para obtener el ID correcto.
+
+--- REGLAS ABSOLUTAS DE RESPUESTA ---
+• Silenciosas: SIEMPRE genera un mensaje de texto después — el paciente no puede quedar en silencio.
+• Interactivas exitosas: NO generes texto adicional — el mensaje ya está dentro de la tool.
+• Nunca llames la misma tool dos veces en el mismo turno.
+• Nunca menciones las tools, el sistema, ni las notas al paciente.`;
 
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
@@ -173,10 +215,17 @@ REGLAS DE RESPUESTA:
                 temperature: 0.7,
                 maxSteps: 25,
                 tools: {
-                    updateContactProfile: createClinicasUpdateContactTool(contact.id),
-                    escalateToHuman: createClinicasEscalateTool(conversation.id),
+                    updateContactProfile:   createClinicasUpdateContactTool(contact.id),
+                    escalateToHuman:        createClinicasEscalateTool(conversation.id),
+                    getServices:            createClinicasGetServicesTool(company.id),
+                    getAvailableSlots:      createClinicasGetSlotsTool(company.id),
+                    bookAppointment:        createClinicasBookAppointmentTool(company.id, contact.id, phoneNumberId),
+                    getNotes:               createClinicasGetNotesTool(company.id, contact.id),
+                    addNote:                createClinicasAddNoteTool(company.id, contact.id),
+                    editNote:               createClinicasEditNoteTool(company.id, contact.id),
+                    archiveNote:            createClinicasArchiveNoteTool(company.id, contact.id),
                     sendInteractiveButtons: createSendInteractiveButtonsTool(contact.phone, phoneNumberId, conversation.id),
-                    sendInteractiveList: createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
+                    sendInteractiveList:    createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
                 },
             } as any);
 
@@ -189,7 +238,7 @@ REGLAS DE RESPUESTA:
             // Solo descartar el texto si el tool interactivo tuvo ÉXITO (ok: true).
             // Si Kapso no está configurado, el tool retorna { ok: false } y debemos
             // preservar el texto para guardarlo en DB y que el polling lo encuentre.
-            const usedInteractive = allToolResults.some((tr: any) => 
+            const usedInteractive = allToolResults.some((tr: any) =>
                 ['sendInteractiveButtons', 'sendInteractiveList'].includes(tr.toolName) && tr.result?.ok === true
             );
 
@@ -210,10 +259,17 @@ REGLAS DE RESPUESTA:
                     temperature: 0.7,
                     maxSteps: 10,
                     tools: {
-                        updateContactProfile: createClinicasUpdateContactTool(contact.id),
-                        escalateToHuman: createClinicasEscalateTool(conversation.id),
+                        updateContactProfile:   createClinicasUpdateContactTool(contact.id),
+                        escalateToHuman:        createClinicasEscalateTool(conversation.id),
+                        getServices:            createClinicasGetServicesTool(company.id),
+                        getAvailableSlots:      createClinicasGetSlotsTool(company.id),
+                        bookAppointment:        createClinicasBookAppointmentTool(company.id, contact.id, phoneNumberId),
+                        getNotes:               createClinicasGetNotesTool(company.id, contact.id),
+                        addNote:                createClinicasAddNoteTool(company.id, contact.id),
+                        editNote:               createClinicasEditNoteTool(company.id, contact.id),
+                        archiveNote:            createClinicasArchiveNoteTool(company.id, contact.id),
                         sendInteractiveButtons: createSendInteractiveButtonsTool(contact.phone, phoneNumberId, conversation.id),
-                        sendInteractiveList: createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
+                        sendInteractiveList:    createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
                     },
                 } as any);
 

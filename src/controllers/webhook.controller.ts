@@ -380,7 +380,7 @@ export class WebhookController {
 
         // Step F: Generar respuesta IA
         const respuesta = await logger.stage('F', 'clinicas.AiService.generarRespuestaClinicas', () =>
-            AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId)
+            AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId, company)
         );
 
         // Step G: Guardar respuesta en DB (antes de enviar, para que quede en historial

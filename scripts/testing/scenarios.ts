@@ -89,6 +89,57 @@ const SCENARIOS: Scenario[] = [
             'Info',
         ],
     },
+    {
+        name: 'agendar-completo',
+        description: 'Flujo completo: calificación → disponibilidad → agendamiento',
+        setup: 'fresh',
+        messages: [
+            'Hola! Me interesa el botox facial',
+            'Tengo presupuesto entre $150 y $300 USD',
+            '¿Qué disponibilidad tienen esta semana?',
+            'El primer horario que tengan disponible me viene bien',
+            'Sí, quiero confirmar esa cita',
+        ],
+    },
+    {
+        name: 'tratamiento-corporal',
+        description: 'Usuario pregunta por tratamiento corporal (hidrolipoclasia)',
+        setup: 'fresh',
+        messages: [
+            'Hola, quiero información sobre la hidrolipoclasia',
+            '¿Para qué zonas aplica? Tengo abdomen con grasa localizada',
+            '¿Cuántas sesiones se necesitan y cuánto cuesta cada una?',
+        ],
+    },
+    {
+        name: 'depilacion-laser',
+        description: 'Usuario pregunta por depilación láser y sus contraindicaciones',
+        setup: 'fresh',
+        messages: [
+            'Buenas, ¿hacen depilación láser?',
+            '¿Funciona en piel morena? Tengo fototipo IV',
+            '¿Cuántas sesiones se necesitan y qué precio tiene en piernas completas?',
+        ],
+    },
+    {
+        name: 'keyword-excluida',
+        description: 'Usuario pide tratamiento gratis — debería ser descartado o redireccionado',
+        setup: 'fresh',
+        messages: [
+            'Hola, ¿tienen algún tratamiento gratis o de cortesía para nuevos pacientes?',
+            '¿No tienen ningún descuento para primera vez?',
+        ],
+    },
+    {
+        name: 'paciente-con-historial',
+        description: 'Paciente que ya tuvo tratamientos vuelve a consultar (Andrea Martínez)',
+        setup: 'fresh',
+        messages: [
+            'Hola, ya hice una limpieza facial con ustedes hace una semana',
+            'Quiero saber si ya puedo hacer otra sesión o si debo esperar',
+            'También me interesaría probar el botox ahora',
+        ],
+    },
 ];
 
 // ── Runner ────────────────────────────────────────────────────────────────────

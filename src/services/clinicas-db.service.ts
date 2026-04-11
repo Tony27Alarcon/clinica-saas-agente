@@ -410,6 +410,28 @@ export class ClinicasDbService {
     }
 
     /**
+     * Retorna los tratamientos activos de la clínica con sus IDs.
+     * Versión patient-facing: incluye id para poder pasarlo a getFreeSlots/bookAppointment.
+     */
+    static async getActiveTreatments(companyId: string): Promise<any[]> {
+        try {
+            const { data, error } = await db()
+                .from('treatments')
+                .select('id, name, description, price_min, price_max, duration_min, category, preparation_instructions')
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .order('category', { ascending: true, nullsFirst: false })
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+            return (data as any[]) || [];
+        } catch (error) {
+            logger.error(`[Clinicas] getActiveTreatments: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    /**
      * Actualiza el estado de una cita. Verifica ownership antes de operar.
      * Si newStatus='completed', dispara la creación de follow-ups via RPC.
      * Si newStatus='cancelled', libera el slot asociado.
@@ -663,6 +685,116 @@ export class ClinicasDbService {
                 escalatedConversations: [],
                 pendingFollowUps: 0,
             };
+        }
+    }
+
+    // ─── Notas de contacto ────────────────────────────────────────────────────
+
+    /**
+     * Retorna las notas de un contacto. Por defecto excluye las archivadas.
+     */
+    static async getNotes(
+        companyId: string,
+        contactId: string,
+        includeArchived: boolean = false
+    ): Promise<any[]> {
+        try {
+            let query = db()
+                .from('contacts_notas')
+                .select('id, content, created_by, archived, archived_at, created_at, updated_at')
+                .eq('company_id', companyId)
+                .eq('contact_id', contactId)
+                .order('created_at', { ascending: false });
+
+            if (!includeArchived) {
+                query = query.eq('archived', false);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data as any[]) || [];
+        } catch (error) {
+            logger.error(`[Clinicas] getNotes: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Agrega una nueva nota a un contacto.
+     */
+    static async addNote(
+        companyId: string,
+        contactId: string,
+        content: string,
+        createdBy: string = 'agent'
+    ): Promise<any> {
+        try {
+            const { data, error } = await db()
+                .from('contacts_notas')
+                .insert([{ company_id: companyId, contact_id: contactId, content, created_by: createdBy }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error(`[Clinicas] addNote: ${(error as Error).message}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Edita el contenido de una nota existente.
+     * Verifica que la nota pertenezca a la clínica antes de actualizar.
+     */
+    static async editNote(
+        companyId: string,
+        noteId: string,
+        content: string
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const { data, error } = await db()
+                .from('contacts_notas')
+                .update({ content, updated_at: new Date().toISOString() })
+                .eq('id', noteId)
+                .eq('company_id', companyId)
+                .eq('archived', false)
+                .select('id')
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) return { ok: false, error: 'Nota no encontrada, sin permisos, o ya archivada' };
+            return { ok: true };
+        } catch (error) {
+            logger.error(`[Clinicas] editNote: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    /**
+     * Archiva una nota. Las notas archivadas nunca se borran.
+     * Verifica ownership antes de archivar.
+     */
+    static async archiveNote(
+        companyId: string,
+        noteId: string
+    ): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const { data, error } = await db()
+                .from('contacts_notas')
+                .update({ archived: true, archived_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .eq('id', noteId)
+                .eq('company_id', companyId)
+                .eq('archived', false)
+                .select('id')
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) return { ok: false, error: 'Nota no encontrada, sin permisos, o ya archivada' };
+            return { ok: true };
+        } catch (error) {
+            logger.error(`[Clinicas] archiveNote: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
         }
     }
 

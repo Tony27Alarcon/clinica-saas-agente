@@ -243,7 +243,7 @@ app.post('/internal/rebuild-prompt/:companyId', async (req, res) => {
 
 // Healthcheck / Root
 app.get('/', (req, res) => {
-    res.send('Mundo SOS Agentes Backend is running! 🚀');
+    res.send('Bruno Lab is running! 🚀');
 });
 
 // Start server
