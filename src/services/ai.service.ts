@@ -143,13 +143,8 @@ export class AiService {
 
             const timeCtx = getColombianContext();
 
-            // Objeciones formateadas para inyectar en el sistema
-            const objectionsList = Array.isArray(agent.objections_kb) && agent.objections_kb.length > 0
-                ? agent.objections_kb
-                    .map((o: any) => `- "${o.objection}" → ${o.response}`)
-                    .join('\n')
-                : '';
-
+            // system_prompt viene compilado desde la BD (buildSystemPrompt).
+            // Aquí solo agregamos el contexto dinámico por mensaje: fecha, contacto y reglas de herramientas.
             const systemPrompt = `${agent.system_prompt}
 
 --- CONTEXTO OPERATIVO ---
@@ -169,8 +164,7 @@ Tienes herramientas silenciosas (el paciente no las ve directamente como mensaje
 
 REGLAS DE RESPUESTA:
 - Si utilizas una herramienta interactiva (botones o listas), NO generes un mensaje de texto adicional en tu turno. El texto debe ir completamente en los parámetros de la herramienta.
-- Si SOLO utilizas herramientas silenciosas, SIEMPRE DEBES generar un mensaje de texto final amable que explique qué pasó o continúe la conversación, para que el usuario no se quede esperando.
-${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
+- Si SOLO utilizas herramientas silenciosas, SIEMPRE DEBES generar un mensaje de texto final amable que explique qué pasó o continúe la conversación, para que el usuario no se quede esperando.`;
 
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),

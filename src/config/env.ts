@@ -62,6 +62,13 @@ export const env = {
      * Debe coincidir exactamente: https://tu-dominio.railway.app/auth/google/callback
      */
     GOOGLE_OAUTH_REDIRECT_URI:  process.env.GOOGLE_OAUTH_REDIRECT_URI  || '',
+
+    /**
+     * Secret para endpoints internos (ej: /internal/rebuild-prompt).
+     * Solo debe conocerlo el backend y los servicios administrativos.
+     * Si está vacío, el endpoint queda deshabilitado.
+     */
+    INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET || '',
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
@@ -70,7 +77,7 @@ const optionalKeys = [
     'PORT', 'KAPSO_WEBHOOK_SECRET', 'SUPPORT_PHONE_NUMBER', 'KAPSO_PHONE_NUMBER_ID',
     'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GCAL_LOOK_AHEAD_DAYS',
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
-    'KAPSO_API_URL', 'KAPSO_API_TOKEN'
+    'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'INTERNAL_API_SECRET',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

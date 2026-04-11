@@ -11,6 +11,10 @@ import dotenv from 'dotenv';
 import { TEST_CONFIG } from './lib/config';
 dotenv.config();
 
+// Importación local para poder llamar al rebuild al final del seed
+// sin depender del servidor Express levantado.
+import { PromptRebuildService } from '../../src/services/prompt-rebuild.service';
+
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     console.error('ERROR: Faltan SUPABASE_URL o SUPABASE_SERVICE_KEY en .env');
     process.exit(1);
@@ -23,24 +27,10 @@ const supabase = createClient(
 
 const db = () => (supabase as any).schema('clinicas');
 
-const SYSTEM_PROMPT = `Eres Valentina, asistente de atención al cliente de Clínica Bella.
-Tu objetivo es calificar leads interesados en tratamientos estéticos y ayudarlos a agendar una cita.
-
-TRATAMIENTOS DISPONIBLES:
-- Botox facial: desde $150 USD. Duración 30 min. Resultados visibles en 7 días.
-- Relleno de labios con ácido hialurónico: desde $200 USD. Duración 45 min.
-- Limpieza facial profunda: desde $80 USD. Duración 60 min.
-- Peeling químico: desde $120 USD. Duración 45 min.
-
-HORARIOS: Lunes a viernes 9:00 - 19:00, sábados 9:00 - 14:00.
-
-INSTRUCCIONES:
-1. Saluda cordialmente y pregunta en qué tratamiento está interesado el cliente.
-2. Una vez que conozcas el interés, informa precio y tiempo de recuperación.
-3. Invita a agendar con urgencia amable (ej: "tenemos pocos turnos disponibles esta semana").
-4. Si el lead pregunta repetidamente sin mostrar intención de agendar, usa la herramienta escalateToHuman.
-5. Nunca inventes precios ni tratamientos que no están en la lista de arriba.
-6. Mantén un tono amigable y profesional en todo momento.`;
+// system_prompt ya no se hardcodea aquí.
+// Se genera automáticamente al final del seed llamando a PromptRebuildService.rebuildPromptForCompany().
+// Este placeholder es solo para que el INSERT no falle (NOT NULL en la tabla).
+const SYSTEM_PROMPT_PLACEHOLDER = '(pendiente de compilación — se sobrescribe al final del seed)';
 
 async function seed() {
     console.log('Iniciando seed de datos de prueba...\n');
@@ -66,6 +56,12 @@ async function seed() {
                 timezone: 'America/Bogota',
                 currency: 'USD',
                 country_code: 'CO',
+                city: 'Bogotá',
+                address: 'Calle 72 # 10-43, Piso 3',
+                schedule: [
+                    { days: ['lun', 'mar', 'mie', 'jue', 'vie'], open: '09:00', close: '19:00' },
+                    { days: ['sab'], open: '09:00', close: '14:00' },
+                ],
                 active: true,
             }])
             .select('id, name')
@@ -110,8 +106,12 @@ async function seed() {
             .insert([{
                 company_id: company.id,
                 name: 'Valentina',
-                system_prompt: SYSTEM_PROMPT,
+                system_prompt: SYSTEM_PROMPT_PLACEHOLDER,
                 tone: 'amigable',
+                persona_description: 'Habla con calidez y cercanía. Usa emojis suaves (✨, 🤍, 📅) sin saturar. Es persuasiva pero nunca agresiva ni impaciente.',
+                clinic_description: 'Clínica Bella es un centro de medicina estética con 5 años de experiencia en Bogotá, reconocida por sus resultados naturales y un equipo altamente capacitado.',
+                booking_instructions: 'Ofrece siempre exactamente 2 opciones de horario. Si el paciente no puede en ninguna, ofrece 2 más. Nunca preguntes "¿cuándo puedes?" de forma abierta.',
+                prohibited_topics: ['descuentos no autorizados', 'comparaciones con otras clínicas', 'diagnósticos por foto'],
                 qualification_criteria: {
                     excluded_keywords: ['gratis', 'regalo', 'sin costo', 'cortesía'],
                 },
@@ -158,6 +158,9 @@ async function seed() {
                     price_min: 150,
                     price_max: 300,
                     duration_min: 30,
+                    category: 'facial',
+                    contraindications: 'Embarazo, lactancia, enfermedades autoinmunes activas.',
+                    preparation_instructions: 'No consumir alcohol 24h antes. Evitar antiinflamatorios.',
                     active: true,
                 },
                 {
@@ -167,6 +170,8 @@ async function seed() {
                     price_min: 200,
                     price_max: 350,
                     duration_min: 45,
+                    category: 'facial',
+                    contraindications: 'Herpes labial activo, embarazo.',
                     active: true,
                 },
                 {
@@ -176,6 +181,7 @@ async function seed() {
                     price_min: 80,
                     price_max: 120,
                     duration_min: 60,
+                    category: 'facial',
                     active: true,
                 },
             ]);
@@ -294,6 +300,16 @@ async function seed() {
         console.log(`✓ Cita de prueba creada para ${patient.name} — ${tomorrow.toLocaleDateString('es-CO', { timeZone: 'America/Bogota', weekday: 'long', day: 'numeric', month: 'long' })} 10:00 AM`);
     } else {
         console.log(`✓ Cita de prueba existente para ${patient.name}.`);
+    }
+
+    // ── 9. Compilar system_prompt desde los datos estructurados ─────────────
+    console.log('\nCompilando system_prompt desde datos de BD...');
+    try {
+        await PromptRebuildService.rebuildPromptForCompany(company.id);
+        console.log('✓ system_prompt compilado y guardado en agents');
+    } catch (err: any) {
+        console.warn(`⚠ No se pudo compilar el prompt: ${err.message}`);
+        console.warn('  El agente usará el placeholder hasta que se ejecute el rebuild.');
     }
 
     console.log('\n✅ Seed completado exitosamente.');

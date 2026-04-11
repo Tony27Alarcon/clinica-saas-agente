@@ -5,6 +5,7 @@ import { LogService } from './services/log.service';
 import { WebhookController } from './controllers/webhook.controller';
 import { OAuth2Client } from 'google-auth-library';
 import { ClinicasDbService } from './services/clinicas-db.service';
+import { PromptRebuildService } from './services/prompt-rebuild.service';
 
 // ============================================================================
 // Wiring del sink de persistencia: cada log emitido por el logger se buffer-ea
@@ -207,6 +208,37 @@ app.get('/auth/google/callback', async (req, res) => {
     }
 });
 
+// ─── Prompt Rebuild (interno) ────────────────────────────────────────────────
+
+/**
+ * Fuerza la recompilación del system_prompt de una clínica.
+ * Solo accesible con el API secret interno para evitar abuso.
+ *
+ * POST /internal/rebuild-prompt/:companyId
+ * Header: x-internal-secret: <env.INTERNAL_API_SECRET>
+ */
+app.post('/internal/rebuild-prompt/:companyId', async (req, res) => {
+    const secret = req.headers['x-internal-secret'];
+    if (!secret || secret !== env.INTERNAL_API_SECRET) {
+        res.status(401).json({ ok: false, error: 'No autorizado' });
+        return;
+    }
+
+    const { companyId } = req.params;
+    if (!companyId) {
+        res.status(400).json({ ok: false, error: 'companyId requerido' });
+        return;
+    }
+
+    try {
+        await PromptRebuildService.rebuildPromptForCompany(companyId);
+        res.json({ ok: true, message: `Prompt reconstruido para ${companyId}` });
+    } catch (err: any) {
+        logger.error(`[PromptRebuild] Error en endpoint: ${err.message}`);
+        res.status(500).json({ ok: false, error: err.message });
+    }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Healthcheck / Root
@@ -219,6 +251,12 @@ const PORT = env.PORT;
 const server = app.listen(PORT, () => {
     logger.info(`Servidor levantado en puerto ${PORT}`);
     logger.info('Listo para recibir peticiones webhook de Kapso.');
+
+    // Procesar la cola de rebuilds pendientes al arranque (sin bloquear).
+    // Captura cambios que ocurrieron mientras la app estaba caída.
+    PromptRebuildService.processRebuildQueue().catch(err =>
+        logger.warn(`[Startup] processRebuildQueue falló: ${(err as Error).message}`)
+    );
 });
 
 // ============================================================================

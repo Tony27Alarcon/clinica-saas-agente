@@ -1031,4 +1031,143 @@ export class ClinicasDbService {
             return null;
         }
     }
+
+    // ─── Prompt Compiler: carga de datos ────────────────────────────────────────
+
+    /**
+     * Carga todos los datos necesarios para buildSystemPrompt().
+     * Retorna el objeto PromptCompilerInput listo para pasar al compilador.
+     *
+     * Trae en paralelo: empresa + agente activo + tratamientos activos + staff activo.
+     */
+    static async getPromptCompilerData(companyId: string): Promise<import('./prompt-compiler.service').PromptCompilerInput> {
+        const [companyRes, agentRes, treatmentsRes, staffRes] = await Promise.all([
+            db()
+                .from('companies')
+                .select('name, city, address, timezone, currency, country_code, schedule')
+                .eq('id', companyId)
+                .single(),
+
+            db()
+                .from('agents')
+                .select(`
+                    name, tone,
+                    persona_description, clinic_description,
+                    booking_instructions, prohibited_topics,
+                    qualification_criteria, escalation_rules, objections_kb
+                `)
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .limit(1)
+                .single(),
+
+            db()
+                .from('treatments')
+                .select('name, description, price_min, price_max, duration_min, category, contraindications, preparation_instructions')
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .order('category', { ascending: true, nullsFirst: false })
+                .order('name', { ascending: true }),
+
+            db()
+                .from('staff')
+                .select('name, role, specialty')
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .order('name', { ascending: true }),
+        ]);
+
+        if (companyRes.error) throw new Error(`[PromptCompiler] company: ${companyRes.error.message}`);
+        if (agentRes.error)   throw new Error(`[PromptCompiler] agent: ${agentRes.error.message}`);
+
+        const company   = companyRes.data as any;
+        const agent     = agentRes.data as any;
+        const treatments = (treatmentsRes.data as any[]) ?? [];
+        const staff      = (staffRes.data as any[]) ?? [];
+
+        return {
+            company: {
+                name:         company.name,
+                city:         company.city   ?? null,
+                address:      company.address ?? null,
+                timezone:     company.timezone,
+                currency:     company.currency,
+                country_code: company.country_code,
+                schedule:     Array.isArray(company.schedule) && company.schedule.length > 0
+                                  ? company.schedule
+                                  : null,
+            },
+            agent: {
+                name:                  agent.name,
+                tone:                  agent.tone ?? 'amigable',
+                persona_description:   agent.persona_description   ?? null,
+                clinic_description:    agent.clinic_description    ?? null,
+                booking_instructions:  agent.booking_instructions  ?? null,
+                prohibited_topics:     agent.prohibited_topics     ?? [],
+                qualification_criteria: agent.qualification_criteria ?? {},
+                escalation_rules:       agent.escalation_rules       ?? {},
+                objections_kb:          agent.objections_kb          ?? [],
+            },
+            treatments: treatments.map((t: any) => ({
+                name:                     t.name,
+                description:              t.description              ?? null,
+                price_min:                t.price_min                ?? null,
+                price_max:                t.price_max                ?? null,
+                duration_min:             t.duration_min             ?? null,
+                category:                 t.category                 ?? null,
+                contraindications:        t.contraindications        ?? null,
+                preparation_instructions: t.preparation_instructions ?? null,
+            })),
+            staff: staff.map((s: any) => ({
+                name:      s.name,
+                role:      s.role      ?? null,
+                specialty: s.specialty ?? null,
+            })),
+        };
+    }
+
+    /**
+     * Actualiza agents.system_prompt con el prompt ya compilado.
+     * Llamado por PromptRebuildService después de buildSystemPrompt().
+     */
+    static async saveCompiledPrompt(companyId: string, systemPrompt: string): Promise<void> {
+        const { error } = await db()
+            .from('agents')
+            .update({ system_prompt: systemPrompt, updated_at: new Date().toISOString() })
+            .eq('company_id', companyId)
+            .eq('active', true);
+
+        if (error) throw new Error(`[PromptCompiler] saveCompiledPrompt: ${error.message}`);
+    }
+
+    /**
+     * Marca una fila de prompt_rebuild_queue como procesada.
+     */
+    static async markRebuildProcessed(queueId: number, errorMsg?: string): Promise<void> {
+        await db()
+            .from('prompt_rebuild_queue')
+            .update({
+                processed_at: new Date().toISOString(),
+                ...(errorMsg ? { error: errorMsg } : {}),
+            })
+            .eq('id', queueId);
+    }
+
+    /**
+     * Retorna las filas pendientes de la cola de rebuild (oldest first).
+     */
+    static async getPendingRebuildQueue(limit = 50): Promise<Array<{ id: number; company_id: string; triggered_by: string }>> {
+        const { data, error } = await db()
+            .from('prompt_rebuild_queue')
+            .select('id, company_id, triggered_by')
+            .is('processed_at', null)
+            .order('created_at', { ascending: true })
+            .limit(limit);
+
+        if (error) {
+            logger.warn(`[PromptCompiler] getPendingRebuildQueue: ${error.message}`);
+            return [];
+        }
+        return (data as any[]) ?? [];
+    }
 }
