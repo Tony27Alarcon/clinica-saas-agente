@@ -12,6 +12,151 @@
     <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@500;700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <style>
+        /* ─── Barra de anuncio ───────────────────────────────── */
+        .announce-bar {
+            background: var(--black-bg);
+            color: #fff;
+            text-align: center;
+            padding: 0.6rem 1.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .announce-bar a {
+            color: var(--card-green);
+            font-weight: 700;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .announce-bar a:hover { text-decoration: underline; }
+
+        /* ─── Barra de stats ─────────────────────────────────── */
+        .stats-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+            margin: 3rem auto 0;
+            overflow: hidden;
+        }
+        .stat-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 1.75rem 1.5rem;
+            gap: 0.4rem;
+        }
+        .stat-num {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            line-height: 1;
+        }
+        .stat-desc {
+            font-size: 0.82rem;
+            color: var(--text-light);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+        .stat-sep {
+            width: 2px;
+            height: 60px;
+            background: var(--border-color);
+            flex-shrink: 0;
+        }
+        @media (max-width: 700px) {
+            .stats-bar { flex-direction: column; border-radius: 20px; }
+            .stat-sep  { width: 60px; height: 2px; }
+            .stat-item { padding: 1.25rem; }
+            .stat-num  { font-size: 1.8rem; }
+        }
+
+        /* ─── Sección Dolor ──────────────────────────────────── */
+        .pain-section {
+            margin: 5rem auto 3rem;
+            text-align: center;
+        }
+        .pain-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #FFF0F0;
+            color: #C0392B;
+            border: 2px solid #F1948A;
+            padding: 0.35rem 1.1rem;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .pain-title {
+            font-size: clamp(1.8rem, 4vw, 2.8rem);
+            margin-bottom: 2.5rem;
+        }
+        .pain-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            text-align: left;
+        }
+        .pain-card {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .pain-card:hover { transform: translate(-3px,-3px); box-shadow: 8px 8px 0 rgba(0,0,0,1); }
+        .pain-number {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 800;
+            color: #C0392B;
+            line-height: 1;
+        }
+        .pain-card h4 {
+            font-family: var(--font-heading);
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0;
+        }
+        .pain-card p {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            line-height: 1.6;
+            margin: 0;
+            flex-grow: 1;
+        }
+        .pain-solution {
+            background: var(--card-green);
+            border-radius: 12px;
+            padding: 0.6rem 1rem;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin-top: 0.25rem;
+        }
+        @media (max-width: 900px) {
+            .pain-grid { grid-template-columns: 1fr; }
+            .pain-number { font-size: 2.5rem; }
+        }
+
         /* ─── Sección Empleado Virtual ──────────────────────── */
         .vs-section {
             margin-top: 6rem;
@@ -445,6 +590,12 @@
 </head>
 <body>
     
+    <!-- Barra de anuncio -->
+    <div class="announce-bar">
+        <span>🚀 Nuevo: integración con Google Calendar en tiempo real</span>
+        <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." target="_blank">Agendar demo →</a>
+    </div>
+
     <!-- Navbar flotante tipo pastilla -->
     <div class="nav-wrapper">
         <nav class="navbar pill-card">
@@ -467,70 +618,117 @@
     <header class="hero container text-center">
         <div class="hero-badge">
             <span class="avatars">👩‍⚕️🧑‍⚕️🏥</span>
-            <span class="badge-text">Más de 100 clientes felices</span>
+            <span class="badge-text">+100 clínicas en LATAM ya automatizan con IA</span>
         </div>
-        
+
         <h1 class="hero-title">
-            <span class="decorate-left">✧</span>
-            ¿Filtrar, Vender, Agendar, Responder?<br>Todo esto, automático y 24/7
-            <span class="decorate-right">〰️</span>
+            Tu clínica pierde citas<br>mientras el WhatsApp<br>espera respuesta
         </h1>
-        
+
         <p class="hero-subtitle">
-            Bruno Lab fue creado para clínicas y consultorios, centros de estética, nutricionistas y psicólogos que desean agendar más citas, calificar leads y reducir inasistencias de forma automática, sin perder el trato humano.
+            Un asistente con IA atiende al instante, califica leads, agenda en Google Calendar y manda recordatorios automáticos — sin que tú estés presente. Tu agenda llena, incluso a las 2am.
         </p>
-        
+
         <div class="hero-cta">
-            <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno Lab%20en%20mi%20clínica." class="btn btn-dark btn-lg">Quiero mi asistente ⚡</a>
-            <a href="#beneficios" class="btn btn-outline btn-lg">Saber Más</a>
+            <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20cl%C3%ADnica." class="btn btn-dark btn-lg">Activar mi asistente ⚡</a>
+            <a href="#dolor" class="btn btn-outline btn-lg">¿Cómo funciona?</a>
         </div>
-        
+
         <!-- Tarjetas decorativas superpuestas -->
         <div class="hero-cards-display">
             <div class="pop-card card-blue">
-                <div class="card-emoji">💬</div>
-                <h3>Chat Inteligente</h3>
+                <div class="card-emoji">⏱️</div>
+                <h3>Responde en &lt;1 min</h3>
             </div>
             <div class="pop-card card-pink card-main">
-                <div class="card-emoji">✌️</div>
-                <h3>Calificación 24/7</h3>
-                <div class="badge">IT'S MAGIC</div>
+                <div class="card-emoji">📉</div>
+                <h3>−30% No-shows</h3>
+                <div class="badge">PROBADO</div>
             </div>
             <div class="pop-card card-orange">
-                <div class="card-emoji">📅</div>
-                <h3>Agendamiento</h3>
+                <div class="card-emoji">🌙</div>
+                <h3>Agenda 24/7</h3>
             </div>
         </div>
     </header>
+
+    <!-- Barra de stats -->
+    <div class="stats-bar container">
+        <div class="stat-item">
+            <span class="stat-num">3 h</span>
+            <span class="stat-desc">al día recuperadas de<br>WhatsApps repetitivos</span>
+        </div>
+        <div class="stat-sep"></div>
+        <div class="stat-item">
+            <span class="stat-num">−30%</span>
+            <span class="stat-desc">de inasistencias con<br>recordatorio automático</span>
+        </div>
+        <div class="stat-sep"></div>
+        <div class="stat-item">
+            <span class="stat-num">62%</span>
+            <span class="stat-desc">de leads escriben<br>fuera del horario de atención</span>
+        </div>
+        <div class="stat-sep"></div>
+        <div class="stat-item">
+            <span class="stat-num">&lt;5 min</span>
+            <span class="stat-desc">tiempo de respuesta<br>de tu asistente IA</span>
+        </div>
+    </div>
+
+    <!-- Sección dolor específico -->
+    <section id="dolor" class="pain-section container">
+        <div class="pain-tag">😓 Lo que pasa en tu clínica cada semana</div>
+        <h2 class="pain-title">Tu equipo no puede con el volumen.<br>Tu agenda tampoco.</h2>
+        <div class="pain-grid">
+            <div class="pain-card">
+                <div class="pain-number">2–3 h</div>
+                <h4>Respondiendo WhatsApps que ya tienen respuesta</h4>
+                <p>Tu recepcionista pasa horas respondiendo "¿cuánto vale el botox?", "¿tienen disponibilidad el viernes?". Preguntas repetitivas que le roban tiempo a tareas que sí requieren humanos.</p>
+                <div class="pain-solution">✓ El asistente responde en segundos, 24/7, con tus propias palabras</div>
+            </div>
+            <div class="pain-card">
+                <div class="pain-number">30%</div>
+                <h4>De tus citas son no-shows evitables</h4>
+                <p>El paciente agendó, olvidó y no canceló. Tu turno quedó vacío. Un recordatorio automático 24h antes con opción de reagendar reduce esto a la mitad sin que nadie tenga que llamar.</p>
+                <div class="pain-solution">✓ Recordatorio automático + opción de reagendar por WhatsApp</div>
+            </div>
+            <div class="pain-card">
+                <div class="pain-number">2am</div>
+                <h4>Leads que escriben y no reciben respuesta hasta el día siguiente</h4>
+                <p>El 62% de las consultas llegan fuera del horario de atención. Si no respondes en los primeros 5 minutos, el lead ya está hablando con otra clínica que sí estaba disponible.</p>
+                <div class="pain-solution">✓ Primera respuesta en menos de 1 minuto, a cualquier hora</div>
+            </div>
+        </div>
+    </section>
 
     <!-- Características (Estilo Dark Neopop) -->
     <section id="beneficios" class="features-section container">
         <div class="feature-layout-dark pill-card-large">
             <div class="feature-text">
-                <h2>Descubre el verdadero<br>piloto automático</h2>
-                <p>Nuestro método filtra curiosos y atiende solo a pacientes y clientes reales listos para agendar su consulta o tratamiento. Se integra directo en tu WhatsApp actual en 10 minutos. Nosotros configuramos a tu asistente inteligente con tus servicios.</p>
-                <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno Lab%20en%20mi%20negocio." class="btn btn-lavender">Cotizar setup gratis</a>
+                <h2>Un asistente entrenado<br>con tu clínica, listo<br>desde el día 1</h2>
+                <p>Configuramos el asistente con tus servicios, precios, criterios de calificación y tono de voz. Se conecta a tu WhatsApp actual sin cambiar nada. En menos de una semana está operando solo.</p>
+                <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn btn-lavender">Hablar con el equipo →</a>
             </div>
             <div class="feature-cards-grid">
                 <div class="feature-mini-card">
                     <span class="icon">🎯</span>
-                    <h4>Calificación Automática</h4>
-                    <p>Filtros inteligentes activos</p>
+                    <h4>Califica antes de agendar</h4>
+                    <p>Filtra curiosos. Solo pasan los leads con intención real de compra.</p>
                 </div>
                 <div class="feature-mini-card">
-                    <span class="icon">✨</span>
-                    <h4>Reducción No-Shows</h4>
-                    <p>Recordatorios 24h antes</p>
+                    <span class="icon">📉</span>
+                    <h4>−30% de no-shows</h4>
+                    <p>Recordatorio 24h antes con enlace para reagendar sin llamadas.</p>
                 </div>
                 <div class="feature-mini-card">
-                    <span class="icon">📋</span>
-                    <h4>Historia Clínica</h4>
-                    <p>PDF previo a consulta</p>
+                    <span class="icon">📅</span>
+                    <h4>Agenda en Google Calendar</h4>
+                    <p>Disponibilidad en tiempo real. Sin doble agendamiento.</p>
                 </div>
                 <div class="feature-mini-card" style="background:#B2A4FF; color:#18181A; border: none;">
-                    <span class="icon">🚀</span>
-                    <h4>Agendamiento</h4>
-                    <p style="color:#18181A; font-weight: 500;">Sin formularios externos</p>
+                    <span class="icon">🌙</span>
+                    <h4>Activo a las 2am</h4>
+                    <p style="color:#18181A; font-weight: 500;">Cierra turnos mientras duermes. Sin horas extra.</p>
                 </div>
             </div>
         </div>
