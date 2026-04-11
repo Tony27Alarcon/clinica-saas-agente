@@ -641,9 +641,11 @@
                             <span class="roi-label-hint">¿Cuánto cobra por consulta o tratamiento?</span>
                         </label>
                         <div class="roi-input-wrapper">
-                            <span class="roi-input-prefix">$</span>
-                            <input id="roi-cita-value" class="roi-input" type="number" min="10" max="10000" step="10" value="150" placeholder="150">
-                            <span class="roi-input-suffix">USD</span>
+                            <select id="roi-currency" class="roi-input" style="width: auto; padding: 0 5px; margin-right: 5px; border-right: 1px solid #ccc;">
+                                <option value="USD">USD</option>
+                                <option value="COP">COP</option>
+                            </select>
+                            <input id="roi-cita-value" class="roi-input" type="number" min="10" max="10000000" step="10" value="150" placeholder="150">
                         </div>
                     </div>
                     <div class="roi-input-group">
@@ -860,6 +862,14 @@
         </div>
     </section>
 
+    <!-- ─── Bloque "Ver más" ────────────────────────────────── -->
+    <section style="text-align:center; padding: 4rem 1.5rem 5rem; max-width:700px; margin:0 auto;">
+        <p style="font-size:0.9rem; font-weight:700; letter-spacing:0.06em; color:var(--text-light); text-transform:uppercase; margin-bottom:0.75rem;">¿Quieres saber más?</p>
+        <h2 style="font-size:clamp(1.8rem,4vw,2.8rem); margin-bottom:1rem;">Conoce todo lo que Bruno Lab puede hacer</h2>
+        <p style="color:var(--text-light); font-size:1.1rem; margin-bottom:2rem;">Calificación, agendamiento, recordatorios, integraciones y más. Todo explicado sin tecnicismos.</p>
+        <a href="capacidades.html" class="btn btn-dark btn-lg" style="box-shadow:5px 5px 0 rgba(0,0,0,1);">Ver capacidades completas →</a>
+    </section>
+
     <footer class="footer container">
         <div class="footer-inner shadow-pop">
             <div class="logo">
@@ -918,9 +928,16 @@
         var rsIngresos  = document.getElementById('rs-ingresos');
         var rsDias      = document.getElementById('rs-dias');
 
-        var state = { citaValue: 150, convs: 600, planCost: 199, planName: 'Growth', convRate: 15 };
+        var currencySelect = document.getElementById('roi-currency');
 
-        function fmtUSD(n) { return '$' + n.toLocaleString('en-US'); }
+        var state = { citaValue: 150, convs: 600, planCost: 199, planName: 'Growth', convRate: 15, currency: 'USD' };
+
+        function fmtCurrency(n, currency) {
+            if (currency === 'COP') {
+                return '$' + n.toLocaleString('es-CO') + ' COP';
+            }
+            return '$' + n.toLocaleString('en-US') + ' USD';
+        }
         function fmtNum(n) { return n.toLocaleString('es-CO'); }
 
         function calculate() {
@@ -935,18 +952,22 @@
                 diasText = diasRaw < 1 ? 'menos de 1 día' : Math.ceil(diasRaw) + ' días';
             }
             outCitas.textContent    = fmtNum(citasRec) + ' citas';
-            outIngresos.textContent = fmtUSD(ingresos);
+            outIngresos.textContent = fmtCurrency(ingresos, state.currency);
             outAmortiza.textContent = diasText;
-            rsPlan.textContent      = state.planName + ' ($' + state.planCost + '/mes)';
+            rsPlan.textContent      = state.planName + ' ($' + state.planCost + ' ' + state.currency + '/mes)';
             rsCitas.textContent     = fmtNum(citasRec) + ' citas';
             rsConvs.textContent     = fmtNum(state.convs) + ' conversaciones';
-            rsIngresos.textContent  = fmtUSD(ingresos) + ' USD';
+            rsIngresos.textContent  = fmtCurrency(ingresos, state.currency);
             rsDias.textContent      = diasText;
         }
 
         inputCita.addEventListener('input', function () {
             var val = parseInt(this.value, 10);
             state.citaValue = (!isNaN(val) && val >= 1) ? val : 1;
+            calculate();
+        });
+        currencySelect.addEventListener('change', function () {
+            state.currency = this.value;
             calculate();
         });
         sliderConv.addEventListener('input', function () {
