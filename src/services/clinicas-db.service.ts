@@ -423,10 +423,10 @@ export class ClinicasDbService {
         newEndsAt?: string
     ): Promise<any> {
         try {
-            // Verificar ownership y leer gcal_event_id
+            // Verificar ownership y leer gcal_event_id + gcal_calendar_id
             const { data: appt, error: fetchErr } = await db()
                 .from('appointments')
-                .select('id, company_id, slot_id, gcal_event_id, scheduled_at')
+                .select('id, company_id, slot_id, gcal_event_id, gcal_calendar_id, scheduled_at')
                 .eq('id', appointmentId)
                 .maybeSingle();
 
@@ -476,11 +476,19 @@ export class ClinicasDbService {
                 }
 
                 if ((appt as any).gcal_event_id) {
-                    const gcalCfg = await this.getGCalConfig(companyId);
+                    // Busca el calendario específico (multi-cal); fallback al primero activo
+                    const calId = (appt as any).gcal_calendar_id as string | undefined;
+                    const gcalCfg = calId
+                        ? await this.getGCalConfigByCalendarId(companyId, calId)
+                        : await this.getGCalConfigs(companyId).then(cs => cs[0] ?? null);
                     if (gcalCfg) {
+                        const cancelOAuth = gcalCfg.staffId
+                            ? await this.getStaffOAuthTokens(gcalCfg.staffId).then(t => t?.refreshToken)
+                            : undefined;
                         GoogleCalendarService.cancelAppointmentEvent(
                             gcalCfg.calendarId,
-                            (appt as any).gcal_event_id
+                            (appt as any).gcal_event_id,
+                            cancelOAuth
                         ).catch((err: Error) =>
                             logger.warn(`[Clinicas] GCal cancel ${(appt as any).gcal_event_id}: ${err.message}`)
                         );
@@ -490,17 +498,22 @@ export class ClinicasDbService {
 
             // Si se reprograma y hay evento GCal, mover el evento
             if (newStatus === 'rescheduled' && newStartsAt && (appt as any).gcal_event_id) {
-                const gcalCfg = await this.getGCalConfig(companyId);
-                const company = await this.getCompanyById(companyId);
-                const tz = company?.timezone || 'America/Bogota';
+                const calId = (appt as any).gcal_calendar_id as string | undefined;
+                const gcalCfg = calId
+                    ? await this.getGCalConfigByCalendarId(companyId, calId)
+                    : await this.getGCalConfigs(companyId).then(cs => cs[0] ?? null);
 
                 if (gcalCfg && newEndsAt) {
+                    const reschedOAuth = gcalCfg.staffId
+                        ? await this.getStaffOAuthTokens(gcalCfg.staffId).then(t => t?.refreshToken)
+                        : undefined;
                     GoogleCalendarService.rescheduleAppointmentEvent({
                         calendarId: gcalCfg.calendarId,
                         gcalEventId: (appt as any).gcal_event_id,
                         newStartAt: newStartsAt,
                         newEndAt: newEndsAt,
-                        timezone: tz,
+                        timezone: gcalCfg.timezone,
+                        refreshToken: reschedOAuth,
                     }).catch((err: Error) =>
                         logger.warn(`[Clinicas] GCal reschedule ${(appt as any).gcal_event_id}: ${err.message}`)
                     );
@@ -656,34 +669,109 @@ export class ClinicasDbService {
     // ─── Google Calendar ───────────────────────────────────────────────────────
 
     /**
-     * Obtiene la configuración de Google Calendar de una clínica.
-     * Retorna null si la clínica no tiene GCal configurado o está inactivo.
+     * Retorna TODOS los calendarios de Google Calendar activos de una clínica.
+     * Permite multi-calendario: una fila por profesional/sala/recurso.
      */
-    static async getGCalConfig(companyId: string): Promise<GCalConfig | null> {
+    static async getGCalConfigs(companyId: string): Promise<GCalConfig[]> {
         try {
             const { data, error } = await db()
                 .from('gcal_config')
-                .select('calendar_id, work_start, work_end, work_days, default_slot_min')
+                .select('calendar_id, work_start, work_end, work_days, default_slot_min, staff_name, staff_specialty, staff_id')
                 .eq('company_id', companyId)
-                .eq('active', true)
+                .eq('active', true);
+
+            if (error || !data || (data as any[]).length === 0) return [];
+
+            const company = await this.getCompanyById(companyId);
+            const timezone = company?.timezone || 'America/Bogota';
+
+            return (data as any[]).map(row => ({
+                calendarId: row.calendar_id,
+                workStart: row.work_start,
+                workEnd: row.work_end,
+                workDays: row.work_days,
+                defaultSlotMin: row.default_slot_min,
+                timezone,
+                staffName: row.staff_name || '',
+                staffSpecialty: row.staff_specialty || '',
+                staffId: row.staff_id || null,
+            }));
+        } catch (error) {
+            logger.error(`[Clinicas] getGCalConfigs: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Obtiene la configuración de Google Calendar de una clínica.
+     * Retorna null si la clínica no tiene GCal configurado o está inactivo.
+     * @deprecated Usa getGCalConfigs() para soporte multi-calendario.
+     */
+    static async getGCalConfig(companyId: string): Promise<GCalConfig | null> {
+        const configs = await this.getGCalConfigs(companyId);
+        return configs[0] ?? null;
+    }
+
+    /**
+     * Busca la configuración de un calendario específico por su calendarId.
+     * Usado al cancelar/reprogramar citas en entornos multi-calendario.
+     */
+    static async getGCalConfigByCalendarId(
+        companyId: string,
+        calendarId: string
+    ): Promise<GCalConfig | null> {
+        const configs = await this.getGCalConfigs(companyId);
+        return configs.find(c => c.calendarId === calendarId) ?? null;
+    }
+
+    /**
+     * Crea o actualiza la fila de gcal_config para un miembro del staff.
+     * Se llama automáticamente al completar el flujo OAuth.
+     *
+     * calendar_id = 'primary' porque el token OAuth ya apunta al calendario
+     * principal del staff; no se necesita un ID explícito.
+     *
+     * El horario laboral (work_start/end/days) se inicializa con valores por
+     * defecto razonables. El admin puede ajustarlos después si es necesario.
+     *
+     * El upsert usa staff_id como clave de conflicto para que re-conectar el
+     * OAuth no genere filas duplicadas.
+     */
+    static async upsertStaffGCalConfig(staffId: string, companyId: string): Promise<void> {
+        try {
+            // Leer nombre y especialidad del staff para pre-llenar gcal_config
+            const { data: staffRow } = await db()
+                .from('staff')
+                .select('name, specialty')
+                .eq('id', staffId)
                 .maybeSingle();
 
-            if (error || !data) return null;
+            const staffName      = (staffRow as any)?.name      || '';
+            const staffSpecialty = (staffRow as any)?.specialty || '';
 
-            // Necesitamos la timezone de la clínica
-            const company = await this.getCompanyById(companyId);
+            const { error } = await db()
+                .from('gcal_config')
+                .upsert(
+                    {
+                        company_id:       companyId,
+                        staff_id:         staffId,
+                        calendar_id:      'primary',
+                        work_start:       '09:00',
+                        work_end:         '18:00',
+                        work_days:        [1, 2, 3, 4, 5],
+                        default_slot_min: 60,
+                        staff_name:       staffName,
+                        staff_specialty:  staffSpecialty,
+                        active:           true,
+                    },
+                    { onConflict: 'staff_id' }
+                );
 
-            return {
-                calendarId: (data as any).calendar_id,
-                workStart: (data as any).work_start,
-                workEnd: (data as any).work_end,
-                workDays: (data as any).work_days,
-                defaultSlotMin: (data as any).default_slot_min,
-                timezone: company?.timezone || 'America/Bogota',
-            };
+            if (error) throw error;
+            logger.info(`[Clinicas] gcal_config upserted para staff ${staffId} (${staffName})`);
         } catch (error) {
-            logger.error(`[Clinicas] getGCalConfig: ${(error as Error).message}`);
-            return null;
+            logger.error(`[Clinicas] upsertStaffGCalConfig: ${(error as Error).message}`);
+            throw error;
         }
     }
 
@@ -719,27 +807,51 @@ export class ClinicasDbService {
         slotDurationMin?: number,
         limit: number = 10
     ): Promise<{ slots: any[]; source: 'gcal' | 'db' }> {
-        // Intentar GCal primero
-        if ((env as any).GOOGLE_SERVICE_ACCOUNT_JSON) {
-            try {
-                const gcalConfig = await this.getGCalConfig(companyId);
+        // Intentar GCal primero (soporta múltiples calendarios por clínica)
+        // Funciona con calendarios OAuth (staff personal) y Service Account (clínica genérica)
+        try {
+            const gcalConfigs = await this.getGCalConfigs(companyId);
 
-                if (gcalConfig) {
-                    const duration = slotDurationMin ?? gcalConfig.defaultSlotMin;
-                    const lookAhead = (env as any).GCAL_LOOK_AHEAD_DAYS || 14;
-                    const gcalSlots = await GoogleCalendarService.getAvailableSlots(
-                        gcalConfig,
-                        duration,
-                        limit,
-                        lookAhead
-                    );
-                    logger.info(`[Clinicas] GCal slots: ${gcalSlots.length} (company: ${companyId})`);
-                    return { slots: gcalSlots, source: 'gcal' };
+            if (gcalConfigs.length > 0) {
+                const lookAhead = (env as any).GCAL_LOOK_AHEAD_DAYS || 14;
+
+                // Consultar todos los calendarios en paralelo.
+                // Para configs con staffId → obtener OAuth token y pasarlo a getAvailableSlots.
+                // Para configs sin staffId → usar Service Account (requiere GOOGLE_SERVICE_ACCOUNT_JSON).
+                const slotArrays = await Promise.all(
+                    gcalConfigs.map(async config => {
+                        const duration = slotDurationMin ?? config.defaultSlotMin;
+
+                        let refreshToken: string | undefined;
+                        if (config.staffId) {
+                            const oauth = await this.getStaffOAuthTokens(config.staffId);
+                            refreshToken = oauth?.refreshToken;
+                        }
+
+                        // Saltar calendarios SA si no está configurada la variable de entorno
+                        if (!refreshToken && !(env as any).GOOGLE_SERVICE_ACCOUNT_JSON) {
+                            logger.warn(`[Clinicas] gcal_config ${config.calendarId} sin OAuth ni SA — omitido`);
+                            return [] as any[];
+                        }
+
+                        return GoogleCalendarService.getAvailableSlots(config, duration, limit, lookAhead, refreshToken);
+                    })
+                );
+
+                // Mezclar, ordenar por fecha y limitar al total pedido
+                const allSlots = slotArrays
+                    .flat()
+                    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+                    .slice(0, limit);
+
+                if (allSlots.length > 0) {
+                    logger.info(`[Clinicas] GCal slots: ${allSlots.length} (${gcalConfigs.length} calendarios, company: ${companyId})`);
+                    return { slots: allSlots, source: 'gcal' };
                 }
-            } catch (err: any) {
-                logger.warn(`[Clinicas] GCal freebusy error, retornando vacío: ${err.message}`);
-                return { slots: [], source: 'gcal' };
             }
+        } catch (err: any) {
+            logger.warn(`[Clinicas] GCal freebusy error, retornando vacío: ${err.message}`);
+            return { slots: [], source: 'gcal' };
         }
 
         // Fallback: slots de BD (clínica sin GCal configurado)
@@ -773,9 +885,18 @@ export class ClinicasDbService {
             }
 
             try {
-                const gcalConfig = await this.getGCalConfig(companyId);
+                // Buscar el calendario específico al que pertenece este slot
+                const gcalConfigs = await this.getGCalConfigs(companyId);
+                const gcalConfig = gcalConfigs.find(c => slotId.includes(c.calendarId)) ?? gcalConfigs[0];
                 if (!gcalConfig) {
                     return { ok: false, error: 'La clínica no tiene Google Calendar configurado' };
+                }
+
+                // Obtener OAuth token si el calendario es personal del staff
+                let refreshToken: string | undefined;
+                if (gcalConfig.staffId) {
+                    const oauth = await this.getStaffOAuthTokens(gcalConfig.staffId);
+                    refreshToken = oauth?.refreshToken;
                 }
 
                 // Crear evento en Google Calendar
@@ -794,6 +915,7 @@ export class ClinicasDbService {
                     endAt: endsAt,
                     timezone: gcalConfig.timezone,
                     attendeeEmail: contactEmail,
+                    refreshToken,
                 });
 
                 // Insertar en BD sin slot_id
@@ -805,6 +927,7 @@ export class ClinicasDbService {
                         treatment_id: treatmentId || null,
                         slot_id: null,
                         gcal_event_id: gcalEventId,
+                        gcal_calendar_id: gcalConfig.calendarId,
                         scheduled_at: startsAt,
                         status: 'scheduled',
                         notes: notes || null,

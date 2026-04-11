@@ -11,6 +11,160 @@
     <!-- Use Epilogue for playful bold display and Outfit for clean sans -->
     <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@500;700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <style>
+        /* ─── Sección Empleado Virtual ──────────────────────── */
+        .vs-section {
+            margin-top: 6rem;
+            margin-bottom: 2rem;
+        }
+        .vs-heading { margin-bottom: 0.75rem; }
+        .vs-intro { max-width: 680px; margin-bottom: 3rem; }
+
+        /* Pill label (replicado de capacidades.html) */
+        .vs-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: var(--purple-light);
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        /* Grid principal: dos columnas + divisor VS */
+        .vs-grid {
+            display: grid;
+            grid-template-columns: 1fr 60px 1fr;
+            gap: 0;
+            align-items: stretch;
+        }
+
+        /* Card base */
+        .vs-card {
+            padding: 2.5rem;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        .vs-card-human {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            box-shadow: 8px 8px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .vs-card-human:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 11px 11px 0 rgba(0,0,0,1);
+        }
+        .vs-card-bruno {
+            background: var(--black-bg);
+            border: 3px solid var(--border-color);
+            border-radius: 28px;
+            box-shadow: 8px 8px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .vs-card-bruno:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 11px 11px 0 rgba(0,0,0,1);
+        }
+
+        /* Header de cada card */
+        .vs-card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.2rem;
+        }
+        .vs-card-emoji { font-size: 2.8rem; line-height: 1; flex-shrink: 0; }
+        .vs-card-label {
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-light);
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .vs-card-bruno .vs-card-label { color: #71717A; }
+        .vs-card-price {
+            font-family: var(--font-heading);
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            line-height: 1.1;
+        }
+        .vs-card-price span {
+            font-family: var(--font-body);
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-light);
+        }
+        .vs-price-highlight { color: var(--card-green); }
+        .vs-card-bruno .vs-card-price { color: #fff; }
+
+        /* Lista de items */
+        .vs-list { list-style: none; display: flex; flex-direction: column; gap: 1.2rem; flex-grow: 1; }
+        .vs-item { display: flex; align-items: flex-start; gap: 1rem; }
+        .vs-item strong { display: block; font-size: 1rem; font-weight: 700; color: var(--text-dark); margin-bottom: 0.1rem; }
+        .vs-item span   { font-size: 0.88rem; color: var(--text-light); font-weight: 400; }
+        .vs-card-bruno .vs-item strong { color: #fff; }
+        .vs-card-bruno .vs-item span   { color: #A1A1AA; }
+
+        /* Dots ✗ / ✓ */
+        .vs-dot {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 0.85rem;
+            flex-shrink: 0;
+            border: 2px solid var(--border-color);
+            margin-top: 0.05rem;
+        }
+        .vs-dot-bad  { background: #FFE4E4; color: #D93025; border-color: #D93025; }
+        .vs-dot-good { background: var(--card-green); color: var(--text-dark); }
+
+        /* Divisor central con badge VS */
+        .vs-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+        }
+        .vs-vs-badge {
+            background: var(--card-orange);
+            color: var(--text-dark);
+            border: 3px solid var(--border-color);
+            border-radius: 50%;
+            width: 52px; height: 52px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-heading);
+            font-weight: 800; font-size: 1rem;
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            flex-shrink: 0;
+        }
+
+        /* CTA al pie de card Bruno */
+        .vs-cta-btn { align-self: stretch; text-align: center; margin-top: auto; }
+
+        /* ─── Responsive Empleado Virtual ─────────────────── */
+        @media (max-width: 900px) {
+            .vs-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+            .vs-divider { padding: 0; }
+            .vs-vs-badge { width: 44px; height: 44px; font-size: 0.9rem; }
+        }
+        @media (max-width: 600px) {
+            .vs-section { margin-top: 4rem; }
+            .vs-card { padding: 1.5rem; border-radius: 24px; }
+            .vs-card-price { font-size: 1.6rem; }
+        }
+    </style>
 </head>
 <body>
     
@@ -24,6 +178,7 @@
                 <a href="#beneficios">Beneficios</a>
                 <a href="#precios">Precios</a>
                 <a href="#testimonios">El Impacto</a>
+                <a href="capacidades.html">Capacidades</a>
             </div>
             <div class="nav-actions">
                 <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno Lab%20en%20mi%20negocio." class="btn btn-dark btn-sm">Probar ahora</a>
@@ -101,6 +256,90 @@
                     <p style="color:#18181A; font-weight: 500;">Sin formularios externos</p>
                 </div>
             </div>
+        </div>
+    </section>
+
+    <!-- Empleado Virtual vs Bruno Lab -->
+    <section class="vs-section container">
+        <div class="vs-pill">💰 El costo real de no automatizar</div>
+        <h2 class="vs-heading">Empleado virtual por una<br>fracción del costo humano</h2>
+        <p class="vs-intro">Antes de ver los precios, compara lo que realmente pagas por un empleado de ventas y agenda frente a Bruno Lab.</p>
+        <div class="vs-grid">
+
+            <!-- Empleado humano -->
+            <div class="vs-card vs-card-human">
+                <div class="vs-card-header">
+                    <div class="vs-card-emoji">👤</div>
+                    <div>
+                        <div class="vs-card-label">Empleado humano de ventas</div>
+                        <div class="vs-card-price">$1,500 – $3,000 <span>USD/mes</span></div>
+                    </div>
+                </div>
+                <ul class="vs-list">
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-bad">✗</span>
+                        <div><strong>8 horas al día, 5 días</strong><span>Fuera de horario, los leads no reciben respuesta</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-bad">✗</span>
+                        <div><strong>Vacaciones y ausencias</strong><span>Tu agenda se detiene cuando él se detiene</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-bad">✗</span>
+                        <div><strong>Semanas de curva de aprendizaje</strong><span>Errores, mal manejo de objeciones, rotación frecuente</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-bad">✗</span>
+                        <div><strong>Escalar = contratar más personas</strong><span>Cada lead adicional exige más nómina</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-bad">✗</span>
+                        <div><strong>Prestaciones y cargas sociales</strong><span>El costo real supera el salario bruto en 30–60%</span></div>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Divisor VS -->
+            <div class="vs-divider">
+                <div class="vs-vs-badge">VS</div>
+            </div>
+
+            <!-- Bruno Lab -->
+            <div class="vs-card vs-card-bruno">
+                <div class="vs-card-header">
+                    <div class="vs-card-emoji">✨</div>
+                    <div>
+                        <div class="vs-card-label">Bruno Lab</div>
+                        <div class="vs-card-price vs-price-highlight">Desde $99 <span>USD/mes</span></div>
+                    </div>
+                </div>
+                <ul class="vs-list">
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-good">✓</span>
+                        <div><strong>24/7/365 sin parar</strong><span>Responde a las 2 AM igual que a las 10 AM</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-good">✓</span>
+                        <div><strong>Cero ausencias garantizadas</strong><span>Sin vacaciones, sin enfermedades, sin excusas</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-good">✓</span>
+                        <div><strong>Entrenado desde el día 1</strong><span>Tu guion, tus precios, tus filtros — listo desde el setup</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-good">✓</span>
+                        <div><strong>Escala sin costo adicional por hora</strong><span>200 o 1,500 conversaciones: mismo precio de plan</span></div>
+                    </li>
+                    <li class="vs-item">
+                        <span class="vs-dot vs-dot-good">✓</span>
+                        <div><strong>Sin nómina, sin cargas, sin drama</strong><span>Factura mensual fija, cancela cuando quieras</span></div>
+                    </li>
+                </ul>
+                <a href="capacidades.html#calculadora" class="btn btn-lavender vs-cta-btn">
+                    Calcular cuántas citas necesito recuperar →
+                </a>
+            </div>
+
         </div>
     </section>
 

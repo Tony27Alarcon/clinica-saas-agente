@@ -14,6 +14,9 @@ export interface GCalConfig {
     workDays: number[];     // [1,2,3,4,5] — 0=domingo
     defaultSlotMin: number;
     timezone: string;       // IANA, ej: "America/Bogota"
+    staffName: string;         // Nombre del profesional, ej: "Dra. García"
+    staffSpecialty: string;    // Especialidad, ej: "Medicina Estética"
+    staffId?: string | null;   // UUID de clinicas.staff; si presente → usar OAuth, si null → Service Account
 }
 
 /**
@@ -115,9 +118,15 @@ export class GoogleCalendarService {
         config: GCalConfig,
         slotDurationMin: number,
         limit: number,
-        lookAheadDays: number = 14
+        lookAheadDays: number = 14,
+        refreshToken?: string
     ): Promise<GCalSlot[]> {
-        const calendar = this.getClient();
+        // Si hay refreshToken del staff, usar OAuth (su calendario personal).
+        // Si no, usar Service Account (calendario compartido de la clínica).
+        const calendar = refreshToken ? this.getOAuthClient(refreshToken) : this.getClient();
+
+        // Para OAuth: siempre consultar 'primary'. Para SA: usar el calendarId configurado.
+        const freebusyCalendarId = refreshToken ? 'primary' : config.calendarId;
 
         const now = new Date();
         const maxDate = new Date(now.getTime() + lookAheadDays * 86_400_000);
@@ -128,12 +137,12 @@ export class GoogleCalendarService {
                 timeMin: now.toISOString(),
                 timeMax: maxDate.toISOString(),
                 timeZone: 'UTC',
-                items: [{ id: config.calendarId }],
+                items: [{ id: freebusyCalendarId }],
             },
         });
 
         const busyTimes: Array<{ start: Date; end: Date }> =
-            (freeBusyRes.data.calendars?.[config.calendarId]?.busy || [])
+            (freeBusyRes.data.calendars?.[freebusyCalendarId]?.busy || [])
                 .map((b: any) => ({
                     start: new Date(b.start),
                     end: new Date(b.end),
@@ -179,8 +188,8 @@ export class GoogleCalendarService {
                     if (!isBusy) {
                         availableSlots.push({
                             slot_id: `gcal_${config.calendarId}_${slotStart.toISOString()}`,
-                            staff_name: 'Disponible',
-                            staff_specialty: '',
+                            staff_name: config.staffName || 'Disponible',
+                            staff_specialty: config.staffSpecialty || '',
                             starts_at: slotStart.toISOString(),
                             ends_at: slotEnd.toISOString(),
                             duration_min: slotDurationMin,
@@ -252,11 +261,13 @@ export class GoogleCalendarService {
      */
     static async cancelAppointmentEvent(
         calendarId: string,
-        gcalEventId: string
+        gcalEventId: string,
+        refreshToken?: string
     ): Promise<void> {
         try {
-            const calendar = this.getClient();
-            await calendar.events.delete({ calendarId, eventId: gcalEventId });
+            const calendar = refreshToken ? this.getOAuthClient(refreshToken) : this.getClient();
+            const targetCalendarId = refreshToken ? 'primary' : calendarId;
+            await calendar.events.delete({ calendarId: targetCalendarId, eventId: gcalEventId });
             logger.info(`[GCal] Evento cancelado: ${gcalEventId}`);
         } catch (err: any) {
             // 410 Gone o 404 = evento ya eliminado — no es un error
@@ -278,11 +289,13 @@ export class GoogleCalendarService {
         newStartAt: string;
         newEndAt: string;
         timezone: string;
+        refreshToken?: string;
     }): Promise<void> {
-        const calendar = this.getClient();
+        const calendar = params.refreshToken ? this.getOAuthClient(params.refreshToken) : this.getClient();
+        const targetCalendarId = params.refreshToken ? 'primary' : params.calendarId;
 
         await calendar.events.patch({
-            calendarId: params.calendarId,
+            calendarId: targetCalendarId,
             eventId: params.gcalEventId,
             requestBody: {
                 start: { dateTime: params.newStartAt, timeZone: params.timezone },

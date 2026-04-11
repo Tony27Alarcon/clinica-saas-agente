@@ -181,6 +181,10 @@ app.get('/auth/google/callback', async (req, res) => {
             email,
         });
 
+        // Crear/actualizar fila en gcal_config para que el agente de pacientes
+        // pueda ver la disponibilidad de este staff sin configuración manual.
+        await ClinicasDbService.upsertStaffGCalConfig(staffId, companyId);
+
         logger.info(`[OAuth Callback] Staff ${staffId} conectó Google Calendar (${email})`);
 
         res.send(`

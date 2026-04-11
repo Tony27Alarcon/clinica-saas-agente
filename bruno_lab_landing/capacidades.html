@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Todo lo que Bruno Lab puede hacer por tu consultorio o clínica: calificación de leads, agendamiento, recordatorios, seguimiento y más.">
+    <title>Bruno Lab | Capacidades del Asistente</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@500;700;800&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+
+        /* ─── Page-specific layout ─────────────────────────── */
+
+        .page-hero {
+            padding: 3rem 0 4rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .page-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--card-blue);
+            color: var(--text-dark);
+            padding: 0.4rem 1.2rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-weight: 700;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .page-hero h1 { font-size: clamp(2.5rem, 5vw, 4.2rem); }
+
+        /* ─── Section label pill ────────────────────────────── */
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            background: var(--card-green);
+        }
+        .section-label.orange { background: var(--card-orange); }
+        .section-label.pink   { background: var(--card-pink); }
+        .section-label.blue   { background: var(--card-blue); }
+        .section-label.purple { background: var(--purple-light); }
+
+        /* ─── Pipeline flow ─────────────────────────────────── */
+        .pipeline-section {
+            margin: 2rem 0 7rem;
+        }
+        .pipeline-section > h2 {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .pipeline-flow {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            border: 3px solid var(--border-color);
+            border-radius: 32px;
+            overflow: hidden;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+        }
+
+        .pipeline-step {
+            padding: 2.5rem 1.5rem;
+            background: #fff;
+            border-right: 2px solid var(--border-color);
+            transition: background 0.25s;
+            cursor: default;
+        }
+        .pipeline-step:last-child { border-right: none; }
+        .pipeline-step:hover      { background: var(--card-blue); }
+
+        .step-num {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--purple-light);
+            line-height: 1;
+            margin-bottom: 0.4rem;
+        }
+        .step-icon { font-size: 2.2rem; margin-bottom: 0.8rem; }
+
+        .pipeline-step h4 {
+            font-family: var(--font-heading);
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+            color: var(--text-dark);
+        }
+        .pipeline-step p {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        /* ─── Capabilities dark ─────────────────────────────── */
+        .capabilities-section { margin: 4rem 0 8rem; }
+
+        .capabilities-dark {
+            background: var(--black-bg);
+            border-radius: 40px;
+            padding: 4.5rem 4rem;
+        }
+        .capabilities-dark h2 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .cap-subtitle {
+            text-align: center;
+            color: #A1A1AA;
+            margin-bottom: 3rem;
+            font-size: 1.1rem;
+        }
+
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        /* ─── Admin controls ────────────────────────────────── */
+        .admin-section { margin: 4rem 0 8rem; }
+
+        .admin-section > h2    { margin-bottom: 0.5rem; }
+        .admin-section > h2 em { font-style: normal; text-decoration: underline; text-decoration-color: var(--card-green); text-underline-offset: 6px; }
+
+        .admin-intro {
+            max-width: 600px;
+            margin: 0 0 3rem;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+        }
+
+        .admin-card {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .admin-card:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 8px 8px 0 rgba(0,0,0,1);
+        }
+        .admin-card-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
+
+        .admin-card-tag {
+            display: inline-block;
+            background: var(--grid-line);
+            color: var(--text-dark);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.2rem 0.8rem;
+            border-radius: 50px;
+            border: 1.5px solid var(--border-color);
+            margin-bottom: 0.8rem;
+        }
+
+        .admin-card h4 {
+            font-family: var(--font-heading);
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+        }
+        .admin-card p { font-size: 0.95rem; color: var(--text-light); margin: 0; }
+
+        /* ─── Integrations ──────────────────────────────────── */
+        .integrations-section {
+            margin: 0 0 8rem;
+            text-align: center;
+        }
+        .integrations-section h2 { margin-bottom: 0.5rem; }
+        .int-subtitle { margin-bottom: 3rem; }
+
+        .integrations-row {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .integration-badge {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem 2.5rem;
+            box-shadow: 4px 4px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: left;
+        }
+        .integration-badge:hover {
+            transform: translateY(-4px);
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+        }
+        .int-icon { font-size: 2.8rem; }
+        .integration-badge strong { display: block; font-weight: 800; font-size: 1.1rem; }
+        .integration-badge span   { font-size: 0.85rem; color: var(--text-light); }
+
+        /* ─── Limits ────────────────────────────────────────── */
+        .limits-section { margin: 0 0 8rem; }
+
+        .limits-wrapper {
+            background: #FFF9ED;
+            border: 3px solid var(--card-orange);
+            border-radius: 40px;
+            padding: 4rem;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+        }
+        .limits-wrapper h2  { margin-bottom: 0.5rem; }
+        .limits-subtitle    { margin-bottom: 3rem; }
+
+        .limits-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+
+        .limit-card {
+            background: #fff;
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .lim-icon { font-size: 1.8rem; flex-shrink: 0; }
+        .limit-card h4 {
+            font-family: var(--font-heading);
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+        }
+        .limit-card p { font-size: 0.9rem; color: var(--text-light); margin: 0; }
+
+        /* ─── Page CTA ──────────────────────────────────────── */
+        .page-cta {
+            text-align: center;
+            margin: 0 0 6rem;
+            padding: 5rem 4rem;
+            background: var(--black-bg);
+            border-radius: 40px;
+            color: #fff;
+        }
+        .page-cta h2 { color: #fff; margin-bottom: 1rem; }
+        .page-cta > p { color: #A1A1AA; margin-bottom: 2.5rem; font-size: 1.15rem; }
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ─── Responsive ────────────────────────────────────── */
+        @media (max-width: 1000px) {
+            .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
+            .admin-grid         { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 900px) {
+            .pipeline-flow {
+                grid-template-columns: 1fr;
+                border-radius: 28px;
+            }
+            .pipeline-step {
+                border-right: none;
+                border-bottom: 2px solid var(--border-color);
+            }
+            .pipeline-step:last-child { border-bottom: none; }
+
+            .capabilities-dark  { padding: 2.5rem; border-radius: 32px; }
+            .limits-wrapper     { padding: 2.5rem; border-radius: 32px; }
+            .page-cta           { padding: 2.5rem; border-radius: 32px; }
+            .limits-grid        { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 600px) {
+            .capabilities-grid  { grid-template-columns: 1fr; }
+            .admin-grid         { grid-template-columns: 1fr; }
+            .limits-grid        { grid-template-columns: 1fr; }
+            .integrations-row   { flex-direction: column; align-items: center; }
+            .integration-badge  { width: 100%; max-width: 340px; }
+            .page-cta           { padding: 2rem 1.5rem; }
+            .limits-wrapper     { padding: 2rem 1.5rem; }
+            .capabilities-dark  { padding: 2rem 1.5rem; }
+        }
+
+        /* ─── Calculadora de ROI ─────────────────────────────── */
+        .roi-section { margin: 0 0 8rem; }
+
+        .roi-wrapper {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 40px;
+            padding: 4rem;
+            box-shadow: 8px 8px 0 rgba(0,0,0,1);
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+        }
+
+        .roi-title    { margin-bottom: 0.5rem; }
+        .roi-subtitle { color: var(--text-light); font-size: 1.1rem; margin: 0; }
+
+        /* Grid de inputs: 2 col + full-width para slider */
+        .roi-inputs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        .roi-input-group--full { grid-column: 1 / -1; }
+
+        /* Labels */
+        .roi-label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-dark);
+            margin-bottom: 0.75rem;
+        }
+        .roi-label-hint { font-weight: 400; font-size: 0.85rem; color: var(--text-light); }
+
+        /* Input numérico */
+        .roi-input-wrapper {
+            display: flex;
+            align-items: center;
+            border: 3px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--bg-color);
+            box-shadow: 4px 4px 0 rgba(0,0,0,1);
+            transition: box-shadow 0.2s;
+        }
+        .roi-input-wrapper:focus-within { box-shadow: 6px 6px 0 rgba(0,0,0,1); }
+        .roi-input-prefix,
+        .roi-input-suffix {
+            padding: 0.9rem 1rem;
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.1rem;
+            background: var(--grid-line);
+            color: var(--text-dark);
+            flex-shrink: 0;
+        }
+        .roi-input-prefix { border-right: 2px solid var(--border-color); }
+        .roi-input-suffix { border-left: 2px solid var(--border-color); }
+        .roi-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0.9rem 1rem;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: var(--text-dark);
+            outline: none;
+            min-width: 0;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .roi-input::-webkit-inner-spin-button,
+        .roi-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        /* Selector de plan: 3 botones toggle */
+        .roi-plan-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+        .roi-plan-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 0.75rem;
+            border: 3px solid var(--border-color);
+            border-radius: 16px;
+            background: var(--bg-color);
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+            position: relative;
+            font-family: var(--font-body);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            text-align: center;
+            gap: 0.2rem;
+        }
+        .roi-plan-btn strong { font-family: var(--font-heading); font-weight: 800; font-size: 1rem; color: var(--text-dark); display: block; }
+        .roi-plan-btn span   { font-size: 0.82rem; color: var(--text-light); font-weight: 500; }
+        .roi-plan-btn em     { font-style: normal; font-size: 0.9rem; font-weight: 700; color: var(--text-dark); }
+        .roi-plan-btn:hover  { transform: translateY(-2px); box-shadow: 5px 5px 0 rgba(0,0,0,1); }
+        .roi-plan-btn--active {
+            background: var(--black-bg);
+            border-color: var(--black-bg);
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+        }
+        .roi-plan-btn--active strong,
+        .roi-plan-btn--active em   { color: #fff; }
+        .roi-plan-btn--active span { color: #A1A1AA; }
+        .roi-plan-badge {
+            position: absolute;
+            top: -10px; right: -8px;
+            background: var(--card-orange);
+            color: var(--text-dark);
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.15rem 0.6rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-family: var(--font-body);
+        }
+
+        /* Slider */
+        .roi-slider-wrapper { display: flex; flex-direction: column; gap: 0.75rem; }
+        .roi-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%; height: 8px;
+            border-radius: 50px;
+            background: var(--grid-line);
+            border: 2px solid var(--border-color);
+            outline: none;
+            cursor: pointer;
+        }
+        .roi-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--text-dark);
+            border: 3px solid var(--border-color);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            cursor: grab;
+            transition: transform 0.15s;
+        }
+        .roi-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.2); }
+        .roi-slider::-moz-range-thumb {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--text-dark);
+            border: 3px solid var(--border-color);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            cursor: grab;
+        }
+        .roi-slider-labels {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+        .roi-slider-value {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--text-dark);
+            background: var(--card-blue);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.2rem 0.8rem;
+            min-width: 60px;
+            text-align: center;
+            box-shadow: 2px 2px 0 rgba(0,0,0,1);
+        }
+
+        /* Stat cards de resultado */
+        .roi-results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+        .roi-stat-card {
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .roi-stat-card:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 rgba(0,0,0,1); }
+        .roi-stat-blue   { background: var(--card-blue); }
+        .roi-stat-orange { background: var(--card-orange); }
+        .roi-stat-green  { background: var(--card-green); }
+        .roi-stat-icon   { font-size: 2rem; line-height: 1; }
+        .roi-stat-value  {
+            font-family: var(--font-heading);
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: var(--text-dark);
+            line-height: 1;
+        }
+        .roi-stat-label { font-size: 0.9rem; font-weight: 600; color: rgba(0,0,0,0.7); }
+
+        /* Resumen dinámico */
+        .roi-summary {
+            background: var(--black-bg);
+            color: #A1A1AA;
+            border-radius: 20px;
+            padding: 1.75rem 2rem;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            border: 2px solid #3F3F46;
+        }
+        .roi-summary strong { color: var(--card-green); font-weight: 700; }
+
+        /* CTA de la calculadora */
+        .roi-cta-wrapper { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+        .roi-cta-disclaimer { font-size: 0.9rem; color: var(--text-light); font-weight: 500; margin: 0; }
+
+        /* ─── Responsive Calculadora ─────────────────────────── */
+        @media (max-width: 900px) {
+            .roi-wrapper       { padding: 2.5rem; border-radius: 32px; gap: 2.5rem; }
+            .roi-inputs-grid   { grid-template-columns: 1fr; }
+            .roi-input-group--full { grid-column: auto; }
+            .roi-results-grid  { grid-template-columns: 1fr; gap: 1rem; }
+        }
+        @media (max-width: 600px) {
+            .roi-wrapper        { padding: 1.75rem 1.25rem; border-radius: 28px; gap: 2rem; box-shadow: 6px 6px 0 rgba(0,0,0,1); }
+            .roi-plan-selector  { grid-template-columns: 1fr; gap: 0.6rem; }
+            .roi-plan-btn       { flex-direction: row; justify-content: space-between; padding: 0.9rem 1rem; }
+            .roi-stat-value     { font-size: 1.8rem; }
+            .roi-summary        { font-size: 1rem; padding: 1.25rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <div class="nav-wrapper">
+        <nav class="navbar pill-card">
+            <div class="logo">
+                <a href="index.html" style="text-decoration:none; color:inherit; display:flex; align-items:center; gap:0.4rem;">
+                    <span class="logo-icon">✨</span> Bruno Lab
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html#beneficios">Beneficios</a>
+                <a href="index.html#precios">Precios</a>
+                <a href="index.html#testimonios">El Impacto</a>
+                <a href="capacidades.html" style="color:var(--text-dark); font-weight:800;">Capacidades</a>
+            </div>
+            <div class="nav-actions">
+                <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn btn-dark btn-sm">Probar ahora</a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- ─── Hero ─────────────────────────────────────────────── -->
+    <header class="page-hero container">
+        <div class="page-tag">📖 Guía de Capacidades</div>
+        <h1 class="hero-title">
+            Todo lo que tu asistente<br>puede hacer por ti
+        </h1>
+        <p class="hero-subtitle">
+            Una guía clara y sin tecnicismos sobre cómo funciona Bruno Lab,
+            qué tareas gestiona solo y cómo tú lo controlas.
+        </p>
+        <div class="hero-cta">
+            <a href="index.html#precios" class="btn btn-dark btn-lg">Ver Planes</a>
+            <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn btn-outline btn-lg">Hablar con ventas</a>
+        </div>
+    </header>
+
+    <!-- ─── Pipeline ──────────────────────────────────────────── -->
+    <section class="pipeline-section container">
+        <div class="section-label blue">⚡ El flujo completo</div>
+        <h2>De "hola" a cita agendada,<br>sin que tú intervengas</h2>
+        <div class="pipeline-flow">
+            <div class="pipeline-step">
+                <div class="step-num">01</div>
+                <div class="step-icon">💬</div>
+                <h4>Lead escribe</h4>
+                <p>El usuario contacta tu WhatsApp desde anuncios, Instagram, recomendados o búsqueda directa.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">02</div>
+                <div class="step-icon">🎯</div>
+                <h4>Calificación</h4>
+                <p>El asistente hace las preguntas que configuraste para separar curiosos de clientes listos para pagar.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">03</div>
+                <div class="step-icon">📅</div>
+                <h4>Agenda la cita</h4>
+                <p>Consulta disponibilidad real y bloquea el turno en Google Calendar. El paciente recibe confirmación inmediata.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">04</div>
+                <div class="step-icon">🔔</div>
+                <h4>Recuerda</h4>
+                <p>Envía un recordatorio automático 24 h antes de la cita para reducir ausencias sin que nadie tenga que llamar.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">05</div>
+                <div class="step-icon">📋</div>
+                <h4>Da seguimiento</h4>
+                <p>Días después de la consulta, el asistente contacta al paciente con indicaciones, encuestas o nueva cita.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Capabilities ──────────────────────────────────────── -->
+    <section class="capabilities-section container">
+        <div class="capabilities-dark">
+            <div class="section-label purple">🤖 Funciones autónomas</div>
+            <h2>¿Qué hace tu asistente<br>sin que tú intervengas?</h2>
+            <p class="cap-subtitle">Estas tareas las ejecuta solo, las 24 h del día, los 7 días de la semana.</p>
+            <div class="capabilities-grid">
+                <div class="feature-mini-card">
+                    <span class="icon">💬</span>
+                    <h4>Conversación natural</h4>
+                    <p>Entiende y responde mensajes de texto, notas de voz e imágenes enviadas por WhatsApp.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🎯</span>
+                    <h4>Calificación de leads</h4>
+                    <p>Hace las preguntas de filtro que definiste y decide si el lead está listo para agendar.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">📅</span>
+                    <h4>Agendamiento directo</h4>
+                    <p>Consulta disponibilidad en tiempo real y crea el evento en Google Calendar sin salir de la conversación.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🔔</span>
+                    <h4>Recordatorios de cita</h4>
+                    <p>Envía mensajes automáticos 24 h antes de cada cita para reducir las inasistencias.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">📋</span>
+                    <h4>Historia clínica previa</h4>
+                    <p>Recoge los datos del paciente antes de la consulta y los entrega en formato PDF a tu correo.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🔄</span>
+                    <h4>Seguimiento post-visita</h4>
+                    <p>Contacta al paciente con indicaciones, preguntas de evolución o invitación a nueva cita programada.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🤝</span>
+                    <h4>Escalamiento a humano</h4>
+                    <p>Detecta cuándo una conversación necesita atención personal y te notifica de inmediato sin perder el hilo.</p>
+                </div>
+                <div class="feature-mini-card" style="background:#B2A4FF; color:#18181A; border:none;">
+                    <span class="icon">❓</span>
+                    <h4>Preguntas frecuentes</h4>
+                    <p style="color:#18181A; font-weight:500;">Responde objeciones y dudas comunes con las respuestas exactas que tú le enseñaste.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Admin Controls ────────────────────────────────────── -->
+    <section class="admin-section container">
+        <div class="section-label orange">⚙️ Panel del administrador</div>
+        <h2>Lo que <em>tú</em> defines<br>y puedes cambiar</h2>
+        <p class="admin-intro">
+            Estos son los parámetros que configuramos contigo durante el onboarding.
+            Puedes actualizarlos cuando cambies de servicios, precios o equipo.
+        </p>
+        <div class="admin-grid">
+            <div class="admin-card">
+                <div class="admin-card-icon">🪪</div>
+                <div class="admin-card-tag">Identidad</div>
+                <h4>Nombre y personalidad del agente</h4>
+                <p>Define cómo se llama tu asistente, si usa un tono formal, amigable o casual, y cómo se presenta a cada lead desde el primer mensaje.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🧾</div>
+                <div class="admin-card-tag">Oferta</div>
+                <h4>Catálogo de servicios y precios</h4>
+                <p>Lista todos tus tratamientos o servicios con rangos de precio, duración estimada e instrucciones de preparación previa.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🎯</div>
+                <div class="admin-card-tag">Filtros</div>
+                <h4>Criterios de calificación</h4>
+                <p>Establece qué hace que un lead sea "válido": zona, presupuesto mínimo, tipo de consulta, condición previa, número de citas anteriores, etc.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🚨</div>
+                <div class="admin-card-tag">Escalamiento</div>
+                <h4>Reglas de traspaso a humano</h4>
+                <p>Decide exactamente cuándo el asistente debe ceder la conversación: emergencias, pagos, quejas, situaciones fuera de guion.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">💬</div>
+                <div class="admin-card-tag">Guion</div>
+                <h4>Respuestas a objeciones</h4>
+                <p>Entrena al asistente con las preguntas más frecuentes de tus leads y las respuestas exactas que debe dar en cada caso.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">👥</div>
+                <div class="admin-card-tag">Agenda</div>
+                <h4>Médicos y calendarios conectados</h4>
+                <p>Vincula uno o varios profesionales con sus Google Calendars para que el asistente consulte disponibilidad real en cada conversación.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Integrations ──────────────────────────────────────── -->
+    <section class="integrations-section container">
+        <div class="section-label blue">🔗 Integraciones incluidas</div>
+        <h2>Todo conectado,<br>nada que instalar</h2>
+        <p class="int-subtitle">Bruno Lab se conecta con las herramientas que ya usas. Sin migraciones ni software nuevo.</p>
+        <div class="integrations-row">
+            <div class="integration-badge">
+                <div class="int-icon">💬</div>
+                <div>
+                    <strong>WhatsApp Business</strong>
+                    <span>Canal principal de conversación y atención</span>
+                </div>
+            </div>
+            <div class="integration-badge">
+                <div class="int-icon">📅</div>
+                <div>
+                    <strong>Google Calendar</strong>
+                    <span>Agendamiento y disponibilidad en tiempo real</span>
+                </div>
+            </div>
+            <div class="integration-badge">
+                <div class="int-icon">📧</div>
+                <div>
+                    <strong>Email</strong>
+                    <span>Historias clínicas y notificaciones al equipo</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Limits ────────────────────────────────────────────── -->
+    <section class="limits-section container">
+        <div class="limits-wrapper">
+            <div class="section-label orange">⚠️ Límites del sistema</div>
+            <h2>Lo que el asistente<br>NO hace</h2>
+            <p class="limits-subtitle">Para usarlo bien es clave conocer sus límites. Aquí van, sin rodeos.</p>
+            <div class="limits-grid">
+                <div class="limit-card">
+                    <div class="lim-icon">🩺</div>
+                    <div>
+                        <h4>No da diagnósticos</h4>
+                        <p>Agenda y califica, nunca emite juicios clínicos ni recomienda tratamientos de forma directa.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">💳</div>
+                    <div>
+                        <h4>No procesa pagos</h4>
+                        <p>Puede informar precios y redirigir a tu pasarela de pagos, pero no cobra ni gestiona transacciones.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">🤔</div>
+                    <div>
+                        <h4>No improvisa sin guion</h4>
+                        <p>Si una pregunta cae fuera de su configuración, escala a un humano en lugar de inventar una respuesta.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">📞</div>
+                    <div>
+                        <h4>No hace llamadas</h4>
+                        <p>Opera exclusivamente por mensajes de WhatsApp. No realiza ni recibe llamadas de voz o video.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">🔒</div>
+                    <div>
+                        <h4>No accede a datos externos</h4>
+                        <p>Solo usa la información que tú le entregaste en el onboarding. No navega internet ni consulta bases ajenas.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">⏰</div>
+                    <div>
+                        <h4>Respeta el horario que definas</h4>
+                        <p>Puede configurarse para operar en franjas horarias. Fuera de ellas, informa cuándo volverá a estar disponible.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Calculadora de ROI ──────────────────────────────── -->
+    <section id="calculadora" class="roi-section container">
+        <div class="roi-wrapper">
+
+            <div>
+                <div class="section-label blue">🧮 Calculadora de ROI</div>
+                <h2 class="roi-title">¿Cuántas citas necesitas<br>para amortizar el plan?</h2>
+                <p class="roi-subtitle">Ajusta los valores de tu negocio y ve en tiempo real cuándo Bruno Lab se paga solo.</p>
+            </div>
+
+            <!-- Inputs -->
+            <div class="roi-inputs-grid">
+
+                <!-- Input 1: Valor por cita -->
+                <div class="roi-input-group">
+                    <label class="roi-label" for="roi-cita-value">
+                        Valor de cada cita
+                        <span class="roi-label-hint">¿Cuánto cobra por consulta o tratamiento?</span>
+                    </label>
+                    <div class="roi-input-wrapper">
+                        <span class="roi-input-prefix">$</span>
+                        <input id="roi-cita-value" class="roi-input" type="number" min="10" max="10000" step="10" value="150" placeholder="150">
+                        <span class="roi-input-suffix">USD</span>
+                    </div>
+                </div>
+
+                <!-- Input 2: Plan (conversaciones + costo) -->
+                <div class="roi-input-group">
+                    <label class="roi-label">
+                        Conversaciones por mes
+                        <span class="roi-label-hint">Elige el plan que se adapta a tu tráfico</span>
+                    </label>
+                    <div class="roi-plan-selector" role="group" aria-label="Seleccionar plan">
+                        <button class="roi-plan-btn" type="button" data-convs="200" data-cost="99" data-name="Starter">
+                            <strong>Starter</strong>
+                            <span>200 conv.</span>
+                            <em>$99/mes</em>
+                        </button>
+                        <button class="roi-plan-btn roi-plan-btn--active" type="button" data-convs="600" data-cost="199" data-name="Growth">
+                            <strong>Growth</strong>
+                            <span>600 conv.</span>
+                            <em>$199/mes</em>
+                            <div class="roi-plan-badge">Popular</div>
+                        </button>
+                        <button class="roi-plan-btn" type="button" data-convs="1500" data-cost="399" data-name="Enterprise">
+                            <strong>Enterprise</strong>
+                            <span>1,500 conv.</span>
+                            <em>$399/mes</em>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Input 3: Slider tasa de conversión -->
+                <div class="roi-input-group roi-input-group--full">
+                    <label class="roi-label" for="roi-conversion">
+                        Citas recuperadas por mes
+                        <span class="roi-label-hint">¿Qué porcentaje de conversaciones terminan en cita agendada?</span>
+                    </label>
+                    <div class="roi-slider-wrapper">
+                        <input id="roi-conversion" class="roi-slider" type="range" min="0" max="50" step="1" value="15">
+                        <div class="roi-slider-labels">
+                            <span>0%</span>
+                            <span class="roi-slider-value" id="roi-conversion-display">15%</span>
+                            <span>50%</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Outputs: 3 stat cards -->
+            <div class="roi-results-grid">
+                <div class="roi-stat-card roi-stat-blue">
+                    <div class="roi-stat-icon">📅</div>
+                    <div class="roi-stat-value" id="roi-citas">90</div>
+                    <div class="roi-stat-label">citas recuperadas / mes</div>
+                </div>
+                <div class="roi-stat-card roi-stat-orange">
+                    <div class="roi-stat-icon">💰</div>
+                    <div class="roi-stat-value" id="roi-ingresos">$13,500</div>
+                    <div class="roi-stat-label">ingresos adicionales / mes</div>
+                </div>
+                <div class="roi-stat-card roi-stat-green">
+                    <div class="roi-stat-icon">⚡</div>
+                    <div class="roi-stat-value" id="roi-amortiza">menos de 1 día</div>
+                    <div class="roi-stat-label">para recuperar la inversión</div>
+                </div>
+            </div>
+
+            <!-- Resumen dinámico -->
+            <div class="roi-summary">
+                Con el plan <strong id="rs-plan">Growth ($199/mes)</strong>, recuperando
+                <strong id="rs-citas">90 citas</strong> de <strong id="rs-convs">600 conversaciones</strong>,
+                generas <strong id="rs-ingresos">$13,500 USD</strong> al mes.
+                Tu inversión se recupera en <strong id="rs-dias">menos de 1 día</strong>.
+            </div>
+
+            <!-- CTA -->
+            <div class="roi-cta-wrapper">
+                <a href="index.html#precios" class="btn btn-dark btn-lg">Elegir mi plan ahora →</a>
+                <p class="roi-cta-disclaimer">Sin contratos anuales · Cancela cuando quieras</p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ─── CTA ───────────────────────────────────────────────── -->
+    <section class="page-cta container">
+        <h2>¿Listo para activar<br>tu asistente?</h2>
+        <p>El setup toma menos de una semana. Nosotros configuramos todo contigo.</p>
+        <div class="cta-buttons">
+            <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn btn-lavender btn-lg">Quiero mi asistente ⚡</a>
+            <a href="index.html#precios" class="btn btn-outline btn-lg">Ver precios</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer container">
+        <div class="footer-inner shadow-pop">
+            <div class="logo">
+                <span class="logo-icon">✨</span> Bruno Lab
+            </div>
+            <p>Rediseñado con pasión artificial. Todos los derechos reservados © 2026</p>
+            <div class="nav-social">
+                <a href="#">Instagram</a>
+                <a href="#">WhatsApp</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Botón WhatsApp flotante -->
+    <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn-wa-float" target="_blank" rel="noopener noreferrer" aria-label="Contactar por WhatsApp">
+        <svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
+        </svg>
+    </a>
+
+    <script>
+        let lastScroll = 0;
+        const navWrapper = document.querySelector('.nav-wrapper');
+
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            if (currentScroll <= 0) { navWrapper.classList.remove('nav-hidden'); return; }
+            if (currentScroll > lastScroll && !navWrapper.classList.contains('nav-hidden')) {
+                navWrapper.classList.add('nav-hidden');
+            } else if (currentScroll < lastScroll && navWrapper.classList.contains('nav-hidden')) {
+                navWrapper.classList.remove('nav-hidden');
+            }
+            lastScroll = currentScroll;
+        });
+    </script>
+
+    <script>
+    /* ── Calculadora de ROI ─────────────────────────────────── */
+    (function () {
+        var inputCita     = document.getElementById('roi-cita-value');
+        var sliderConv    = document.getElementById('roi-conversion');
+        var sliderDisplay = document.getElementById('roi-conversion-display');
+        var planBtns      = document.querySelectorAll('.roi-plan-btn');
+
+        var outCitas    = document.getElementById('roi-citas');
+        var outIngresos = document.getElementById('roi-ingresos');
+        var outAmortiza = document.getElementById('roi-amortiza');
+
+        var rsPlan    = document.getElementById('rs-plan');
+        var rsCitas   = document.getElementById('rs-citas');
+        var rsConvs   = document.getElementById('rs-convs');
+        var rsIngresos= document.getElementById('rs-ingresos');
+        var rsDias    = document.getElementById('rs-dias');
+
+        var state = {
+            citaValue : 150,
+            convs     : 600,
+            planCost  : 199,
+            planName  : 'Growth',
+            convRate  : 15
+        };
+
+        function fmtUSD(n) {
+            return '$' + n.toLocaleString('en-US');
+        }
+        function fmtNum(n) {
+            return n.toLocaleString('es-CO');
+        }
+
+        function calculate() {
+            var citaValue = state.citaValue;
+            var convs     = state.convs;
+            var planCost  = state.planCost;
+            var planName  = state.planName;
+            var convRate  = state.convRate;
+
+            var citasRec = Math.round(convs * (convRate / 100));
+            var ingresos = citasRec * citaValue;
+            var citasMin = Math.ceil(planCost / (citaValue > 0 ? citaValue : 1));
+
+            var diasText;
+            if (convRate === 0 || citasRec === 0) {
+                diasText = '∞';
+            } else {
+                var diasRaw = (citasMin / citasRec) * 30;
+                diasText = diasRaw < 1 ? 'menos de 1 día' : Math.ceil(diasRaw) + ' días';
+            }
+
+            outCitas.textContent    = fmtNum(citasRec) + ' citas';
+            outIngresos.textContent = fmtUSD(ingresos);
+            outAmortiza.textContent = diasText;
+
+            rsPlan.textContent      = planName + ' ($' + planCost + '/mes)';
+            rsCitas.textContent     = fmtNum(citasRec) + ' citas';
+            rsConvs.textContent     = fmtNum(convs) + ' conversaciones';
+            rsIngresos.textContent  = fmtUSD(ingresos) + ' USD';
+            rsDias.textContent      = diasText;
+        }
+
+        inputCita.addEventListener('input', function () {
+            var val = parseInt(this.value, 10);
+            state.citaValue = (!isNaN(val) && val >= 1) ? val : 1;
+            calculate();
+        });
+
+        sliderConv.addEventListener('input', function () {
+            state.convRate = parseInt(this.value, 10);
+            sliderDisplay.textContent = this.value + '%';
+            calculate();
+        });
+
+        planBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                planBtns.forEach(function (b) { b.classList.remove('roi-plan-btn--active'); });
+                this.classList.add('roi-plan-btn--active');
+                state.convs    = parseInt(this.dataset.convs, 10);
+                state.planCost = parseInt(this.dataset.cost, 10);
+                state.planName = this.dataset.name;
+                calculate();
+            });
+        });
+
+        calculate();
+    })();
+    </script>
+</body>
+</html>
