@@ -862,12 +862,457 @@
         </div>
     </section>
 
-    <!-- ─── Bloque "Ver más" ────────────────────────────────── -->
-    <section style="text-align:center; padding: 4rem 1.5rem 5rem; max-width:700px; margin:0 auto;">
-        <p style="font-size:0.9rem; font-weight:700; letter-spacing:0.06em; color:var(--text-light); text-transform:uppercase; margin-bottom:0.75rem;">¿Quieres saber más?</p>
-        <h2 style="font-size:clamp(1.8rem,4vw,2.8rem); margin-bottom:1rem;">Conoce todo lo que Bruno Lab puede hacer</h2>
-        <p style="color:var(--text-light); font-size:1.1rem; margin-bottom:2rem;">Calificación, agendamiento, recordatorios, integraciones y más. Todo explicado sin tecnicismos.</p>
-        <a href="capacidades.html" class="btn btn-dark btn-lg" style="box-shadow:5px 5px 0 rgba(0,0,0,1);">Ver capacidades completas →</a>
+    <!-- ═══════════════════════════════════════════════════════════
+         SEPARADOR ANIMADO — transición hacia la guía de capacidades
+         ════════════════════════════════════════════════════════════ -->
+    <div class="cap-divider">
+        <div class="cap-divider__track">
+            <span>⚡ Flujo completo</span><span>🤖 Funciones autónomas</span><span>⚙️ Panel admin</span>
+            <span>🔗 Integraciones</span><span>⚠️ Límites</span><span>🧮 Calculadora ROI</span>
+            <span>⚡ Flujo completo</span><span>🤖 Funciones autónomas</span><span>⚙️ Panel admin</span>
+            <span>🔗 Integraciones</span><span>⚠️ Límites</span><span>🧮 Calculadora ROI</span>
+        </div>
+    </div>
+
+    <style>
+        /* ─── Separador ticker ───────────────────────────── */
+        .cap-divider {
+            overflow: hidden;
+            background: var(--black-bg);
+            border-top: 3px solid var(--border-color);
+            border-bottom: 3px solid var(--border-color);
+            padding: 1rem 0;
+            margin: 4rem 0;
+        }
+        .cap-divider__track {
+            display: flex;
+            gap: 3rem;
+            white-space: nowrap;
+            animation: ticker 22s linear infinite;
+        }
+        .cap-divider__track span {
+            color: #fff;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+        @keyframes ticker {
+            from { transform: translateX(0); }
+            to   { transform: translateX(-50%); }
+        }
+
+        /* ─── Section label pill (capacidades) ──────────── */
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            background: var(--card-green);
+        }
+        .section-label.orange { background: var(--card-orange); }
+        .section-label.pink   { background: var(--card-pink); }
+        .section-label.blue   { background: var(--card-blue); }
+        .section-label.purple { background: var(--purple-light); }
+
+        /* ─── Pipeline ───────────────────────────────────── */
+        .pipeline-section { margin: 2rem auto 7rem; }
+        .pipeline-section > h2 { text-align: center; margin-bottom: 3rem; }
+        .pipeline-flow {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            border: 3px solid var(--border-color);
+            border-radius: 32px;
+            overflow: hidden;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+        }
+        .pipeline-step {
+            padding: 2.5rem 1.5rem;
+            background: #fff;
+            border-right: 2px solid var(--border-color);
+            transition: background 0.25s;
+        }
+        .pipeline-step:last-child { border-right: none; }
+        .pipeline-step:hover { background: var(--card-blue); }
+        .step-num {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--purple-light);
+            line-height: 1;
+            margin-bottom: 0.4rem;
+        }
+        .step-icon { font-size: 2.2rem; margin-bottom: 0.8rem; }
+        .pipeline-step h4 {
+            font-family: var(--font-heading);
+            font-size: 1.05rem;
+            font-weight: 800;
+            margin-bottom: 0.4rem;
+        }
+        .pipeline-step p { font-size: 0.9rem; color: var(--text-light); margin: 0; }
+
+        /* ─── Capabilities dark ──────────────────────────── */
+        .capabilities-section { margin: 4rem auto 8rem; }
+        .capabilities-dark {
+            background: var(--black-bg);
+            border-radius: 40px;
+            padding: 4.5rem 4rem;
+            text-align: center;
+        }
+        .capabilities-dark h2 { color: #fff; text-align: center; margin-bottom: 0.5rem; }
+        .cap-subtitle { text-align: center; color: #A1A1AA; margin-bottom: 3rem; font-size: 1.1rem; }
+        .capabilities-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            text-align: left;
+        }
+
+        /* ─── Admin ──────────────────────────────────────── */
+        .admin-section { margin: 4rem auto 8rem; }
+        .admin-section > h2 em { font-style: normal; text-decoration: underline; text-decoration-color: var(--card-green); text-underline-offset: 6px; }
+        .admin-intro { max-width: 600px; margin: 0 0 3rem; }
+        .admin-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; }
+        .admin-card {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .admin-card:hover { transform: translate(-3px,-3px); box-shadow: 8px 8px 0 rgba(0,0,0,1); }
+        .admin-card-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
+        .admin-card-tag {
+            display: inline-block;
+            background: var(--grid-line);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 0.2rem 0.8rem;
+            border-radius: 50px;
+            border: 1.5px solid var(--border-color);
+            margin-bottom: 0.8rem;
+        }
+        .admin-card h4 { font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; margin-bottom: 0.5rem; }
+        .admin-card p { font-size: 0.95rem; color: var(--text-light); margin: 0; }
+
+        /* ─── Integrations ───────────────────────────────── */
+        .integrations-section { margin: 0 auto 8rem; text-align: center; }
+        .integrations-section h2 { margin-bottom: 0.5rem; }
+        .int-subtitle { margin-bottom: 3rem; }
+        .integrations-row { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
+        .integration-badge {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem 2.5rem;
+            box-shadow: 4px 4px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-align: left;
+        }
+        .integration-badge:hover { transform: translateY(-4px); box-shadow: 6px 6px 0 rgba(0,0,0,1); }
+        .int-icon { font-size: 2.8rem; }
+        .integration-badge strong { display: block; font-weight: 800; font-size: 1.1rem; }
+        .integration-badge span   { font-size: 0.85rem; color: var(--text-light); }
+
+        /* ─── Limits ─────────────────────────────────────── */
+        .limits-section { margin: 0 auto 8rem; }
+        .limits-wrapper {
+            background: #FFF9ED;
+            border: 3px solid var(--card-orange);
+            border-radius: 40px;
+            padding: 4rem;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+        }
+        .limits-wrapper h2 { margin-bottom: 0.5rem; }
+        .limits-subtitle { margin-bottom: 3rem; }
+        .limits-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .limit-card {
+            background: #fff;
+            border: 2px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+        .lim-icon { font-size: 1.8rem; flex-shrink: 0; }
+        .limit-card h4 { font-family: var(--font-heading); font-size: 1rem; font-weight: 800; margin-bottom: 0.3rem; }
+        .limit-card p { font-size: 0.9rem; color: var(--text-light); margin: 0; }
+
+        /* ─── Page CTA ───────────────────────────────────── */
+        .page-cta {
+            text-align: center;
+            margin: 0 auto 6rem;
+            padding: 5rem 4rem;
+            background: var(--black-bg);
+            border-radius: 40px;
+            color: #fff;
+        }
+        .page-cta h2 { color: #fff; margin-bottom: 1rem; }
+        .page-cta > p { color: #A1A1AA; margin-bottom: 2.5rem; font-size: 1.15rem; }
+        .cta-buttons { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+        /* ─── Responsive capacidades ─────────────────────── */
+        @media (max-width: 1000px) {
+            .capabilities-grid { grid-template-columns: repeat(2, 1fr); }
+            .admin-grid         { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 900px) {
+            .pipeline-flow { grid-template-columns: 1fr; border-radius: 28px; }
+            .pipeline-step { border-right: none; border-bottom: 2px solid var(--border-color); }
+            .pipeline-step:last-child { border-bottom: none; }
+            .capabilities-dark { padding: 2.5rem; border-radius: 32px; }
+            .limits-wrapper    { padding: 2.5rem; border-radius: 32px; }
+            .page-cta          { padding: 2.5rem; border-radius: 32px; }
+            .limits-grid       { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .capabilities-grid  { grid-template-columns: 1fr; }
+            .admin-grid         { grid-template-columns: 1fr; }
+            .limits-grid        { grid-template-columns: 1fr; }
+            .integrations-row   { flex-direction: column; align-items: center; }
+            .integration-badge  { width: 100%; max-width: 340px; }
+            .page-cta           { padding: 2rem 1.5rem; }
+            .limits-wrapper     { padding: 2rem 1.5rem; }
+            .capabilities-dark  { padding: 2rem 1.5rem; }
+            .cap-divider__track { gap: 2rem; }
+        }
+    </style>
+
+    <!-- ─── Pipeline ────────────────────────────────────────── -->
+    <section class="pipeline-section container">
+        <div class="section-label blue">⚡ El flujo completo</div>
+        <h2>De "hola" a cita agendada,<br>sin que tú intervengas</h2>
+        <div class="pipeline-flow">
+            <div class="pipeline-step">
+                <div class="step-num">01</div>
+                <div class="step-icon">💬</div>
+                <h4>Lead escribe</h4>
+                <p>El usuario contacta tu WhatsApp desde anuncios, Instagram, recomendados o búsqueda directa.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">02</div>
+                <div class="step-icon">🎯</div>
+                <h4>Calificación</h4>
+                <p>El asistente hace las preguntas que configuraste para separar curiosos de clientes listos para pagar.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">03</div>
+                <div class="step-icon">📅</div>
+                <h4>Agenda la cita</h4>
+                <p>Consulta disponibilidad real y bloquea el turno en Google Calendar. El paciente recibe confirmación inmediata.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">04</div>
+                <div class="step-icon">🔔</div>
+                <h4>Recuerda</h4>
+                <p>Envía un recordatorio automático 24 h antes de la cita para reducir ausencias sin que nadie tenga que llamar.</p>
+            </div>
+            <div class="pipeline-step">
+                <div class="step-num">05</div>
+                <div class="step-icon">📋</div>
+                <h4>Da seguimiento</h4>
+                <p>Días después de la consulta, el asistente contacta al paciente con indicaciones, encuestas o nueva cita.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Capabilities ────────────────────────────────────── -->
+    <section class="capabilities-section container">
+        <div class="capabilities-dark">
+            <div class="section-label purple">🤖 Funciones autónomas</div>
+            <h2>¿Qué hace tu asistente<br>sin que tú intervengas?</h2>
+            <p class="cap-subtitle">Estas tareas las ejecuta solo, las 24 h del día, los 7 días de la semana.</p>
+            <div class="capabilities-grid">
+                <div class="feature-mini-card">
+                    <span class="icon">💬</span>
+                    <h4>Conversación natural</h4>
+                    <p>Entiende y responde mensajes de texto, notas de voz e imágenes enviadas por WhatsApp.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🎯</span>
+                    <h4>Calificación de leads</h4>
+                    <p>Hace las preguntas de filtro que definiste y decide si el lead está listo para agendar.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">📅</span>
+                    <h4>Agendamiento directo</h4>
+                    <p>Consulta disponibilidad en tiempo real y crea el evento en Google Calendar sin salir de la conversación.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🔔</span>
+                    <h4>Recordatorios de cita</h4>
+                    <p>Envía mensajes automáticos 24 h antes de cada cita para reducir las inasistencias.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">📋</span>
+                    <h4>Historia clínica previa</h4>
+                    <p>Recoge los datos del paciente antes de la consulta y los entrega en formato PDF a tu correo.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🔄</span>
+                    <h4>Seguimiento post-visita</h4>
+                    <p>Contacta al paciente con indicaciones, preguntas de evolución o invitación a nueva cita programada.</p>
+                </div>
+                <div class="feature-mini-card">
+                    <span class="icon">🤝</span>
+                    <h4>Escalamiento a humano</h4>
+                    <p>Detecta cuándo una conversación necesita atención personal y te notifica de inmediato sin perder el hilo.</p>
+                </div>
+                <div class="feature-mini-card" style="background:#B2A4FF; color:#18181A; border:none;">
+                    <span class="icon">❓</span>
+                    <h4>Preguntas frecuentes</h4>
+                    <p style="color:#18181A; font-weight:500;">Responde objeciones y dudas comunes con las respuestas exactas que tú le enseñaste.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Admin Controls ──────────────────────────────────── -->
+    <section class="admin-section container">
+        <div class="section-label orange">⚙️ Panel del administrador</div>
+        <h2>Lo que <em>tú</em> defines<br>y puedes cambiar</h2>
+        <p class="admin-intro">Estos son los parámetros que configuramos contigo durante el onboarding. Puedes actualizarlos cuando cambies de servicios, precios o equipo.</p>
+        <div class="admin-grid">
+            <div class="admin-card">
+                <div class="admin-card-icon">🪪</div>
+                <div class="admin-card-tag">Identidad</div>
+                <h4>Nombre y personalidad del agente</h4>
+                <p>Define cómo se llama tu asistente, si usa un tono formal, amigable o casual, y cómo se presenta a cada lead desde el primer mensaje.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🧾</div>
+                <div class="admin-card-tag">Oferta</div>
+                <h4>Catálogo de servicios y precios</h4>
+                <p>Lista todos tus tratamientos o servicios con rangos de precio, duración estimada e instrucciones de preparación previa.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🎯</div>
+                <div class="admin-card-tag">Filtros</div>
+                <h4>Criterios de calificación</h4>
+                <p>Establece qué hace que un lead sea "válido": zona, presupuesto mínimo, tipo de consulta, condición previa, número de citas anteriores, etc.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">🚨</div>
+                <div class="admin-card-tag">Escalamiento</div>
+                <h4>Reglas de traspaso a humano</h4>
+                <p>Decide exactamente cuándo el asistente debe ceder la conversación: emergencias, pagos, quejas, situaciones fuera de guion.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">💬</div>
+                <div class="admin-card-tag">Guion</div>
+                <h4>Respuestas a objeciones</h4>
+                <p>Entrena al asistente con las preguntas más frecuentes de tus leads y las respuestas exactas que debe dar en cada caso.</p>
+            </div>
+            <div class="admin-card">
+                <div class="admin-card-icon">👥</div>
+                <div class="admin-card-tag">Agenda</div>
+                <h4>Médicos y calendarios conectados</h4>
+                <p>Vincula uno o varios profesionales con sus Google Calendars para que el asistente consulte disponibilidad real en cada conversación.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Integrations ────────────────────────────────────── -->
+    <section class="integrations-section container">
+        <div class="section-label blue">🔗 Integraciones incluidas</div>
+        <h2>Todo conectado,<br>nada que instalar</h2>
+        <p class="int-subtitle">Bruno Lab se conecta con las herramientas que ya usas. Sin migraciones ni software nuevo.</p>
+        <div class="integrations-row">
+            <div class="integration-badge">
+                <div class="int-icon">💬</div>
+                <div>
+                    <strong>WhatsApp Business</strong>
+                    <span>Canal principal de conversación y atención</span>
+                </div>
+            </div>
+            <div class="integration-badge">
+                <div class="int-icon">📅</div>
+                <div>
+                    <strong>Google Calendar</strong>
+                    <span>Agendamiento y disponibilidad en tiempo real</span>
+                </div>
+            </div>
+            <div class="integration-badge">
+                <div class="int-icon">📧</div>
+                <div>
+                    <strong>Email</strong>
+                    <span>Historias clínicas y notificaciones al equipo</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── Limits ───────────────────────────────────────────── -->
+    <section class="limits-section container">
+        <div class="limits-wrapper">
+            <div class="section-label orange">⚠️ Límites del sistema</div>
+            <h2>Lo que el asistente<br>NO hace</h2>
+            <p class="limits-subtitle">Para usarlo bien es clave conocer sus límites. Aquí van, sin rodeos.</p>
+            <div class="limits-grid">
+                <div class="limit-card">
+                    <div class="lim-icon">🩺</div>
+                    <div>
+                        <h4>No da diagnósticos</h4>
+                        <p>Agenda y califica, nunca emite juicios clínicos ni recomienda tratamientos de forma directa.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">💳</div>
+                    <div>
+                        <h4>No procesa pagos</h4>
+                        <p>Puede informar precios y redirigir a tu pasarela de pagos, pero no cobra ni gestiona transacciones.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">🤔</div>
+                    <div>
+                        <h4>No improvisa sin guion</h4>
+                        <p>Si una pregunta cae fuera de su configuración, escala a un humano en lugar de inventar una respuesta.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">📞</div>
+                    <div>
+                        <h4>No hace llamadas</h4>
+                        <p>Opera exclusivamente por mensajes de WhatsApp. No realiza ni recibe llamadas de voz o video.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">🔒</div>
+                    <div>
+                        <h4>No accede a datos externos</h4>
+                        <p>Solo usa la información que tú le entregaste en el onboarding. No navega internet ni consulta bases ajenas.</p>
+                    </div>
+                </div>
+                <div class="limit-card">
+                    <div class="lim-icon">⏰</div>
+                    <div>
+                        <h4>Respeta el horario que definas</h4>
+                        <p>Puede configurarse para operar en franjas horarias. Fuera de ellas, informa cuándo volverá a estar disponible.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── CTA final ────────────────────────────────────────── -->
+    <section class="page-cta container">
+        <h2>¿Listo para activar<br>tu asistente?</h2>
+        <p>El setup toma menos de una semana. Nosotros configuramos todo contigo.</p>
+        <div class="cta-buttons">
+            <a href="https://wa.me/573337233288?text=Hola,%20vengo%20del%20landing%20page.%20Me%20interesa%20implementar%20Bruno%20Lab%20en%20mi%20negocio." class="btn btn-lavender btn-lg">Quiero mi asistente ⚡</a>
+            <a href="#precios" class="btn btn-outline btn-lg">Ver precios</a>
+        </div>
     </section>
 
     <footer class="footer container">
