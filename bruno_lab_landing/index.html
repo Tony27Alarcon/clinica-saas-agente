@@ -164,6 +164,283 @@
             .vs-card { padding: 1.5rem; border-radius: 24px; }
             .vs-card-price { font-size: 1.6rem; }
         }
+
+        /* ─── Calculadora ROI Colapsable ─────────────────────── */
+        .roi-inline-section { margin: 0 0 6rem; }
+
+        .roi-toggle-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--purple-light);
+            border: 3px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.2rem 2rem;
+            font-family: var(--font-body);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-dark);
+            cursor: pointer;
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+            transition: transform 0.15s, box-shadow 0.15s;
+            margin-bottom: 0;
+        }
+        .roi-toggle-btn:hover { transform: translateY(-2px); box-shadow: 7px 7px 0 rgba(0,0,0,1); }
+        .roi-toggle-arrow {
+            font-size: 1rem;
+            transition: transform 0.3s ease;
+            display: inline-block;
+        }
+        .roi-toggle-arrow.open { transform: rotate(180deg); }
+
+        .roi-collapsible {
+            overflow: hidden;
+            max-height: 0;
+            transition: max-height 0.4s ease, padding 0.3s ease;
+        }
+        .roi-collapsible.open {
+            max-height: 2000px;
+        }
+
+        .roi-wrapper {
+            background: #fff;
+            border: 3px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 32px 32px;
+            padding: 3rem;
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+        }
+        .roi-toggle-btn.expanded {
+            border-radius: 20px 20px 0 0;
+            box-shadow: 5px 0 0 rgba(0,0,0,1), -5px 0 0 rgba(0,0,0,1), 0 -5px 0 rgba(0,0,0,1);
+        }
+
+        .roi-section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            background: var(--card-blue);
+        }
+        .roi-title    { margin-bottom: 0.5rem; }
+        .roi-subtitle { color: var(--text-light); font-size: 1.1rem; margin: 0; }
+
+        .roi-inputs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        .roi-input-group--full { grid-column: 1 / -1; }
+
+        .roi-label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-family: var(--font-body);
+            font-weight: 700;
+            font-size: 1rem;
+            color: var(--text-dark);
+            margin-bottom: 0.75rem;
+        }
+        .roi-label-hint { font-weight: 400; font-size: 0.85rem; color: var(--text-light); }
+
+        .roi-input-wrapper {
+            display: flex;
+            align-items: center;
+            border: 3px solid var(--border-color);
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--bg-color);
+            box-shadow: 4px 4px 0 rgba(0,0,0,1);
+        }
+        .roi-input-prefix,
+        .roi-input-suffix {
+            padding: 0.9rem 1rem;
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.1rem;
+            background: var(--grid-line);
+            color: var(--text-dark);
+            flex-shrink: 0;
+        }
+        .roi-input-prefix { border-right: 2px solid var(--border-color); }
+        .roi-input-suffix { border-left: 2px solid var(--border-color); }
+        .roi-input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0.9rem 1rem;
+            font-family: var(--font-heading);
+            font-weight: 700;
+            font-size: 1.4rem;
+            color: var(--text-dark);
+            outline: none;
+            min-width: 0;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+        .roi-input::-webkit-inner-spin-button,
+        .roi-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+        .roi-plan-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+        .roi-plan-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 0.75rem;
+            border: 3px solid var(--border-color);
+            border-radius: 16px;
+            background: var(--bg-color);
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+            position: relative;
+            font-family: var(--font-body);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            text-align: center;
+            gap: 0.2rem;
+        }
+        .roi-plan-btn strong { font-family: var(--font-heading); font-weight: 800; font-size: 1rem; color: var(--text-dark); display: block; }
+        .roi-plan-btn span   { font-size: 0.82rem; color: var(--text-light); font-weight: 500; }
+        .roi-plan-btn em     { font-style: normal; font-size: 0.9rem; font-weight: 700; color: var(--text-dark); }
+        .roi-plan-btn:hover  { transform: translateY(-2px); box-shadow: 5px 5px 0 rgba(0,0,0,1); }
+        .roi-plan-btn--active {
+            background: var(--black-bg);
+            border-color: var(--black-bg);
+            box-shadow: 5px 5px 0 rgba(0,0,0,1);
+        }
+        .roi-plan-btn--active strong,
+        .roi-plan-btn--active em   { color: #fff; }
+        .roi-plan-btn--active span { color: #A1A1AA; }
+        .roi-plan-badge {
+            position: absolute;
+            top: -10px; right: -8px;
+            background: var(--card-orange);
+            color: var(--text-dark);
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 0.15rem 0.6rem;
+            border-radius: 50px;
+            border: 2px solid var(--border-color);
+        }
+
+        .roi-slider-wrapper { display: flex; flex-direction: column; gap: 0.75rem; }
+        .roi-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%; height: 8px;
+            border-radius: 50px;
+            background: var(--grid-line);
+            border: 2px solid var(--border-color);
+            outline: none;
+            cursor: pointer;
+        }
+        .roi-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--text-dark);
+            border: 3px solid var(--border-color);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            cursor: grab;
+        }
+        .roi-slider::-moz-range-thumb {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--text-dark);
+            border: 3px solid var(--border-color);
+            box-shadow: 3px 3px 0 rgba(0,0,0,1);
+            cursor: grab;
+        }
+        .roi-slider-labels {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            font-weight: 600;
+        }
+        .roi-slider-value {
+            font-family: var(--font-heading);
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--text-dark);
+            background: var(--card-blue);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0.2rem 0.8rem;
+            min-width: 60px;
+            text-align: center;
+            box-shadow: 2px 2px 0 rgba(0,0,0,1);
+        }
+
+        .roi-results-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+        }
+        .roi-stat-card {
+            border: 3px solid var(--border-color);
+            border-radius: 24px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            box-shadow: 6px 6px 0 rgba(0,0,0,1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .roi-stat-card:hover { transform: translate(-3px, -3px); box-shadow: 9px 9px 0 rgba(0,0,0,1); }
+        .roi-stat-blue   { background: var(--card-blue); }
+        .roi-stat-orange { background: var(--card-orange); }
+        .roi-stat-green  { background: var(--card-green); }
+        .roi-stat-icon   { font-size: 2rem; line-height: 1; }
+        .roi-stat-value  { font-family: var(--font-heading); font-size: 2.2rem; font-weight: 800; color: var(--text-dark); line-height: 1; }
+        .roi-stat-label  { font-size: 0.9rem; font-weight: 600; color: rgba(0,0,0,0.7); }
+
+        .roi-summary {
+            background: var(--black-bg);
+            color: #A1A1AA;
+            border-radius: 20px;
+            padding: 1.75rem 2rem;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            border: 2px solid #3F3F46;
+        }
+        .roi-summary strong { color: var(--card-green); font-weight: 700; }
+
+        .roi-cta-wrapper { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+        .roi-cta-disclaimer { font-size: 0.9rem; color: var(--text-light); font-weight: 500; margin: 0; }
+
+        @media (max-width: 900px) {
+            .roi-wrapper       { padding: 2rem; border-radius: 0 0 28px 28px; gap: 2rem; }
+            .roi-inputs-grid   { grid-template-columns: 1fr; }
+            .roi-input-group--full { grid-column: auto; }
+            .roi-results-grid  { grid-template-columns: 1fr; gap: 1rem; }
+        }
+        @media (max-width: 600px) {
+            .roi-toggle-btn    { font-size: 0.95rem; padding: 1rem 1.2rem; }
+            .roi-wrapper       { padding: 1.5rem 1.2rem; }
+            .roi-plan-selector { grid-template-columns: 1fr; gap: 0.6rem; }
+            .roi-plan-btn      { flex-direction: row; justify-content: space-between; padding: 0.9rem 1rem; }
+            .roi-stat-value    { font-size: 1.8rem; }
+            .roi-summary       { font-size: 1rem; padding: 1.25rem; }
+        }
     </style>
 </head>
 <body>
@@ -195,7 +472,7 @@
         
         <h1 class="hero-title">
             <span class="decorate-left">✧</span>
-            ¿Filtrar, Vender, Agendar, Responder consultas?<br>Todo esto, automático y 24/7
+            ¿Filtrar, Vender, Agendar, Responder?<br>Todo esto, automático y 24/7
             <span class="decorate-right">〰️</span>
         </h1>
         
@@ -335,11 +612,110 @@
                         <div><strong>Sin nómina, sin cargas, sin drama</strong><span>Factura mensual fija, cancela cuando quieras</span></div>
                     </li>
                 </ul>
-                <a href="capacidades.html#calculadora" class="btn btn-lavender vs-cta-btn">
+                <a href="#calculadora-inline" class="btn btn-lavender vs-cta-btn" onclick="event.preventDefault();toggleROI(true);setTimeout(function(){document.getElementById('calculadora-inline').scrollIntoView({behavior:'smooth'});},50);">
                     Calcular cuántas citas necesito recuperar →
                 </a>
             </div>
 
+        </div>
+    </section>
+
+    <!-- Calculadora de ROI (colapsable) -->
+    <section id="calculadora-inline" class="roi-inline-section container">
+        <button class="roi-toggle-btn" id="roi-toggle-btn" onclick="toggleROI()" aria-expanded="false">
+            <span>🧮 Calcular cuántas citas necesito para recuperar la inversión</span>
+            <span class="roi-toggle-arrow" id="roi-toggle-arrow">▼</span>
+        </button>
+        <div class="roi-collapsible" id="roi-collapsible">
+            <div class="roi-wrapper">
+                <div>
+                    <div class="roi-section-label">🧮 Calculadora de ROI</div>
+                    <h2 class="roi-title">¿Cuántas citas necesitas<br>para amortizar el plan?</h2>
+                    <p class="roi-subtitle">Ajusta los valores de tu negocio y ve en tiempo real cuándo Bruno Lab se paga solo.</p>
+                </div>
+
+                <div class="roi-inputs-grid">
+                    <div class="roi-input-group">
+                        <label class="roi-label" for="roi-cita-value">
+                            Valor de cada cita
+                            <span class="roi-label-hint">¿Cuánto cobra por consulta o tratamiento?</span>
+                        </label>
+                        <div class="roi-input-wrapper">
+                            <span class="roi-input-prefix">$</span>
+                            <input id="roi-cita-value" class="roi-input" type="number" min="10" max="10000" step="10" value="150" placeholder="150">
+                            <span class="roi-input-suffix">USD</span>
+                        </div>
+                    </div>
+                    <div class="roi-input-group">
+                        <label class="roi-label">
+                            Conversaciones por mes
+                            <span class="roi-label-hint">Elige el plan que se adapta a tu tráfico</span>
+                        </label>
+                        <div class="roi-plan-selector" role="group" aria-label="Seleccionar plan">
+                            <button class="roi-plan-btn" type="button" data-convs="200" data-cost="99" data-name="Starter">
+                                <strong>Starter</strong>
+                                <span>200 conv.</span>
+                                <em>$99/mes</em>
+                            </button>
+                            <button class="roi-plan-btn roi-plan-btn--active" type="button" data-convs="600" data-cost="199" data-name="Growth">
+                                <strong>Growth</strong>
+                                <span>600 conv.</span>
+                                <em>$199/mes</em>
+                                <div class="roi-plan-badge">Popular</div>
+                            </button>
+                            <button class="roi-plan-btn" type="button" data-convs="1500" data-cost="399" data-name="Enterprise">
+                                <strong>Enterprise</strong>
+                                <span>1,500 conv.</span>
+                                <em>$399/mes</em>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="roi-input-group roi-input-group--full">
+                        <label class="roi-label" for="roi-conversion">
+                            Citas recuperadas por mes
+                            <span class="roi-label-hint">¿Qué porcentaje de conversaciones terminan en cita agendada?</span>
+                        </label>
+                        <div class="roi-slider-wrapper">
+                            <input id="roi-conversion" class="roi-slider" type="range" min="0" max="50" step="1" value="15">
+                            <div class="roi-slider-labels">
+                                <span>0%</span>
+                                <span class="roi-slider-value" id="roi-conversion-display">15%</span>
+                                <span>50%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="roi-results-grid">
+                    <div class="roi-stat-card roi-stat-blue">
+                        <div class="roi-stat-icon">📅</div>
+                        <div class="roi-stat-value" id="roi-citas">90</div>
+                        <div class="roi-stat-label">citas recuperadas / mes</div>
+                    </div>
+                    <div class="roi-stat-card roi-stat-orange">
+                        <div class="roi-stat-icon">💰</div>
+                        <div class="roi-stat-value" id="roi-ingresos">$13,500</div>
+                        <div class="roi-stat-label">ingresos adicionales / mes</div>
+                    </div>
+                    <div class="roi-stat-card roi-stat-green">
+                        <div class="roi-stat-icon">⚡</div>
+                        <div class="roi-stat-value" id="roi-amortiza">menos de 1 día</div>
+                        <div class="roi-stat-label">para recuperar la inversión</div>
+                    </div>
+                </div>
+
+                <div class="roi-summary">
+                    Con el plan <strong id="rs-plan">Growth ($199/mes)</strong>, recuperando
+                    <strong id="rs-citas">90 citas</strong> de <strong id="rs-convs">600 conversaciones</strong>,
+                    generas <strong id="rs-ingresos">$13,500 USD</strong> al mes.
+                    Tu inversión se recupera en <strong id="rs-dias">menos de 1 día</strong>.
+                </div>
+
+                <div class="roi-cta-wrapper">
+                    <a href="#precios" class="btn btn-dark btn-lg">Elegir mi plan ahora →</a>
+                    <p class="roi-cta-disclaimer">Sin contratos anuales · Cancela cuando quieras</p>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -418,7 +794,7 @@
                 <div class="quote-icon">“</div>
                 <p>El agente respondió a las 11pm, calificó al lead y agendó la cita. A la mañana siguiente yo ya tenía su ficha médica en mi correo.</p>
                 <div class="author">
-                    <img src="https://images.unsplash.com/photo-1594824432247-495c0245a640?auto=format&fit=crop&w=150&q=80" alt="Doctora">
+                    <img src="https://images.unsplash.com/photo-1614608682850-e0d6ed316d47?auto=format&fit=crop&w=150&q=80" alt="Doctora" onerror="this.onerror=null;this.src='https://ui-avatars.com/api/?name=Dra+Silva&size=150&background=CBB9FF&color=121212&rounded=true&bold=true'">
                     <div class="author-info">
                         <strong>Dra. Silva M.</strong>
                         <span>Clínica Estética</span>
@@ -503,6 +879,94 @@
             <path d="M13.601 2.326A7.854 7.854 0 0 0 7.994 0C3.627 0 .068 3.558.064 7.926c0 1.399.366 2.76 1.057 3.965L0 16l4.204-1.102a7.933 7.933 0 0 0 3.79.965h.004c4.368 0 7.926-3.558 7.93-7.93A7.898 7.898 0 0 0 13.6 2.326zM7.994 14.521a6.573 6.573 0 0 1-3.356-.92l-.24-.144-2.494.654.666-2.433-.156-.251a6.56 6.56 0 0 1-1.007-3.505c0-3.626 2.957-6.584 6.591-6.584a6.56 6.56 0 0 1 4.66 1.931 6.557 6.557 0 0 1 1.928 4.66c-.004 3.639-2.961 6.592-6.592 6.592zm3.615-4.934c-.197-.099-1.17-.578-1.353-.646-.182-.065-.315-.099-.445.099-.133.197-.513.646-.627.775-.114.133-.232.148-.43.05-.197-.1-.836-.308-1.592-.985-.59-.525-.985-1.175-1.103-1.372-.114-.198-.011-.304.088-.403.087-.088.197-.232.296-.346.1-.114.133-.198.198-.33.065-.134.034-.248-.015-.347-.05-.099-.445-1.076-.612-1.47-.16-.389-.323-.335-.445-.34-.114-.007-.247-.007-.38-.007a.729.729 0 0 0-.529.247c-.182.198-.691.677-.691 1.654 0 .977.71 1.916.81 2.049.098.133 1.394 2.132 3.383 2.992.47.205.84.326 1.129.418.475.152.904.129 1.246.08.38-.058 1.171-.48 1.338-.943.164-.464.164-.86.114-.943-.049-.084-.182-.133-.38-.232z"/>
         </svg>
     </a>
+
+    <script>
+    /* ── Toggle + Calculadora de ROI ────────────────────────── */
+    function toggleROI(forceOpen) {
+        var btn      = document.getElementById('roi-toggle-btn');
+        var panel    = document.getElementById('roi-collapsible');
+        var arrow    = document.getElementById('roi-toggle-arrow');
+        var isOpen   = panel.classList.contains('open');
+
+        if (forceOpen === true && isOpen) return; // ya abierto
+
+        if (isOpen && forceOpen !== true) {
+            panel.classList.remove('open');
+            arrow.classList.remove('open');
+            btn.classList.remove('expanded');
+            btn.setAttribute('aria-expanded', 'false');
+        } else {
+            panel.classList.add('open');
+            arrow.classList.add('open');
+            btn.classList.add('expanded');
+            btn.setAttribute('aria-expanded', 'true');
+        }
+    }
+
+    (function () {
+        var inputCita     = document.getElementById('roi-cita-value');
+        var sliderConv    = document.getElementById('roi-conversion');
+        var sliderDisplay = document.getElementById('roi-conversion-display');
+        var planBtns      = document.querySelectorAll('#calculadora-inline .roi-plan-btn');
+
+        var outCitas    = document.getElementById('roi-citas');
+        var outIngresos = document.getElementById('roi-ingresos');
+        var outAmortiza = document.getElementById('roi-amortiza');
+        var rsPlan      = document.getElementById('rs-plan');
+        var rsCitas     = document.getElementById('rs-citas');
+        var rsConvs     = document.getElementById('rs-convs');
+        var rsIngresos  = document.getElementById('rs-ingresos');
+        var rsDias      = document.getElementById('rs-dias');
+
+        var state = { citaValue: 150, convs: 600, planCost: 199, planName: 'Growth', convRate: 15 };
+
+        function fmtUSD(n) { return '$' + n.toLocaleString('en-US'); }
+        function fmtNum(n) { return n.toLocaleString('es-CO'); }
+
+        function calculate() {
+            var citasRec = Math.round(state.convs * (state.convRate / 100));
+            var ingresos = citasRec * state.citaValue;
+            var citasMin = Math.ceil(state.planCost / (state.citaValue > 0 ? state.citaValue : 1));
+            var diasText;
+            if (state.convRate === 0 || citasRec === 0) {
+                diasText = '∞';
+            } else {
+                var diasRaw = (citasMin / citasRec) * 30;
+                diasText = diasRaw < 1 ? 'menos de 1 día' : Math.ceil(diasRaw) + ' días';
+            }
+            outCitas.textContent    = fmtNum(citasRec) + ' citas';
+            outIngresos.textContent = fmtUSD(ingresos);
+            outAmortiza.textContent = diasText;
+            rsPlan.textContent      = state.planName + ' ($' + state.planCost + '/mes)';
+            rsCitas.textContent     = fmtNum(citasRec) + ' citas';
+            rsConvs.textContent     = fmtNum(state.convs) + ' conversaciones';
+            rsIngresos.textContent  = fmtUSD(ingresos) + ' USD';
+            rsDias.textContent      = diasText;
+        }
+
+        inputCita.addEventListener('input', function () {
+            var val = parseInt(this.value, 10);
+            state.citaValue = (!isNaN(val) && val >= 1) ? val : 1;
+            calculate();
+        });
+        sliderConv.addEventListener('input', function () {
+            state.convRate = parseInt(this.value, 10);
+            sliderDisplay.textContent = this.value + '%';
+            calculate();
+        });
+        planBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                planBtns.forEach(function (b) { b.classList.remove('roi-plan-btn--active'); });
+                this.classList.add('roi-plan-btn--active');
+                state.convs    = parseInt(this.dataset.convs, 10);
+                state.planCost = parseInt(this.dataset.cost, 10);
+                state.planName = this.dataset.name;
+                calculate();
+            });
+        });
+        calculate();
+    })();
+    </script>
 
     <script>
         let lastScroll = 0;

@@ -219,7 +219,7 @@ p {
     justify-content: center;
     align-items: flex-end;
     gap: 2rem;
-    height: 250px;
+    height: 290px;
     position: relative;
     width: 100%;
 }
@@ -246,9 +246,9 @@ p {
     font-size: 4rem;
     line-height: 1;
 }
-.card-blue { background: var(--card-blue); transform: rotate(-6deg) translateY(20px); }
-.card-pink { background: var(--card-pink); height: 230px; z-index: 2; border-bottom: 3px solid var(--border-color); border-radius: 32px; box-shadow: 6px 6px 0 rgba(0,0,0,1); }
-.card-orange { background: var(--card-orange); transform: rotate(6deg) translateY(20px); }
+.card-blue { background: var(--card-blue); transform: rotate(-6deg) translateY(-5px); border-radius: 32px; border-bottom: 3px solid var(--border-color); box-shadow: 5px 5px 0 rgba(0,0,0,1); }
+.card-pink { background: var(--card-pink); height: 240px; z-index: 2; border-bottom: 3px solid var(--border-color); border-radius: 32px; box-shadow: 6px 6px 0 rgba(0,0,0,1); }
+.card-orange { background: var(--card-orange); transform: rotate(6deg) translateY(-5px); border-radius: 32px; border-bottom: 3px solid var(--border-color); box-shadow: 5px 5px 0 rgba(0,0,0,1); }
 
 .pop-card:hover { transform: translateY(-15px) rotate(0); z-index: 3; }
 
