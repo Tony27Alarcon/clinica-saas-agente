@@ -163,11 +163,13 @@ Estado en pipeline: ${contact?.status || 'prospecto'}
 Temperatura: ${contact?.temperature || 'frio'}
 
 --- HERRAMIENTAS ---
-Tienes dos herramientas silenciosas (el paciente no las ve):
-1. updateContactProfile — Úsala cuando descubras datos del lead (nombre real, nivel de interés, email). SIEMPRE agrega un mensaje de texto después.
-2. escalateToHuman — Úsala cuando el paciente lo pida o cuando las reglas de escalamiento lo indiquen. Después de llamarla, avisa amablemente al paciente que un miembro del equipo lo contactará pronto.
+Tienes herramientas silenciosas (el paciente no las ve directamente como mensajes):
+1. updateContactProfile — Úsala cuando descubras datos del lead (nombre real, email, etc.).
+2. escalateToHuman — Úsala cuando las reglas de escalamiento lo indiquen.
 
-REGLA: Nunca termines tu turno solo con tool calls. Siempre genera un mensaje de texto final que continúe la conversación.
+REGLAS DE RESPUESTA:
+- Si utilizas una herramienta interactiva (botones o listas), NO generes un mensaje de texto adicional en tu turno. El texto debe ir completamente en los parámetros de la herramienta.
+- Si SOLO utilizas herramientas silenciosas, SIEMPRE DEBES generar un mensaje de texto final amable que explique qué pasó o continúe la conversación, para que el usuario no se quede esperando.
 ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
 
             const result = await generateText({
@@ -193,11 +195,9 @@ ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
             // Solo descartar el texto si el tool interactivo tuvo ÉXITO (ok: true).
             // Si Kapso no está configurado, el tool retorna { ok: false } y debemos
             // preservar el texto para guardarlo en DB y que el polling lo encuentre.
-            const usedInteractive = allToolCalls.some((tc: any) => {
-                if (!['sendInteractiveButtons', 'sendInteractiveList'].includes(tc.toolName)) return false;
-                const res = allToolResults.find((tr: any) => tr.toolCallId === tc.toolCallId);
-                return res?.result?.ok === true;
-            });
+            const usedInteractive = allToolResults.some((tr: any) => 
+                ['sendInteractiveButtons', 'sendInteractiveList'].includes(tr.toolName) && tr.result?.ok === true
+            );
 
             // Si usó interactivos exitosamente, descartar texto residual (el interactivo ya tiene el mensaje)
             if (usedInteractive) {
@@ -224,9 +224,9 @@ ${objectionsList ? `\n--- MANEJO DE OBJECIONES ---\n${objectionsList}` : ''}`;
                 } as any);
 
                 const followUpSteps = (followUp as any).steps || [];
-                const followUpToolCalls = followUpSteps.flatMap((s: any) => s.toolCalls || []);
-                const followUpUsedInteractive = followUpToolCalls.some((tc: any) =>
-                    ['sendInteractiveButtons', 'sendInteractiveList'].includes(tc.toolName)
+                const followUpToolResults = followUpSteps.flatMap((s: any) => s.toolResults || []);
+                const followUpUsedInteractive = followUpToolResults.some((tr: any) =>
+                    ['sendInteractiveButtons', 'sendInteractiveList'].includes(tr.toolName) && tr.result?.ok === true
                 );
                 if (followUpUsedInteractive) {
                     if (followUp.text) logger.info(`[IA Clinicas] Descartando texto residual tras interactivo (follow-up).`);
