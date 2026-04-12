@@ -18,7 +18,7 @@ import {
     createClinicasArchiveNoteTool,
     createClinicasNoReplyTool,
 } from '../tools/clinicas.tools';
-import { createScheduleReminderTool } from '../tools/clinicas-reminder.tool';
+import { createScheduleReminderTool, createListRemindersTool, createCancelReminderTool } from '../tools/clinicas-reminder.tool';
 import {
     createAdminSearchContactsTool,
     createAdminGetAppointmentsTool,
@@ -160,7 +160,12 @@ export class AiService {
         company: any
     ): Promise<string | null> {
         try {
-            logger.info(`[IA Clinicas] Generando respuesta para ${contact?.phone} (Conv: ${conversation?.id})`);
+            logger.info(`[IA Clinicas] Generando respuesta para ${contact?.phone} (Conv: ${conversation?.id}) — historial: ${historial.length} msgs`);
+
+            if (!historial || historial.length === 0) {
+                logger.warn(`[IA Clinicas] Historial vacío — retornando saludo de bienvenida (revisa saveMessageDeduped y constraint kapso_message_id)`);
+                return agent.welcome_message || '¡Hola! Recibí tu mensaje. ¿En qué puedo ayudarte?';
+            }
 
             const timeCtx = getColombianContext();
 
@@ -207,6 +212,12 @@ Interactivas (el mensaje va DENTRO de la tool — NO generes texto adicional en 
 Recordatorios (silenciosa — siempre envía un mensaje de despedida después confirmando cuándo contactarás al paciente):
   • scheduleReminder(fire_at, message) → Programa un contacto futuro proactivo. Úsala cuando el paciente pida que lo contactes más tarde (ej: "hablamos esta tarde", "escríbeme mañana"). fire_at en hora LOCAL de la clínica.
 
+Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
+  • noReply(reason) → Cancela la respuesta. Usar SOLO cuando el interlocutor es claramente
+    un bot: mensajes en bucle idéntico, formato JSON/XML automático, marcadores de bot
+    ("[AUTO]", "BOT:", "I am an automated assistant"), intervalos perfectamente regulares,
+    texto sin sentido conversacional. NO usar con humanos tímidos o que escriben poco.
+
 --- ORDEN DE EJECUCIÓN EN CADA TURNO ---
 1. NOTAS (si aplica): Si el estado del contacto no es "prospecto", llama getNotes UNA SOLA VEZ al inicio del turno para cargar contexto previo antes de responder.
 2. RESPUESTA: Genera tu respuesta usando el contexto de las notas y el historial.
@@ -222,7 +233,8 @@ Recordatorios (silenciosa — siempre envía un mensaje de despedida después co
 • Silenciosas: SIEMPRE genera un mensaje de texto después — el paciente no puede quedar en silencio.
 • Interactivas exitosas: NO generes texto adicional — el mensaje ya está dentro de la tool.
 • Nunca llames la misma tool dos veces en el mismo turno.
-• Nunca menciones las tools, el sistema, ni las notas al paciente.`;
+• Nunca menciones las tools, el sistema, ni las notas al paciente.
+• noReply activado: NO generes texto adicional. La respuesta queda cancelada por completo.`;
 
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
@@ -243,6 +255,9 @@ Recordatorios (silenciosa — siempre envía un mensaje de despedida después co
                     sendInteractiveButtons: createSendInteractiveButtonsTool(contact.phone, phoneNumberId, conversation.id),
                     sendInteractiveList:    createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
                     scheduleReminder:       createScheduleReminderTool(company.id, contact.id, conversation.id, 'patient', company.timezone || 'America/Bogota'),
+                    listReminders:          createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
+                    cancelReminder:         createCancelReminderTool(company.id, contact.id),
+                    noReply:                createClinicasNoReplyTool(),
                 },
             } as any);
 
@@ -258,6 +273,16 @@ Recordatorios (silenciosa — siempre envía un mensaje de despedida después co
             const usedInteractive = allToolResults.some((tr: any) =>
                 ['sendInteractiveButtons', 'sendInteractiveList'].includes(tr.toolName) && tr.result?.ok === true
             );
+
+            // Si el agente detectó un bot y activó noReply → silencio total
+            const usedNoReply = allToolResults.some((tr: any) =>
+                tr.toolName === 'noReply' && tr.result?.noReply === true
+            );
+            if (usedNoReply) {
+                const r = allToolResults.find((tr: any) => tr.toolName === 'noReply');
+                logger.warn(`[IA Clinicas] noReply activado — silencio total. Motivo: ${r?.result?.reason}`);
+                return null;
+            }
 
             // Si usó interactivos exitosamente, descartar texto residual (el interactivo ya tiene el mensaje)
             if (usedInteractive) {
@@ -288,11 +313,24 @@ Recordatorios (silenciosa — siempre envía un mensaje de despedida después co
                         sendInteractiveButtons: createSendInteractiveButtonsTool(contact.phone, phoneNumberId, conversation.id),
                         sendInteractiveList:    createSendInteractiveListTool(contact.phone, phoneNumberId, conversation.id),
                         scheduleReminder:       createScheduleReminderTool(company.id, contact.id, conversation.id, 'patient', company.timezone || 'America/Bogota'),
+                        listReminders:          createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
+                        cancelReminder:         createCancelReminderTool(company.id, contact.id),
+                        noReply:                createClinicasNoReplyTool(),
                     },
                 } as any);
 
                 const followUpSteps = (followUp as any).steps || [];
                 const followUpToolResults = followUpSteps.flatMap((s: any) => s.toolResults || []);
+
+                const followUpUsedNoReply = followUpToolResults.some((tr: any) =>
+                    tr.toolName === 'noReply' && tr.result?.noReply === true
+                );
+                if (followUpUsedNoReply) {
+                    const r = followUpToolResults.find((tr: any) => tr.toolName === 'noReply');
+                    logger.warn(`[IA Clinicas] noReply activado en follow-up. Motivo: ${r?.result?.reason}`);
+                    return null;
+                }
+
                 const followUpUsedInteractive = followUpToolResults.some((tr: any) =>
                     ['sendInteractiveButtons', 'sendInteractiveList'].includes(tr.toolName) && tr.result?.ok === true
                 );
@@ -340,7 +378,12 @@ Recordatorios (silenciosa — siempre envía un mensaje de despedida después co
         phoneNumberId: string
     ): Promise<string> {
         try {
-            logger.info(`[IA Admin] Generando respuesta para staff "${staffMember?.name}" (Conv: ${conversation?.id})`);
+            logger.info(`[IA Admin] Generando respuesta para staff "${staffMember?.name}" (Conv: ${conversation?.id}) — historial: ${historial.length} msgs`);
+
+            if (!historial || historial.length === 0) {
+                logger.warn(`[IA Admin] Historial vacío — retornando saludo de bienvenida`);
+                return '¡Hola! Estoy listo para ayudarte. ¿Qué necesitas?';
+            }
 
             const timeCtx = getColombianContext();
 
@@ -446,6 +489,8 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
                     updateStaff:             createAdminUpdateStaffTool(company.id),
                     archiveStaff:            createAdminArchiveStaffTool(company.id),
                     scheduleReminder:        createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', company.timezone || 'America/Bogota'),
+                    listReminders:           createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
+                    cancelReminder:          createCancelReminderTool(company.id, contact.id),
                 },
             } as any);
 
@@ -465,6 +510,8 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
                     temperature: 0.5,
                     tools: {
                         scheduleReminder: createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', company.timezone || 'America/Bogota'),
+                        listReminders:    createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
+                        cancelReminder:   createCancelReminderTool(company.id, contact.id),
                     },
                 } as any);
                 return followUp.text || '¿En qué más puedo ayudarte?';

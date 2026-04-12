@@ -131,6 +131,16 @@ export class ReminderService {
         } else {
             logger.warn(`[ReminderService] Reminder ${reminder.id}: agente no generó respuesta`);
         }
+
+        // Post-disparo: si es recurrente, calcular la siguiente ejecución
+        if (reminder.rrule) {
+            await ReminderDbService.completeRecurrentCycle(
+                reminder.id,
+                reminder.rrule,
+                company.timezone || 'America/Bogota',
+                reminder.run_count ?? 0
+            );
+        }
     }
 
     /**

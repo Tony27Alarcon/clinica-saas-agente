@@ -437,14 +437,36 @@ export class WebhookController {
             ClinicasDbService.getHistorial(conversation.id, 25)
         );
 
+        // ── Capa 3: Guardarraíl por historial ────────────────────────────────────
+        // Si los últimos LOOP_THRESHOLD mensajes consecutivos son todos 'assistant',
+        // el agente está enviando mensajes sin que nadie responda (bug, reminder mal
+        // configurado, o loop interno). No aplica al escenario bot↔agente normal
+        // (cuyo historial alterna user/assistant) — para eso existe la tool noReply.
+        const LOOP_THRESHOLD = 4;
+        if (historial.length >= LOOP_THRESHOLD) {
+            const tail = historial.slice(-LOOP_THRESHOLD);
+            if (tail.every(m => m.role === 'assistant')) {
+                logger.warn(
+                    `[Clinicas] Bucle detectado: últimos ${LOOP_THRESHOLD} msgs son 'assistant'. Descartando.`,
+                    { conversationId: conversation.id, from }
+                );
+                return;
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────────
+
         // Step F: Generar respuesta IA
         const respuesta = await logger.stage('F', 'clinicas.AiService.generarRespuestaClinicas', () =>
             AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId, company)
         );
 
-        // Step G: Guardar respuesta en DB (antes de enviar, para que quede en historial
-        //         aunque el envío por Kapso falle transitoriamente)
-        if (respuesta && respuesta.trim()) {
+        // Step G/H: Guardar y enviar respuesta
+        //   null  = noReply tool activada → silencio total, no guardar, no enviar
+        //   ''    = tool interactiva exitosa → ya se envió por la tool
+        //   texto = respuesta normal → guardar en DB y enviar por Kapso
+        if (respuesta === null) {
+            logger.info('[Clinicas] Step G: silencio total por noReply tool — nada a guardar ni enviar.');
+        } else if (respuesta && respuesta.trim()) {
             await logger.stage('G', 'clinicas.saveMessage (respuesta)', () =>
                 ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', respuesta)
             );

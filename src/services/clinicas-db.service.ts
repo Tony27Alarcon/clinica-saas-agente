@@ -142,6 +142,7 @@ export class ClinicasDbService {
                 .from('conversations')
                 .select('*')
                 .eq('contact_id', contactId)
+                .eq('channel', channel)
                 .eq('status', 'open')
                 .order('created_at', { ascending: false })
                 .limit(1)

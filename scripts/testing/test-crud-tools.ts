@@ -649,7 +649,8 @@ async function runScenario(scenario: CrudScenario, companyId: string): Promise<b
         return allAssertsPassed;
 
     } catch (err: any) {
-        console.log(`\n  ❌ FALLÓ con excepción: ${err.message}`);
+        const msg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
+        console.log(`\n  ❌ FALLÓ con excepción: ${msg}`);
         if (scenario.teardown) {
             await scenario.teardown(companyId).catch(() => {});
         }
@@ -721,7 +722,7 @@ async function main() {
         const passed = await runScenario(scenario, company.id);
         results.push({ name: scenario.name, passed });
         if (scenariosToRun.indexOf(scenario) < scenariosToRun.length - 1) {
-            await sleep(2_500);
+            await sleep(4_000); // pausa entre escenarios para que el servidor procese
         }
     }
 

@@ -25,6 +25,7 @@
     "@supabase/supabase-js": "^2.45.0",
     "ai": "^6.0.116",
     "axios": "^1.7.0",
+    "cron-parser": "^5.5.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "googleapis": "^171.4.0",

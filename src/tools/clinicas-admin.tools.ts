@@ -561,8 +561,9 @@ export const createAdminSendPortalLinkTool = (
                 return { ok: false, error: 'INTERNAL_API_SECRET no está configurado en el servidor' };
             }
 
-            const token = createPortalToken(companyId);
-            const url   = `${env.ADMIN_PORTAL_URL}/admin/${companyId}/agente?token=${token}`;
+            const token   = createPortalToken(companyId);
+            const baseUrl = env.ADMIN_PORTAL_URL.replace(/\/$/, '');
+            const url     = `${baseUrl}/admin/${companyId}/agente?token=${token}`;
 
             const mensaje =
                 `Aquí está tu link de acceso al portal de administración:\n\n` +
