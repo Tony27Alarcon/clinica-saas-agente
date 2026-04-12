@@ -258,6 +258,16 @@ export class WebhookController {
         const clinicaCompany = await ClinicasDbService.getCompanyByWaPhone(phoneNumberId);
         if (clinicaCompany) {
             logger.info(`[Clinicas] Tenant identificado: "${clinicaCompany.name}" (${clinicaCompany.id})`);
+
+            // Mensajes salientes (enviados desde el móvil o dashboard Kapso):
+            // direction='outbound' → solo guardar en DB, nunca invocar IA.
+            const direction = event.direction || event.message?.direction;
+            if (direction && direction !== 'inbound') {
+                logger.info(`[Clinicas] Mensaje saliente (direction="${direction}") — guardando sin IA`);
+                await WebhookController.processOutgoingEvent(event);
+                return;
+            }
+
             await WebhookController.processClinicasEvent({
                 event, company: clinicaCompany,
                 from, senderName, text, phoneNumberId, messageId, messageType,

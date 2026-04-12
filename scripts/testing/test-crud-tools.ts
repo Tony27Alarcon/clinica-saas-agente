@@ -66,6 +66,7 @@ async function getTreatmentByName(companyId: string, name: string): Promise<any>
         .select('*')
         .eq('company_id', companyId)
         .ilike('name', name)
+        .order('created_at', { ascending: false }) // más reciente primero
         .limit(1)
         .maybeSingle();
     return data;

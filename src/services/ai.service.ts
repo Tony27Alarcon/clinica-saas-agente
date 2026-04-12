@@ -16,6 +16,7 @@ import {
     createClinicasAddNoteTool,
     createClinicasEditNoteTool,
     createClinicasArchiveNoteTool,
+    createClinicasNoReplyTool,
 } from '../tools/clinicas.tools';
 import { createScheduleReminderTool } from '../tools/clinicas-reminder.tool';
 import {
@@ -157,7 +158,7 @@ export class AiService {
         conversation: any,
         phoneNumberId: string,
         company: any
-    ): Promise<string> {
+    ): Promise<string | null> {
         try {
             logger.info(`[IA Clinicas] Generando respuesta para ${contact?.phone} (Conv: ${conversation?.id})`);
 

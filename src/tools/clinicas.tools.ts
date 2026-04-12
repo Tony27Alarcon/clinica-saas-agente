@@ -353,3 +353,21 @@ export const createClinicasEscalateTool = (conversationId: string) => tool({
         }
     },
 });
+
+export const createClinicasNoReplyTool = () => tool({
+    description:
+        'Silencia la respuesta del agente. Úsala ÚNICAMENTE cuando estés seguro de que ' +
+        'el interlocutor es un bot o sistema automatizado (no un humano), ' +
+        'para evitar bucles infinitos de bot↔bot. ' +
+        'NO la uses con humanos silenciosos, confusos o que escriben poco.',
+    inputSchema: z.object({
+        reason: z.string().describe(
+            'Motivo por el que se determina que el interlocutor es un bot. ' +
+            'Ej: "Mensajes en bucle idénticos", "Formato JSON automático detectado".'
+        ),
+    }),
+    execute: async ({ reason }) => {
+        logger.warn(`[Clinicas Tool] noReply activado — ${reason}`);
+        return { ok: true, noReply: true, reason };
+    },
+});
