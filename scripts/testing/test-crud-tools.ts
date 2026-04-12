@@ -581,6 +581,7 @@ async function waitForAdminConversation(companyId: string, timeoutMs = 10_000): 
                 .from('conversations')
                 .select('id')
                 .eq('contact_id', contact.id)
+                .eq('channel', 'admin')
                 .in('status', ['open', 'escalated', 'waiting'])
                 .order('created_at', { ascending: false })
                 .limit(1)

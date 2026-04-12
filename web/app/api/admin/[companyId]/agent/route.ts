@@ -36,14 +36,18 @@ export async function PATCH(
     const { companyId } = await params;
     const { name, tone, system_prompt, qualification_criteria, escalation_rules, objections_kb } = await req.json();
 
-    const { error } = await (getSupabase() as any)
+    const { data: updated, error } = await (getSupabase() as any)
         .schema('clinicas')
         .from('agents')
         .update({ name, tone, system_prompt, qualification_criteria, escalation_rules, objections_kb, updated_at: new Date().toISOString() })
         .eq('company_id', companyId)
-        .eq('active', true);
+        .eq('active', true)
+        .select('id');
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!updated || updated.length === 0) {
+        return NextResponse.json({ error: `No se encontró agente activo para company_id=${companyId}` }, { status: 404 });
+    }
 
     // Rebuild prompt en el backend (best-effort, no bloquea la respuesta)
     const backendUrl  = process.env.BACKEND_INTERNAL_URL;

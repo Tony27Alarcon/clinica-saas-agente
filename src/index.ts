@@ -219,6 +219,44 @@ app.get('/auth/google/callback', async (req, res) => {
     }
 });
 
+// ─── Provisioning de clínica (interno) ──────────────────────────────────────
+
+/**
+ * Crea las 4 filas mínimas para que una clínica nueva pueda usar el agente:
+ * companies, channels, agents, staff.
+ *
+ * POST /internal/provision-clinic
+ * Header: x-internal-secret: <env.INTERNAL_API_SECRET>
+ * Body: { name, slug, phoneNumberId, adminPhone, adminName?, plan?, timezone?, currency? }
+ */
+app.post('/internal/provision-clinic', async (req, res) => {
+    const secret = req.headers['x-internal-secret'];
+    if (!secret || secret !== env.INTERNAL_API_SECRET) {
+        res.status(401).json({ ok: false, error: 'No autorizado' });
+        return;
+    }
+
+    const { name, slug, phoneNumberId, adminPhone, adminName, plan, timezone, currency } = req.body;
+    if (!name || !slug || !phoneNumberId || !adminPhone) {
+        res.status(400).json({ ok: false, error: 'Campos requeridos: name, slug, phoneNumberId, adminPhone' });
+        return;
+    }
+
+    try {
+        const result = await ClinicasDbService.provisionClinic({
+            name, slug, phoneNumberId, adminPhone, adminName, plan, timezone, currency,
+        });
+        if (!result.ok) {
+            res.status(500).json(result);
+            return;
+        }
+        res.json(result);
+    } catch (err: any) {
+        logger.error(`[Provision] Error: ${err.message}`);
+        res.status(500).json({ ok: false, error: err.message });
+    }
+});
+
 // ─── Prompt Rebuild (interno) ────────────────────────────────────────────────
 
 /**

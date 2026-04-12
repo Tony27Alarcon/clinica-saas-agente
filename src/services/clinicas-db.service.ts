@@ -31,13 +31,14 @@ export class ClinicasDbService {
                     display_name,
                     phone_number,
                     company:companies (
-                        id, 
-                        name, 
-                        slug, 
-                        plan, 
-                        timezone, 
+                        id,
+                        name,
+                        slug,
+                        plan,
+                        timezone,
                         currency,
-                        active
+                        active,
+                        onboarding_completed_at
                     )
                 `)
                 .eq('provider', 'whatsapp')
@@ -1635,7 +1636,7 @@ export class ClinicasDbService {
                     specialty:                data.specialty                ?? null,
                     phone:                    data.phone                    ?? null,
                     email:                    data.email                    ?? null,
-                    max_daily_appointments:   data.max_daily_appointments   ?? null,
+                    max_daily_appointments:   data.max_daily_appointments   ?? 8,
                     active:                   true,
                 }])
                 .select()
@@ -1694,6 +1695,119 @@ export class ClinicasDbService {
             return { ok: true };
         } catch (error) {
             logger.error(`[Clinicas] archiveStaff: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    // =========================================================================
+    // Onboarding — Provisioning & completion
+    // =========================================================================
+
+    /**
+     * Crea las 4 filas mínimas para que una clínica nueva pueda usar el agente admin.
+     * Orden: companies → channels → agents → staff (respeta FKs).
+     */
+    static async provisionClinic(data: {
+        name: string;
+        slug: string;
+        phoneNumberId: string;
+        adminPhone: string;
+        adminName?: string;
+        plan?: string;
+        timezone?: string;
+        currency?: string;
+    }): Promise<{ ok: boolean; companyId?: string; channelId?: string; agentId?: string; staffId?: string; error?: string }> {
+        try {
+            // 1. Company
+            const { data: company, error: compError } = await db()
+                .from('companies')
+                .insert({
+                    name: data.name,
+                    slug: data.slug,
+                    plan: data.plan || 'basico',
+                    timezone: data.timezone || 'America/Bogota',
+                    currency: data.currency || 'COP',
+                    active: true,
+                    onboarding_completed_at: null,
+                })
+                .select('id')
+                .single();
+            if (compError) throw compError;
+
+            const companyId = company.id;
+
+            // 2. Channel
+            const { data: channel, error: chanError } = await db()
+                .from('channels')
+                .insert({
+                    company_id: companyId,
+                    provider: 'whatsapp',
+                    provider_id: data.phoneNumberId,
+                    display_name: data.name,
+                    active: true,
+                })
+                .select('id')
+                .single();
+            if (chanError) throw chanError;
+
+            // 3. Agent (placeholder — se configura durante onboarding)
+            const { data: agent, error: agentError } = await db()
+                .from('agents')
+                .insert({
+                    company_id: companyId,
+                    name: 'Asistente',
+                    system_prompt: '(pendiente de onboarding)',
+                    tone: 'amigable',
+                    active: true,
+                })
+                .select('id')
+                .single();
+            if (agentError) throw agentError;
+
+            // 4. Staff (admin principal)
+            const { data: staff, error: staffError } = await db()
+                .from('staff')
+                .insert({
+                    company_id: companyId,
+                    name: data.adminName || 'Administrador',
+                    phone: data.adminPhone,
+                    role: 'Administrador',
+                    active: true,
+                })
+                .select('id')
+                .single();
+            if (staffError) throw staffError;
+
+            logger.info(`[Clinicas] provisionClinic: ${companyId} creada (${data.name})`);
+            return {
+                ok: true,
+                companyId,
+                channelId: channel.id,
+                agentId: agent.id,
+                staffId: staff.id,
+            };
+        } catch (error) {
+            logger.error(`[Clinicas] provisionClinic: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    /**
+     * Marca el onboarding como completado para una clínica.
+     */
+    static async completeOnboarding(companyId: string): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const { error } = await db()
+                .from('companies')
+                .update({
+                    onboarding_completed_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', companyId);
+            if (error) throw error;
+            return { ok: true };
+        } catch (error) {
+            logger.error(`[Clinicas] completeOnboarding: ${(error as Error).message}`);
             return { ok: false, error: (error as Error).message };
         }
     }

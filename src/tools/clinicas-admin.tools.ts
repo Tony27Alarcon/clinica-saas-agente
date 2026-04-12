@@ -507,6 +507,37 @@ export const createAdminArchiveStaffTool = (companyId: string) => tool({
 });
 
 // =============================================================================
+// Onboarding — Completar configuración inicial
+// =============================================================================
+
+export const createAdminCompleteOnboardingTool = (companyId: string) => tool({
+    description: 'Marca el onboarding de la clínica como completado y activa el agente de pacientes. Usar SOLO cuando los pasos requeridos estén terminados: perfil de clínica, personalidad del agente y al menos 1 tratamiento registrado.',
+    inputSchema: z.object({}),
+    execute: async () => {
+        try {
+            // Validar mínimos antes de completar
+            const treatments = await ClinicasDbService.listAllTreatments(companyId, false);
+            if (treatments.length === 0) {
+                return { ok: false, error: 'Se necesita al menos 1 tratamiento registrado antes de completar el onboarding.' };
+            }
+
+            const result = await ClinicasDbService.completeOnboarding(companyId);
+            if (!result.ok) return result;
+
+            // Recompilar el prompt del agente paciente con toda la config nueva
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras completeOnboarding: ${e.message}`));
+
+            logger.info(`[Admin Tool] completeOnboarding: ${companyId}`);
+            return { ok: true, message: 'Onboarding completado. El agente de pacientes está activo y listo para atender.' };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] completeOnboarding error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
 // Portal Admin — link de acceso web
 // =============================================================================
 
