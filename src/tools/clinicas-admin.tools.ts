@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { ClinicasDbService } from '../services/clinicas-db.service';
 import { KapsoService } from '../services/kapso.service';
 import { env } from '../config/env';
+import { PromptRebuildService } from '../services/prompt-rebuild.service';
 
 /**
  * Tool: searchContacts
@@ -237,6 +238,269 @@ export const createAdminConnectGoogleCalendarTool = (
             return { ok: true, linkSent: true, to: staffPhone };
         } catch (err: any) {
             logger.error(`[Admin Tool] connectGoogleCalendar error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
+// CRUD — Treatments
+// =============================================================================
+
+export const createAdminListTreatmentsTool = (companyId: string) => tool({
+    description: 'Lista los tratamientos de la clínica. Por defecto retorna solo los activos. Con includeArchived=true retorna también los archivados (inactivos). Usa esta tool antes de updateTreatment o archiveTreatment para obtener los UUIDs.',
+    inputSchema: z.object({
+        includeArchived: z.boolean().default(false).describe('Si true, incluye también tratamientos archivados/inactivos'),
+    }),
+    execute: async (args) => {
+        try {
+            const treatments = await ClinicasDbService.listAllTreatments(companyId, args.includeArchived);
+            logger.info(`[Admin Tool] listTreatments: ${treatments.length} resultados (company: ${companyId})`);
+            return { ok: true, data: treatments, total: treatments.length };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] listTreatments error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminCreateTreatmentTool = (companyId: string) => tool({
+    description: 'Crea un nuevo tratamiento en la clínica. Requiere al menos el nombre. Después de crear, el catálogo del agente paciente se actualiza automáticamente.',
+    inputSchema: z.object({
+        name:                     z.string().min(1).max(200).describe('Nombre del tratamiento'),
+        description:              z.string().optional().describe('Descripción detallada del tratamiento'),
+        price_min:                z.number().nonnegative().optional().describe('Precio mínimo'),
+        price_max:                z.number().nonnegative().optional().describe('Precio máximo'),
+        duration_min:             z.number().int().positive().optional().describe('Duración en minutos'),
+        preparation_instructions: z.string().optional().describe('Instrucciones de preparación previa al tratamiento'),
+        post_care_instructions:   z.string().optional().describe('Cuidados post-procedimiento'),
+        followup_days:            z.array(z.number().int().positive()).optional().describe('Días para seguimiento automático post-tratamiento (ej: [3,7,30])'),
+        category:                 z.string().optional().describe('Categoría del tratamiento (ej: facial, corporal, capilar)'),
+        contraindications:        z.string().optional().describe('Condiciones que contraindican el tratamiento'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.createTreatment(companyId, args);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] createTreatment: ${result.data?.id} (${args.name})`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras createTreatment: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] createTreatment error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminUpdateTreatmentTool = (companyId: string) => tool({
+    description: 'Actualiza los campos de un tratamiento existente. Solo los campos provistos se modifican. Requiere el UUID del tratamiento (usa listTreatments para obtenerlo).',
+    inputSchema: z.object({
+        treatmentId:              z.string().uuid().describe('UUID del tratamiento a actualizar'),
+        name:                     z.string().min(1).max(200).optional().describe('Nuevo nombre'),
+        description:              z.string().optional().describe('Nueva descripción'),
+        price_min:                z.number().nonnegative().optional().describe('Precio mínimo'),
+        price_max:                z.number().nonnegative().optional().describe('Precio máximo'),
+        duration_min:             z.number().int().positive().optional().describe('Duración en minutos'),
+        preparation_instructions: z.string().optional().describe('Instrucciones de preparación'),
+        post_care_instructions:   z.string().optional().describe('Cuidados post-procedimiento'),
+        followup_days:            z.array(z.number().int().positive()).optional().describe('Días de seguimiento (ej: [3,7,30])'),
+        category:                 z.string().optional().describe('Categoría'),
+        contraindications:        z.string().optional().describe('Contraindicaciones'),
+    }),
+    execute: async (args) => {
+        try {
+            const { treatmentId, ...data } = args;
+            const result = await ClinicasDbService.updateTreatment(companyId, treatmentId, data);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] updateTreatment: ${treatmentId}`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras updateTreatment: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] updateTreatment error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminArchiveTreatmentTool = (companyId: string) => tool({
+    description: 'Archiva (desactiva) un tratamiento. El tratamiento deja de aparecer en el catálogo del agente paciente. No se elimina de la BD. Usa listTreatments para obtener el UUID.',
+    inputSchema: z.object({
+        treatmentId: z.string().uuid().describe('UUID del tratamiento a archivar'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.archiveTreatment(companyId, args.treatmentId);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] archiveTreatment: ${args.treatmentId}`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras archiveTreatment: ${e.message}`));
+            return { ok: true };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] archiveTreatment error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
+// CRUD — Company profile
+// =============================================================================
+
+export const createAdminUpdateCompanyTool = (companyId: string) => tool({
+    description: 'Actualiza los datos de la clínica: nombre, ciudad, dirección, horarios de atención y zona horaria. El campo schedule es un array de bloques horarios: [{days:["lun","vie"], open:"09:00", close:"18:00"}]. Después de guardar, el agente paciente se actualiza automáticamente.',
+    inputSchema: z.object({
+        name:     z.string().min(1).optional().describe('Nombre de la clínica'),
+        city:     z.string().optional().describe('Ciudad'),
+        address:  z.string().optional().describe('Dirección física'),
+        schedule: z.array(z.object({
+            days:  z.array(z.string()).describe('Días: lun, mar, mie, jue, vie, sab, dom'),
+            open:  z.string().describe('Hora de apertura HH:MM'),
+            close: z.string().describe('Hora de cierre HH:MM'),
+        })).optional().describe('Bloques de horario de atención'),
+        timezone: z.string().optional().describe('Zona horaria IANA (ej: America/Bogota, America/Lima)'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.updateCompanyProfile(companyId, args);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] updateCompany: ${companyId}`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras updateCompany: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] updateCompany error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
+// CRUD — Agent config
+// =============================================================================
+
+export const createAdminUpdateAgentConfigTool = (companyId: string) => tool({
+    description: 'Actualiza la configuración del agente paciente: nombre, tono, personalidad, descripción de la clínica, instrucciones de reserva, temas prohibidos y reglas de comportamiento. El system_prompt se regenera automáticamente — no lo modifiques directamente.',
+    inputSchema: z.object({
+        name:                   z.string().optional().describe('Nombre del agente (ej: Valentina, Sofía)'),
+        tone:                   z.enum(['formal', 'amigable', 'casual']).optional().describe('Tono de voz del agente'),
+        persona_description:    z.string().optional().describe('Descripción de la personalidad del agente'),
+        clinic_description:     z.string().optional().describe('Descripción general de la clínica para el agente'),
+        booking_instructions:   z.string().optional().describe('Instrucciones específicas para el proceso de reserva'),
+        prohibited_topics:      z.array(z.string()).optional().describe('Temas que el agente debe rechazar o evitar'),
+        qualification_criteria: z.record(z.string(), z.any()).optional().describe('Criterios de calificación de leads (JSON: min_budget_usd, excluded_keywords)'),
+        escalation_rules:       z.record(z.string(), z.any()).optional().describe('Reglas de escalación a humano (JSON: trigger_keywords, max_turns_without_intent)'),
+        objections_kb:          z.array(z.object({
+            objection: z.string(),
+            response:  z.string(),
+        })).optional().describe('Base de conocimiento de objeciones y respuestas sugeridas'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.updateAgentConfig(companyId, args);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] updateAgentConfig: ${companyId}`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras updateAgentConfig: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] updateAgentConfig error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
+// CRUD — Staff
+// =============================================================================
+
+export const createAdminListStaffTool = (companyId: string) => tool({
+    description: 'Lista los miembros del staff de la clínica. Por defecto retorna solo activos. Con includeArchived=true retorna también los inactivos. Usa esta tool antes de updateStaff o archiveStaff para obtener los UUIDs.',
+    inputSchema: z.object({
+        includeArchived: z.boolean().default(false).describe('Si true, incluye staff archivado/inactivo'),
+    }),
+    execute: async (args) => {
+        try {
+            const staff = await ClinicasDbService.listStaff(companyId, args.includeArchived);
+            logger.info(`[Admin Tool] listStaff: ${staff.length} resultados (company: ${companyId})`);
+            return { ok: true, data: staff, total: staff.length };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] listStaff error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminCreateStaffTool = (companyId: string) => tool({
+    description: 'Agrega un nuevo miembro al staff de la clínica. El staff creado podrá ser asignado a citas y podrá usar el agente admin si su teléfono está registrado.',
+    inputSchema: z.object({
+        name:                   z.string().min(1).max(200).describe('Nombre completo del miembro'),
+        role:                   z.string().optional().describe('Rol o cargo (ej: Médico Estético, Recepcionista, Gerente)'),
+        specialty:              z.string().optional().describe('Especialidad médica o área (ej: Botox, Láser, Rellenos)'),
+        phone:                  z.string().optional().describe('Teléfono en formato internacional (ej: 573001234567)'),
+        email:                  z.string().email().optional().describe('Correo electrónico'),
+        max_daily_appointments: z.number().int().positive().optional().describe('Máximo de citas por día'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.createStaff(companyId, args);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] createStaff: ${result.data?.id} (${args.name})`);
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] createStaff error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminUpdateStaffTool = (companyId: string) => tool({
+    description: 'Actualiza los datos de un miembro del staff. Si se cambia nombre, rol o especialidad, el agente paciente se actualiza automáticamente. Usa listStaff para obtener el UUID.',
+    inputSchema: z.object({
+        staffId:                z.string().uuid().describe('UUID del miembro del staff a actualizar'),
+        name:                   z.string().min(1).max(200).optional().describe('Nuevo nombre completo'),
+        role:                   z.string().optional().describe('Nuevo rol o cargo'),
+        specialty:              z.string().optional().describe('Nueva especialidad'),
+        phone:                  z.string().optional().describe('Nuevo teléfono en formato internacional'),
+        email:                  z.string().email().optional().describe('Nuevo correo electrónico'),
+        max_daily_appointments: z.number().int().positive().optional().describe('Nuevo máximo de citas por día'),
+    }),
+    execute: async (args) => {
+        try {
+            const { staffId, ...data } = args;
+            const result = await ClinicasDbService.updateStaff(companyId, staffId, data);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] updateStaff: ${staffId}`);
+            const promptAffectingFields = ['name', 'role', 'specialty'] as const;
+            const needsRebuild = promptAffectingFields.some(f => f in data);
+            if (needsRebuild) {
+                PromptRebuildService.rebuildPromptForCompany(companyId)
+                    .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras updateStaff: ${e.message}`));
+            }
+            return result;
+        } catch (err: any) {
+            logger.error(`[Admin Tool] updateStaff error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminArchiveStaffTool = (companyId: string) => tool({
+    description: 'Archiva (desactiva) un miembro del staff. El staff archivado ya no aparecerá como profesional disponible. No se elimina de la BD. Usa listStaff para obtener el UUID.',
+    inputSchema: z.object({
+        staffId: z.string().uuid().describe('UUID del miembro del staff a archivar'),
+    }),
+    execute: async (args) => {
+        try {
+            const result = await ClinicasDbService.archiveStaff(companyId, args.staffId);
+            if (!result.ok) return result;
+            logger.info(`[Admin Tool] archiveStaff: ${args.staffId}`);
+            PromptRebuildService.rebuildPromptForCompany(companyId)
+                .catch((e: Error) => logger.error(`[Admin Tool] rebuildPrompt tras archiveStaff: ${e.message}`));
+            return { ok: true };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] archiveStaff error: ${err.message}`);
             return { ok: false, error: err.message };
         }
     },

@@ -1390,4 +1390,284 @@ export class ClinicasDbService {
             logger.error(`[Clinicas] updateKapsoConversationId: ${(error as Error).message}`);
         }
     }
+
+    // =========================================================================
+    // Admin CRUD — Treatments
+    // =========================================================================
+
+    static async listAllTreatments(companyId: string, includeArchived = false): Promise<any[]> {
+        try {
+            let query = db()
+                .from('treatments')
+                .select('id, name, description, price_min, price_max, duration_min, category, contraindications, preparation_instructions, post_care_instructions, followup_days, active, created_at, updated_at')
+                .eq('company_id', companyId)
+                .order('category', { ascending: true, nullsFirst: false })
+                .order('name', { ascending: true });
+
+            if (!includeArchived) query = query.eq('active', true);
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data as any[]) || [];
+        } catch (error) {
+            logger.error(`[Clinicas] listAllTreatments: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    static async createTreatment(companyId: string, data: {
+        name: string;
+        description?: string;
+        price_min?: number;
+        price_max?: number;
+        duration_min?: number;
+        preparation_instructions?: string;
+        post_care_instructions?: string;
+        followup_days?: number[];
+        category?: string;
+        contraindications?: string;
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const { data: result, error } = await db()
+                .from('treatments')
+                .insert([{
+                    company_id:                companyId,
+                    name:                      data.name,
+                    description:               data.description               ?? null,
+                    price_min:                 data.price_min                 ?? null,
+                    price_max:                 data.price_max                 ?? null,
+                    duration_min:              data.duration_min              ?? null,
+                    preparation_instructions:  data.preparation_instructions  ?? null,
+                    post_care_instructions:    data.post_care_instructions    ?? null,
+                    followup_days:             data.followup_days             ?? null,
+                    category:                  data.category                  ?? null,
+                    contraindications:         data.contraindications         ?? null,
+                    active:                    true,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] createTreatment: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    static async updateTreatment(companyId: string, treatmentId: string, data: {
+        name?: string;
+        description?: string;
+        price_min?: number;
+        price_max?: number;
+        duration_min?: number;
+        preparation_instructions?: string;
+        post_care_instructions?: string;
+        followup_days?: number[];
+        category?: string;
+        contraindications?: string;
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const updates: Record<string, any> = { ...data, updated_at: new Date().toISOString() };
+            const { data: result, error } = await db()
+                .from('treatments')
+                .update(updates)
+                .eq('id', treatmentId)
+                .eq('company_id', companyId)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!result) return { ok: false, error: 'Tratamiento no encontrado o sin permisos' };
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] updateTreatment: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    static async archiveTreatment(companyId: string, treatmentId: string): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const { data, error } = await db()
+                .from('treatments')
+                .update({ active: false, updated_at: new Date().toISOString() })
+                .eq('id', treatmentId)
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .select('id')
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) return { ok: false, error: 'Tratamiento no encontrado, sin permisos, o ya archivado' };
+            return { ok: true };
+        } catch (error) {
+            logger.error(`[Clinicas] archiveTreatment: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    // =========================================================================
+    // Admin CRUD — Company
+    // =========================================================================
+
+    static async updateCompanyProfile(companyId: string, data: {
+        name?: string;
+        city?: string;
+        address?: string;
+        schedule?: Array<{ days: string[]; open: string; close: string }>;
+        timezone?: string;
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const updates: Record<string, any> = { ...data, updated_at: new Date().toISOString() };
+            const { data: result, error } = await db()
+                .from('companies')
+                .update(updates)
+                .eq('id', companyId)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!result) return { ok: false, error: 'Empresa no encontrada' };
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] updateCompanyProfile: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    // =========================================================================
+    // Admin CRUD — Agent config
+    // =========================================================================
+
+    static async updateAgentConfig(companyId: string, data: {
+        name?: string;
+        tone?: 'formal' | 'amigable' | 'casual';
+        persona_description?: string;
+        clinic_description?: string;
+        booking_instructions?: string;
+        prohibited_topics?: string[];
+        qualification_criteria?: Record<string, any>;
+        escalation_rules?: Record<string, any>;
+        objections_kb?: any[];
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const updates: Record<string, any> = { ...data, updated_at: new Date().toISOString() };
+            const { data: result, error } = await db()
+                .from('agents')
+                .update(updates)
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!result) return { ok: false, error: 'Agente no encontrado o inactivo' };
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] updateAgentConfig: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    // =========================================================================
+    // Admin CRUD — Staff
+    // =========================================================================
+
+    static async listStaff(companyId: string, includeArchived = false): Promise<any[]> {
+        try {
+            let query = db()
+                .from('staff')
+                .select('id, name, role, specialty, phone, email, max_daily_appointments, active, created_at, updated_at')
+                .eq('company_id', companyId)
+                .order('name', { ascending: true });
+
+            if (!includeArchived) query = query.eq('active', true);
+
+            const { data, error } = await query;
+            if (error) throw error;
+            return (data as any[]) || [];
+        } catch (error) {
+            logger.error(`[Clinicas] listStaff: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    static async createStaff(companyId: string, data: {
+        name: string;
+        role?: string;
+        specialty?: string;
+        phone?: string;
+        email?: string;
+        max_daily_appointments?: number;
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const { data: result, error } = await db()
+                .from('staff')
+                .insert([{
+                    company_id:               companyId,
+                    name:                     data.name,
+                    role:                     data.role                     ?? null,
+                    specialty:                data.specialty                ?? null,
+                    phone:                    data.phone                    ?? null,
+                    email:                    data.email                    ?? null,
+                    max_daily_appointments:   data.max_daily_appointments   ?? null,
+                    active:                   true,
+                }])
+                .select()
+                .single();
+
+            if (error) throw error;
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] createStaff: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    static async updateStaff(companyId: string, staffId: string, data: {
+        name?: string;
+        role?: string;
+        specialty?: string;
+        phone?: string;
+        email?: string;
+        max_daily_appointments?: number;
+    }): Promise<{ ok: boolean; data?: any; error?: string }> {
+        try {
+            const updates: Record<string, any> = { ...data, updated_at: new Date().toISOString() };
+            const { data: result, error } = await db()
+                .from('staff')
+                .update(updates)
+                .eq('id', staffId)
+                .eq('company_id', companyId)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!result) return { ok: false, error: 'Staff no encontrado o sin permisos' };
+            return { ok: true, data: result };
+        } catch (error) {
+            logger.error(`[Clinicas] updateStaff: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
+
+    static async archiveStaff(companyId: string, staffId: string): Promise<{ ok: boolean; error?: string }> {
+        try {
+            const { data, error } = await db()
+                .from('staff')
+                .update({ active: false, updated_at: new Date().toISOString() })
+                .eq('id', staffId)
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .select('id')
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) return { ok: false, error: 'Staff no encontrado, sin permisos, o ya archivado' };
+            return { ok: true };
+        } catch (error) {
+            logger.error(`[Clinicas] archiveStaff: ${(error as Error).message}`);
+            return { ok: false, error: (error as Error).message };
+        }
+    }
 }

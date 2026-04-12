@@ -26,6 +26,16 @@ import {
     createAdminSendMessageToPatientTool,
     createAdminGetDailySummaryTool,
     createAdminConnectGoogleCalendarTool,
+    createAdminListTreatmentsTool,
+    createAdminCreateTreatmentTool,
+    createAdminUpdateTreatmentTool,
+    createAdminArchiveTreatmentTool,
+    createAdminUpdateCompanyTool,
+    createAdminUpdateAgentConfigTool,
+    createAdminListStaffTool,
+    createAdminCreateStaffTool,
+    createAdminUpdateStaffTool,
+    createAdminArchiveStaffTool,
 } from '../tools/clinicas-admin.tools';
 
 const google = createGoogleGenerativeAI({
@@ -333,21 +343,45 @@ Zona horaria: ${company.timezone || 'America/Bogota'} — Moneda: ${company.curr
 
 TONO: Directo y profesional. Respuestas concisas. Sin saludos repetidos en cada turno.
 
-HERRAMIENTAS DISPONIBLES (8):
-1. searchContacts — Busca pacientes/leads por nombre, teléfono o estado.
-2. getUpcomingAppointments — Consulta citas próximas (próximos N días).
-3. getFreeSlots — Slots disponibles para agendar.
-4. updateAppointmentStatus — Marca una cita como completada, cancelada, no-show, etc.
-5. getContactSummary — Resumen completo de un paciente (perfil + citas + historial).
-6. sendMessageToPatient — Envía un mensaje WhatsApp a un paciente desde la clínica.
-7. getDailySummary — Resumen del día: citas, leads nuevos, escalaciones, follow-ups.
-8. connectGoogleCalendar — Envía al staff un link para conectar su Google Calendar. Usar cuando diga "conectar calendario", "vincular Google Calendar" o cuando quiera que el agente cree citas en su agenda personal.
+HERRAMIENTAS DISPONIBLES (18):
+
+--- Pacientes y citas ---
+1.  searchContacts — Busca pacientes/leads por nombre, teléfono o estado.
+2.  getUpcomingAppointments — Consulta citas próximas (próximos N días).
+3.  getFreeSlots — Slots disponibles para agendar.
+4.  updateAppointmentStatus — Marca una cita como completada, cancelada, no-show, etc.
+5.  getContactSummary — Resumen completo de un paciente (perfil + citas + historial).
+6.  sendMessageToPatient — Envía un mensaje WhatsApp a un paciente desde la clínica.
+7.  getDailySummary — Resumen del día: citas, leads nuevos, escalaciones, follow-ups.
+8.  connectGoogleCalendar — Envía al staff un link para conectar su Google Calendar. Usar cuando diga "conectar calendario", "vincular Google Calendar" o cuando quiera que el agente cree citas en su agenda personal.
+
+--- Tratamientos ---
+9.  listTreatments — Lista tratamientos (activos o todos). Llamar ANTES de updateTreatment o archiveTreatment para obtener UUIDs.
+10. createTreatment — Crea un nuevo tratamiento. El agente paciente lo conoce de inmediato al recompilarse.
+11. updateTreatment — Modifica campos de un tratamiento existente (nombre, precio, duración, etc.).
+12. archiveTreatment — Desactiva un tratamiento (soft-delete). Deja de aparecer en el catálogo del agente paciente.
+
+--- Configuración de la clínica ---
+13. updateCompany — Actualiza nombre, ciudad, dirección, horarios o zona horaria de la clínica.
+14. updateAgentConfig — Modifica tono, personalidad, instrucciones de reserva y reglas del agente paciente.
+
+--- Staff ---
+15. listStaff — Lista el staff (activos o todos). Llamar ANTES de updateStaff o archiveStaff para obtener UUIDs.
+16. createStaff — Agrega un nuevo miembro al staff.
+17. updateStaff — Modifica datos de un miembro del staff.
+18. archiveStaff — Desactiva un miembro del staff (soft-delete).
 
 REGLAS:
 - Después de cada tool call, genera texto que resuma el resultado para el staff.
 - Nunca termines un turno solo con tool calls. Siempre agrega texto de cierre.
 - Para sendMessageToPatient: solo ejecutar con confirmación explícita del staff en este turno. Si el staff pide enviar un mensaje pero no especificó el texto exacto, pregunta antes de enviar.
-- Solo accedes a datos de ${company.name}. No puedes modificar configuraciones del sistema ni del agente.`;
+- Solo accedes a datos de ${company.name}.
+
+REGLAS PARA TOOLS DE CONFIGURACIÓN:
+- Llama listTreatments ANTES de updateTreatment/archiveTreatment para obtener el UUID correcto.
+- Llama listStaff ANTES de updateStaff/archiveStaff para obtener el UUID correcto.
+- Tras cualquier cambio de configuración (tratamientos, empresa, agente, staff), confirma al staff que los cambios fueron aplicados y que el agente paciente los reflejará en la próxima conversación.
+- Para objections_kb, qualification_criteria, escalation_rules: si el staff dicta los cambios en lenguaje natural, estructura tú el JSON correcto antes de llamar la tool.`;
 
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
@@ -369,6 +403,20 @@ REGLAS:
                         staffMember.phone,
                         phoneNumberId
                     ),
+                    // Tratamientos
+                    listTreatments:          createAdminListTreatmentsTool(company.id),
+                    createTreatment:         createAdminCreateTreatmentTool(company.id),
+                    updateTreatment:         createAdminUpdateTreatmentTool(company.id),
+                    archiveTreatment:        createAdminArchiveTreatmentTool(company.id),
+                    // Empresa
+                    updateCompany:           createAdminUpdateCompanyTool(company.id),
+                    // Agente
+                    updateAgentConfig:       createAdminUpdateAgentConfigTool(company.id),
+                    // Staff
+                    listStaff:               createAdminListStaffTool(company.id),
+                    createStaff:             createAdminCreateStaffTool(company.id),
+                    updateStaff:             createAdminUpdateStaffTool(company.id),
+                    archiveStaff:            createAdminArchiveStaffTool(company.id),
                 },
             } as any);
 
