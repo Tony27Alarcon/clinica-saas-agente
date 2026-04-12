@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ClinicasDbService } from '../services/clinicas-db.service';
 import { AiService } from '../services/ai.service';
 import { KapsoService } from '../services/kapso.service';
+import { KapsoHistoryImportService } from '../services/kapso-history-import.service';
 import { MediaService } from '../services/media.service';
 import { NotificationService } from '../services/notification.service';
 import { logger, newRequestId, getContext, toErrorMessage } from '../utils/logger';
@@ -320,12 +321,15 @@ export class WebhookController {
         }
 
         // Comando /borrar (testing)
+        // Elimina el estado local del contacto para resetear el flujo del agente.
+        // Al próximo mensaje, el historial de Kapso se reimporta (Step C5) para
+        // que el agente recuerde el nombre y contexto previo del contacto.
         if (typeof text === 'string' && text.trim().toLowerCase() === '/borrar') {
             logger.info(`[Clinicas] Comando /borrar para ${from}`);
             await ClinicasDbService.deleteContact(company.id, from);
             await KapsoService.enviarMensaje(
                 from,
-                '✅ *Historial borrado.* El próximo mensaje inicia una conversación nueva.',
+                '✅ *Historial local borrado.* El próximo mensaje reinicia la conversación.',
                 phoneNumberId
             );
             return;
@@ -362,6 +366,21 @@ export class WebhookController {
             ClinicasDbService.getOrCreateConversation(company.id, contact.id, agent.id, 'whatsapp')
         );
         logger.enrichContext({ conversacionId: conversation.id });
+
+        // Step C5: Si la conversación no tiene mensajes, importar historial previo de Kapso.
+        // Esto le da al agente contexto de conversaciones anteriores (incluyendo mensajes
+        // enviados directamente desde el número sin pasar por el agente).
+        const tienesMensajes = await ClinicasDbService.hasMessages(conversation.id);
+        if (!tienesMensajes) {
+            await logger.stage('C5', 'clinicas.KapsoHistoryImport', () =>
+                KapsoHistoryImportService.importarHistorialPrevio(
+                    company.id,
+                    conversation.id,
+                    from,
+                    phoneNumberId
+                )
+            );
+        }
 
         // Step D: Guardar mensaje entrante
         await logger.stage('D', 'clinicas.saveMessage (entrante)', () =>

@@ -1302,4 +1302,92 @@ export class ClinicasDbService {
         }
         return (data as any[]) ?? [];
     }
+
+    // ─── Kapso History Import ────────────────────────────────────────────────────
+
+    /**
+     * Verifica si una conversación ya tiene mensajes almacenados.
+     * Usado para decidir si hay que importar historial desde Kapso.
+     * Retorna false en caso de error (fail-safe: dispara el import, el upsert lo deduplica).
+     */
+    static async hasMessages(conversationId: string): Promise<boolean> {
+        try {
+            const { count, error } = await db()
+                .from('messages')
+                .select('id', { count: 'exact', head: true })
+                .eq('conversation_id', conversationId);
+
+            if (error) throw error;
+            return (count ?? 0) > 0;
+        } catch (error) {
+            logger.error(`[Clinicas] hasMessages: ${(error as Error).message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Guarda un mensaje con deduplicación por kapso_message_id.
+     * Usa upsert con ignoreDuplicates para que re-imports sean idempotentes.
+     * Acepta createdAt explícito para respetar el timestamp original del mensaje.
+     * Errores se logean pero no se propagan (import parcial > fallo total).
+     */
+    static async saveMessageDeduped(
+        conversationId: string,
+        companyId: string,
+        role: 'contact' | 'agent',
+        content: string,
+        kapsoMessageId: string,
+        metadata: Record<string, any> = {},
+        createdAt?: string
+    ): Promise<void> {
+        try {
+            const payload: Record<string, any> = {
+                conversation_id: conversationId,
+                company_id: companyId,
+                role,
+                content,
+                kapso_message_id: kapsoMessageId,
+                metadata,
+            };
+
+            if (createdAt) payload.created_at = createdAt;
+
+            const { error } = await db()
+                .from('messages')
+                .upsert([payload], { onConflict: 'kapso_message_id', ignoreDuplicates: true });
+
+            if (error) throw error;
+        } catch (error) {
+            logger.error(
+                `[Clinicas] saveMessageDeduped (${kapsoMessageId}): ${(error as Error).message}`
+            );
+        }
+    }
+
+    /**
+     * Vincula una conversación local con su ID de conversación en Kapso.
+     * Permite trazar la conversación en el dashboard de Kapso y evitar
+     * crear conversaciones duplicadas en futuras reconexiones.
+     */
+    static async updateKapsoConversationId(
+        conversationId: string,
+        kapsoConversationId: string
+    ): Promise<void> {
+        try {
+            const { error } = await db()
+                .from('conversations')
+                .update({
+                    kapso_conversation_id: kapsoConversationId,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', conversationId);
+
+            if (error) throw error;
+            logger.info(
+                `[Clinicas] Conversación ${conversationId} vinculada a Kapso conv ${kapsoConversationId}`
+            );
+        } catch (error) {
+            logger.error(`[Clinicas] updateKapsoConversationId: ${(error as Error).message}`);
+        }
+    }
 }

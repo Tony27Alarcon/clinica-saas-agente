@@ -17,6 +17,9 @@ export const env = {
     GEMINI_API_KEY: process.env.GOOGLE_GENERATIVE_AI_API_KEY || '',
     KAPSO_API_URL: process.env.KAPSO_API_URL || '',
     KAPSO_API_TOKEN: process.env.KAPSO_API_TOKEN || process.env.KAPSO_API_KEY || '',
+    // URL base del host de Kapso (sin path). Si no se configura, se deriva de KAPSO_API_URL.
+    // Ejemplo: https://api.kapso.ai
+    KAPSO_API_BASE_URL: process.env.KAPSO_API_BASE_URL || '',
     KAPSO_PHONE_NUMBER_ID: process.env.KAPSO_PHONE_NUMBER_ID || '',
     KAPSO_WEBHOOK_SECRET: process.env.KAPSO_WEBHOOK_SECRET || '',
     GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-3-flash-preview',
@@ -77,7 +80,7 @@ const optionalKeys = [
     'PORT', 'KAPSO_WEBHOOK_SECRET', 'SUPPORT_PHONE_NUMBER', 'KAPSO_PHONE_NUMBER_ID',
     'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GCAL_LOOK_AHEAD_DAYS',
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
-    'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'INTERNAL_API_SECRET',
+    'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

@@ -522,6 +522,98 @@ export class KapsoService {
         }
     }
 
+    // ─── Platform API (historial de conversaciones) ─────────────────────────────
+
+    /**
+     * Llama al endpoint `/platform/v1/...` de Kapso.
+     * La URL base se toma de KAPSO_API_BASE_URL si está definida;
+     * si no, se deriva de KAPSO_API_URL quitando el path de mensajes.
+     */
+    private static async platformRequest<T>(path: string): Promise<T> {
+        const baseUrl = env.KAPSO_API_BASE_URL
+            ? env.KAPSO_API_BASE_URL.trim().replace(/\/$/, '')
+            : this.getBaseUrl();
+
+        const url = `${baseUrl}/platform/v1${path}`;
+
+        const response = await fetch(url, {
+            headers: {
+                'X-API-Key': env.KAPSO_API_TOKEN,
+                'Content-Type': 'application/json',
+            },
+        });
+
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(`Kapso Platform API (${response.status}): ${text.substring(0, 200)}`);
+        }
+        return text ? JSON.parse(text) : ({} as T);
+    }
+
+    /**
+     * Lista las conversaciones de Kapso para un número de contacto.
+     * Retorna array vacío si Kapso no está configurado o hay error.
+     */
+    static async listarConversacionesKapso(phone: string, phoneNumberId: string): Promise<any[]> {
+        if (!this.isConfigured()) return [];
+        try {
+            const params = new URLSearchParams({
+                phone_number: phone,
+                phone_number_id: phoneNumberId,
+                per_page: '50',
+            });
+            const data = await this.platformRequest<{ data: any[] }>(
+                `/whatsapp/conversations?${params}`
+            );
+            return data.data || [];
+        } catch (error) {
+            logger.error(`[KapsoService] listarConversacionesKapso: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Lista todos los mensajes de una conversación de Kapso (hasta 200, con cursor pagination).
+     * Retorna array vacío si Kapso no está configurado o hay error.
+     */
+    static async listarMensajesKapso(conversationId: string, phoneNumberId: string): Promise<any[]> {
+        if (!this.isConfigured()) return [];
+
+        const all: any[] = [];
+        let after: string | undefined;
+        const MAX_PAGES = 4; // 4 × 50 = 200 mensajes máx por conversación
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+            try {
+                const params = new URLSearchParams({
+                    conversation_id: conversationId,
+                    phone_number_id: phoneNumberId,
+                    limit: '50',
+                });
+                if (after) params.set('after', after);
+
+                const data = await this.platformRequest<{
+                    data: any[];
+                    paging?: { cursors?: { after?: string }; next?: string };
+                }>(`/whatsapp/messages?${params}`);
+
+                const messages = data.data || [];
+                all.push(...messages);
+
+                const nextCursor = data.paging?.cursors?.after;
+                if (!nextCursor || !data.paging?.next) break;
+                after = nextCursor;
+            } catch (error) {
+                logger.error(`[KapsoService] listarMensajesKapso página ${page}: ${(error as Error).message}`);
+                break;
+            }
+        }
+
+        return all;
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+
     private static isConfigured(): boolean {
         return Boolean(env.KAPSO_API_URL && env.KAPSO_API_TOKEN);
     }
