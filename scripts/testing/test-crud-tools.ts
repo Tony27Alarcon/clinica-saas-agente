@@ -96,6 +96,7 @@ async function getStaffByName(companyId: string, name: string): Promise<any> {
         .select('*')
         .eq('company_id', companyId)
         .ilike('name', name)
+        .order('created_at', { ascending: false }) // más reciente primero
         .limit(1)
         .maybeSingle();
     return data;
@@ -138,7 +139,7 @@ const SCENARIOS: CrudScenario[] = [
         description: 'Admin crea un nuevo tratamiento "Mesoterapia Capilar"',
         setup: 'fresh',
         messages: [
-            'Crea un nuevo tratamiento llamado "Mesoterapia Capilar QA", categoría capilar, precio entre 120 y 200 USD, duración 60 minutos. Descripción: tratamiento de nutrición capilar intensiva.',
+            'Crea un nuevo tratamiento llamado "Mesoterapia Capilar QA", categoría capilar, precio entre 120 y 200 USD, duración 60 minutos, seguimiento a los 7 y 30 días. Descripción: tratamiento de nutrición capilar intensiva.',
         ],
         db_asserts: [
             {
@@ -198,21 +199,21 @@ const SCENARIOS: CrudScenario[] = [
 
     {
         name: 'crud-archivar-tratamiento',
-        description: 'Admin archiva el tratamiento "Peeling Químico"',
+        description: 'Admin archiva el tratamiento "Limpieza Facial Profunda"',
         setup: 'fresh',
         messages: [
-            'Lista todos los tratamientos para ver sus IDs',
-            'Archiva el tratamiento "Peeling Químico" (usa el ID de la lista). Ya no lo ofrecemos.',
+            'Usa la herramienta listTreatments para mostrarme todos los tratamientos con sus IDs',
+            'Archiva el tratamiento "Limpieza Facial Profunda" usando su ID de la lista anterior. Lo suspendemos temporalmente.',
         ],
         db_asserts: [
             {
-                description: 'Peeling Químico está archivado (active=false) en BD',
+                description: 'Limpieza Facial Profunda está archivada (active=false) en BD',
                 check: async (companyId) => {
                     const { data } = await db()
                         .from('treatments')
                         .select('id, active')
                         .eq('company_id', companyId)
-                        .ilike('name', '%Peeling%')
+                        .ilike('name', '%Limpieza%')
                         .limit(1)
                         .maybeSingle();
                     return {
@@ -223,12 +224,12 @@ const SCENARIOS: CrudScenario[] = [
             },
         ],
         teardown: async (companyId) => {
-            // Restaurar Peeling Químico como activo
+            // Restaurar Limpieza Facial Profunda como activo
             await db()
                 .from('treatments')
                 .update({ active: true })
                 .eq('company_id', companyId)
-                .ilike('name', '%Peeling%');
+                .ilike('name', '%Limpieza%');
         },
     },
 
@@ -403,7 +404,7 @@ const SCENARIOS: CrudScenario[] = [
         description: 'Admin solicita la lista de staff activo',
         setup: 'fresh',
         messages: [
-            'Muéstrame el listado completo del staff de la clínica',
+            'Usa la herramienta listStaff para mostrarme todos los miembros del equipo de la clínica',
         ],
         db_asserts: [
             {
@@ -469,8 +470,8 @@ const SCENARIOS: CrudScenario[] = [
         description: 'Admin actualiza la especialidad del Dr. Martín García',
         setup: 'fresh',
         messages: [
-            'Lista el staff para ver los IDs',
-            'Actualiza a "Dr. Martín García" (usa su ID): cambia su especialidad a "Medicina Estética y Láser" y el máximo a 10 citas por día',
+            'Usa listStaff con includeArchived=true para ver todo el equipo con sus IDs',
+            'Actualiza a "Dr. Martín García" (usa su UUID de la lista): cambia su especialidad a "Medicina Estética y Láser" y el máximo a 10 citas por día',
         ],
         db_asserts: [
             {
@@ -499,19 +500,19 @@ const SCENARIOS: CrudScenario[] = [
 
     {
         name: 'crud-archivar-staff',
-        description: 'Admin archiva un miembro de staff',
+        description: 'Admin crea y archiva un miembro de staff en un flujo completo',
         setup: 'fresh',
         messages: [
-            'Lista todo el staff, incluyendo los que ya no están activos',
-            'Archiva a "Ana García QA" del staff — ya no trabaja con nosotros',
+            'Agrega al staff a "Temporal QA" como Recepcionista',
+            'Usa listStaff con includeArchived=false para ver el staff activo con sus IDs',
+            'Archiva a "Temporal QA" del staff usando su UUID — ya no trabaja con nosotros',
         ],
         db_asserts: [
             {
-                description: 'Ana García QA está archivada (active=false) en BD',
+                description: '"Temporal QA" está archivada (active=false) en BD',
                 check: async (companyId) => {
-                    const s = await getStaffByName(companyId, '%Ana García QA%');
-                    // Si no existe tampoco hay problema (fue archivada/creada en otro test)
-                    if (!s) return { passed: true, detail: 'Staff no existe (ya archivado o nunca creado)' };
+                    const s = await getStaffByName(companyId, '%Temporal QA%');
+                    if (!s) return { passed: true, detail: 'Staff no existe (ya archivado o eliminado)' };
                     return {
                         passed: s.active === false,
                         detail: `active = ${s.active}`,
@@ -519,25 +520,32 @@ const SCENARIOS: CrudScenario[] = [
                 },
             },
         ],
+        teardown: async (companyId) => {
+            await db()
+                .from('staff')
+                .update({ active: false })
+                .eq('company_id', companyId)
+                .ilike('name', '%Temporal QA%');
+        },
     },
 
     // ── FLUJO INTEGRADO ───────────────────────────────────────────────────────
 
     {
         name: 'crud-flujo-completo-tratamiento',
-        description: 'Flujo completo: crear → verificar → actualizar precio → archivar',
+        description: 'Flujo completo: crear → actualizar → archivar en turnos consecutivos',
         setup: 'fresh',
         messages: [
-            'Crea un tratamiento "Plasma Rico en Plaquetas QA" categoría facial, precio 250-400 USD, duración 90 minutos',
-            'Lista los tratamientos para ver el ID del que recién creamos',
-            'Actualiza "Plasma Rico en Plaquetas QA" (usa su ID): cambia la duración a 75 minutos y agrega contraindicación: "No aplicar en personas con anticoagulantes"',
-            'Archiva el tratamiento "Plasma Rico en Plaquetas QA" — lo suspendemos temporalmente',
+            'Crea un tratamiento "PRP QA" categoría facial, precio 250 USD, duración 90 minutos, seguimiento a los 15 y 30 días',
+            'Usa listTreatments con includeArchived=false para ver todos los tratamientos activos y sus IDs',
+            'Actualiza el tratamiento "PRP QA" (usa su UUID): cambia la duración a 75 minutos y agrega contraindicación "No aplicar con anticoagulantes"',
+            'Archiva el tratamiento "PRP QA" usando su UUID — lo suspendemos',
         ],
         db_asserts: [
             {
-                description: '"Plasma Rico en Plaquetas QA" está archivado (active=false)',
+                description: '"PRP QA" está archivado (active=false) con contraindicación',
                 check: async (companyId) => {
-                    const t = await getTreatmentByName(companyId, '%Plasma Rico en Plaquetas QA%');
+                    const t = await getTreatmentByName(companyId, '%PRP QA%');
                     return {
                         passed: !!t && t.active === false,
                         detail: t ? `active=${t.active} | duration_min=${t.duration_min} | contraindications="${t.contraindications?.substring(0, 50)}"` : 'No encontrado',
@@ -545,6 +553,13 @@ const SCENARIOS: CrudScenario[] = [
                 },
             },
         ],
+        teardown: async (companyId) => {
+            await db()
+                .from('treatments')
+                .update({ active: false })
+                .eq('company_id', companyId)
+                .ilike('name', '%PRP QA%');
+        },
     },
 ];
 

@@ -59,8 +59,11 @@ const app = express();
 // Middlewares
 app.use(express.json());
 
-// Main webhook route for Kapso
+// Main webhook route for Kapso (incoming messages)
 app.post('/webhook', WebhookController.handleKapsoWebhook);
+
+// Webhook for outgoing messages sent from mobile / Kapso dashboard
+app.post('/webhook/outgoing', WebhookController.handleOutgoingWebhook);
 
 // ─── Google OAuth 2.0 (Google Calendar del staff) ────────────────────────────
 
@@ -199,11 +202,18 @@ app.get('/auth/google/callback', async (req, res) => {
         `);
 
     } catch (err: any) {
-        logger.error(`[OAuth Callback] Error intercambiando code: ${err.message}`);
+        const detail = err?.response?.data
+            ? JSON.stringify(err.response.data)
+            : err.message;
+        logger.error(`[OAuth Callback] Error intercambiando code: ${detail}`, err);
         res.status(500).send(`
             <html><body style="font-family:sans-serif;text-align:center;padding:40px">
             <h2>❌ Error del servidor</h2>
             <p>No se pudo completar la autorización. Intenta nuevamente más tarde.</p>
+            <details style="margin-top:20px;text-align:left;font-size:12px;color:#9ca3af">
+              <summary>Detalle técnico</summary>
+              <pre>${detail}</pre>
+            </details>
             </body></html>
         `);
     }

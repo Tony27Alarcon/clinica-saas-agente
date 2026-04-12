@@ -399,14 +399,27 @@ export class WebhookController {
             );
         }
 
-        // Step D: Guardar mensaje entrante
+        // Step D: Guardar mensaje entrante (con deduplicación por messageId para descartar webhooks duplicados)
+        if (messageId) {
+            const alreadyProcessed = await ClinicasDbService.hasMessageByKapsoId(messageId);
+            if (alreadyProcessed) {
+                logger.warn(`[Clinicas] messageId "${messageId}" ya procesado. Descartando evento duplicado.`);
+                return;
+            }
+        }
+
+        const incomingMetadata = {
+            raw_payload: event,
+            media_url: safeKapsoUrl || metaDirectUrl,
+            message_type: messageType,
+            phone_number_id: phoneNumberId,
+        };
         await logger.stage('D', 'clinicas.saveMessage (entrante)', () =>
-            ClinicasDbService.saveMessage(conversation.id, company.id, 'contact', text || '[media]', {
-                raw_payload: event,
-                media_url: safeKapsoUrl || metaDirectUrl,
-                message_type: messageType,
-                phone_number_id: phoneNumberId,
-            })
+            messageId
+                ? ClinicasDbService.saveMessageDeduped(
+                    conversation.id, company.id, 'contact', text || '[media]', messageId, incomingMetadata
+                )
+                : ClinicasDbService.saveMessage(conversation.id, company.id, 'contact', text || '[media]', incomingMetadata)
         );
 
         // Step E: Cargar historial
@@ -529,6 +542,141 @@ export class WebhookController {
             logger.info('[Admin] Step G: sin texto a enviar');
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Webhook de mensajes SALIENTES (enviados desde el móvil / dashboard Kapso)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Recibe el webhook de Kapso para mensajes salientes (sent_message).
+     * Solo guarda el mensaje en DB como `agent`; nunca invoca la IA.
+     */
+    static async handleOutgoingWebhook(req: Request, res: Response): Promise<void> {
+        try {
+            const secret = req.headers['x-kapso-secret'] || req.body.secret;
+            if (env.KAPSO_WEBHOOK_SECRET && secret !== env.KAPSO_WEBHOOK_SECRET) {
+                logger.warn('[Outgoing] Intento de acceso con secreto inválido.');
+                res.status(401).send('Unauthorized');
+                return;
+            }
+
+            const body = req.body;
+            let events: any[] = [];
+
+            if (body.batch === true && Array.isArray(body.data)) {
+                events = body.data;
+            } else {
+                events = [body.data || body.payload || body];
+            }
+
+            res.status(200).send('OK');
+
+            setTimeout(() => {
+                Promise.all(events.map((event) => {
+                    const requestId = newRequestId();
+                    return logger.runWithContext({ requestId }, () =>
+                        WebhookController.processOutgoingEvent(event).catch((err) => {
+                            logger.critical('[Outgoing] processOutgoingEvent dejó escapar una excepción', err);
+                        })
+                    );
+                })).catch(() => {});
+            }, 0);
+        } catch (error) {
+            logger.critical('[Outgoing] Error en handleOutgoingWebhook', error);
+            res.status(500).send('Internal Server Error');
+        }
+    }
+
+    /**
+     * Procesa un único evento saliente: extrae campos, identifica la clínica
+     * y el contacto por el número destinatario, y guarda como `agent`.
+     */
+    private static async processOutgoingEvent(event: any): Promise<void> {
+        // Destinatario = el contacto (paciente) que recibió el mensaje
+        const to =
+            event.to ||
+            event.message?.to ||
+            event.recipient ||
+            event.contact?.phone ||
+            '';
+
+        const text =
+            event.text?.body ||
+            event.text ||
+            event.body ||
+            event.message?.text?.body ||
+            event.message?.text ||
+            event.message?.kapso?.content ||
+            '';
+
+        const messageId = event.id || event.message?.id;
+
+        const phoneNumberId =
+            event.phone_number_id ||
+            event.message?.phone_number_id ||
+            event.conversation?.phone_number_id ||
+            env.KAPSO_PHONE_NUMBER_ID;
+
+        const messageType =
+            event.type ||
+            event.message?.type ||
+            'text';
+
+        logger.enrichContext({ contacto: to, messageId, tipo: messageType });
+
+        if (!to || !text) {
+            logger.debug('[Outgoing] Evento ignorado (sin destinatario o contenido)');
+            return;
+        }
+
+        if (!phoneNumberId) {
+            logger.warn('[Outgoing] Sin phoneNumberId — evento descartado');
+            return;
+        }
+
+        logger.info(`📤 Saliente recibido`, { to, preview: text.substring(0, 60) });
+
+        const company = await ClinicasDbService.getCompanyByWaPhone(phoneNumberId);
+        if (!company) {
+            logger.warn(`[Outgoing] phoneNumberId "${phoneNumberId}" no registrado. Descartando.`);
+            return;
+        }
+
+        // Deduplicación temprana: si ya tenemos este messageId, ignorar
+        if (messageId) {
+            const alreadyProcessed = await ClinicasDbService.hasMessageByKapsoId(messageId);
+            if (alreadyProcessed) {
+                logger.info(`[Outgoing] messageId "${messageId}" ya guardado. Ignorando.`);
+                return;
+            }
+        }
+
+        // Obtener o crear contacto y conversación para poder guardar el mensaje
+        const contact = await ClinicasDbService.getOrCreateContact(company.id, to, to);
+        const agent   = await ClinicasDbService.getActiveAgent(company.id);
+        const conversation = await ClinicasDbService.getOrCreateConversation(
+            company.id, contact.id, agent.id, 'whatsapp'
+        );
+
+        const metadata: Record<string, any> = {
+            raw_payload:    event,
+            message_type:   messageType,
+            phone_number_id: phoneNumberId,
+            source:          'outgoing_mobile',
+        };
+
+        if (messageId) {
+            await ClinicasDbService.saveMessageDeduped(
+                conversation.id, company.id, 'agent', text, messageId, metadata
+            );
+        } else {
+            await ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', text, metadata);
+        }
+
+        logger.info(`[Outgoing] Mensaje saliente guardado en conv ${conversation.id}`);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Genera un preview corto del evento para incluir en logs CRITICAL.

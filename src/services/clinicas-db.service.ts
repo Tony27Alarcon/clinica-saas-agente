@@ -1326,6 +1326,26 @@ export class ClinicasDbService {
     }
 
     /**
+     * Verifica si ya existe un mensaje con el kapso_message_id dado.
+     * Usado para descartar webhooks duplicados antes de invocar la IA.
+     * Retorna false en caso de error (fail-open: preferimos procesar de más que perder un mensaje).
+     */
+    static async hasMessageByKapsoId(kapsoMessageId: string): Promise<boolean> {
+        try {
+            const { count, error } = await db()
+                .from('messages')
+                .select('id', { count: 'exact', head: true })
+                .eq('kapso_message_id', kapsoMessageId);
+
+            if (error) throw error;
+            return (count ?? 0) > 0;
+        } catch (error) {
+            logger.error(`[Clinicas] hasMessageByKapsoId: ${(error as Error).message}`);
+            return false; // fail-open
+        }
+    }
+
+    /**
      * Guarda un mensaje con deduplicación por kapso_message_id.
      * Usa upsert con ignoreDuplicates para que re-imports sean idempotentes.
      * Acepta createdAt explícito para respetar el timestamp original del mensaje.
@@ -1428,22 +1448,26 @@ export class ClinicasDbService {
         contraindications?: string;
     }): Promise<{ ok: boolean; data?: any; error?: string }> {
         try {
+            // Construir el objeto de inserción sin pasar null para columnas
+            // NOT NULL con DEFAULT (ej: followup_days DEFAULT '{3,7,30}')
+            const row: Record<string, any> = {
+                company_id: companyId,
+                name:       data.name,
+                active:     true,
+            };
+            if (data.description               !== undefined) row.description               = data.description;
+            if (data.price_min                 !== undefined) row.price_min                 = data.price_min;
+            if (data.price_max                 !== undefined) row.price_max                 = data.price_max;
+            if (data.duration_min              !== undefined) row.duration_min              = data.duration_min;
+            if (data.preparation_instructions  !== undefined) row.preparation_instructions  = data.preparation_instructions;
+            if (data.post_care_instructions    !== undefined) row.post_care_instructions    = data.post_care_instructions;
+            if (data.followup_days             !== undefined) row.followup_days             = data.followup_days;
+            if (data.category                  !== undefined) row.category                  = data.category;
+            if (data.contraindications         !== undefined) row.contraindications         = data.contraindications;
+
             const { data: result, error } = await db()
                 .from('treatments')
-                .insert([{
-                    company_id:                companyId,
-                    name:                      data.name,
-                    description:               data.description               ?? null,
-                    price_min:                 data.price_min                 ?? null,
-                    price_max:                 data.price_max                 ?? null,
-                    duration_min:              data.duration_min              ?? null,
-                    preparation_instructions:  data.preparation_instructions  ?? null,
-                    post_care_instructions:    data.post_care_instructions    ?? null,
-                    followup_days:             data.followup_days             ?? null,
-                    category:                  data.category                  ?? null,
-                    contraindications:         data.contraindications         ?? null,
-                    active:                    true,
-                }])
+                .insert([row])
                 .select()
                 .single();
 
@@ -1577,7 +1601,7 @@ export class ClinicasDbService {
         try {
             let query = db()
                 .from('staff')
-                .select('id, name, role, specialty, phone, email, max_daily_appointments, active, created_at, updated_at')
+                .select('id, name, role, specialty, phone, email, max_daily_appointments, active, created_at')
                 .eq('company_id', companyId)
                 .order('name', { ascending: true });
 
@@ -1633,7 +1657,8 @@ export class ClinicasDbService {
         max_daily_appointments?: number;
     }): Promise<{ ok: boolean; data?: any; error?: string }> {
         try {
-            const updates: Record<string, any> = { ...data, updated_at: new Date().toISOString() };
+            // staff no tiene updated_at — no incluirlo en el update
+            const updates: Record<string, any> = { ...data };
             const { data: result, error } = await db()
                 .from('staff')
                 .update(updates)
@@ -1653,9 +1678,10 @@ export class ClinicasDbService {
 
     static async archiveStaff(companyId: string, staffId: string): Promise<{ ok: boolean; error?: string }> {
         try {
+            // staff no tiene updated_at — solo actualizar active
             const { data, error } = await db()
                 .from('staff')
-                .update({ active: false, updated_at: new Date().toISOString() })
+                .update({ active: false })
                 .eq('id', staffId)
                 .eq('company_id', companyId)
                 .eq('active', true)

@@ -11,6 +11,16 @@
       "sourceType": "github",
       "computedHash": "4d4447406bf34a64ed982f4f3fe4fd2ec67b460d85ead5d1433f4162b7f0f9a1"
     },
+    "nylas-api": {
+      "source": "nylas/skills",
+      "sourceType": "github",
+      "computedHash": "ca395e5016fea98a7b281ee2bae669b6369a3123b445b0f0461bc4afbabb8eef"
+    },
+    "nylas-cli": {
+      "source": "nylas/skills",
+      "sourceType": "github",
+      "computedHash": "85b75b9f274a33b937f223acbca4ed508a3890594532ec8562154edd12a2dbb7"
+    },
     "observe-whatsapp": {
       "source": "gokapso/agent-skills",
       "sourceType": "github",
