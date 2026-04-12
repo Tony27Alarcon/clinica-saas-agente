@@ -505,3 +505,52 @@ export const createAdminArchiveStaffTool = (companyId: string) => tool({
         }
     },
 });
+
+// =============================================================================
+// Portal Admin — link de acceso web
+// =============================================================================
+
+/**
+ * Tool: sendAdminPortalLink
+ *
+ * Genera y envía por WhatsApp el link de acceso al portal de administración
+ * web (Next.js en Vercel) para que el staff pueda configurar el agente,
+ * revisar citas y gestionar pacientes desde el navegador.
+ *
+ * Todos los parámetros vienen del closure — el LLM no controla la URL ni
+ * el destinatario.
+ */
+export const createAdminSendPortalLinkTool = (
+    companyId: string,
+    staffPhone: string,
+    phoneNumberId: string
+) => tool({
+    description: 'Envía al staff el link de acceso al portal web de administración por WhatsApp. Usar cuando el staff pida "el link del panel", "acceso al portal", "abrir el dashboard", "configurar desde la web" o frases similares.',
+    inputSchema: z.object({}),
+    execute: async () => {
+        try {
+            if (!env.ADMIN_PORTAL_URL) {
+                return { ok: false, error: 'ADMIN_PORTAL_URL no está configurado en el servidor' };
+            }
+
+            const url = `${env.ADMIN_PORTAL_URL}/admin/${companyId}/agente`;
+
+            const mensaje =
+                `Aquí está tu link de acceso al portal de administración:\n\n` +
+                `${url}\n\n` +
+                `Desde ahí puedes:\n` +
+                `• Editar las instrucciones del agente\n` +
+                `• Configurar el tono y las objeciones\n` +
+                `• Ajustar criterios de calificación y escalamiento\n\n` +
+                `Es personal — no lo compartas.`;
+
+            await KapsoService.enviarMensaje(staffPhone, mensaje, phoneNumberId);
+
+            logger.info(`[Admin Tool] sendAdminPortalLink: link enviado a ${staffPhone} (company: ${companyId})`);
+            return { ok: true, linkSent: true, to: staffPhone, url };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] sendAdminPortalLink error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});

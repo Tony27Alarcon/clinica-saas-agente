@@ -72,6 +72,13 @@ export const env = {
      * Si está vacío, el endpoint queda deshabilitado.
      */
     INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET || '',
+
+    /**
+     * URL base del portal admin (Next.js en Vercel).
+     * El agente admin la usa para generar y enviar el link de acceso al staff.
+     * Ej: https://web-lovat-sigma-58.vercel.app
+     */
+    ADMIN_PORTAL_URL: process.env.ADMIN_PORTAL_URL || '',
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
@@ -81,6 +88,7 @@ const optionalKeys = [
     'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GCAL_LOOK_AHEAD_DAYS',
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
     'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
+    'ADMIN_PORTAL_URL',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

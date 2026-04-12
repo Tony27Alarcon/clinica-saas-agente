@@ -36,6 +36,7 @@ import {
     createAdminCreateStaffTool,
     createAdminUpdateStaffTool,
     createAdminArchiveStaffTool,
+    createAdminSendPortalLinkTool,
 } from '../tools/clinicas-admin.tools';
 
 const google = createGoogleGenerativeAI({
@@ -343,7 +344,7 @@ Zona horaria: ${company.timezone || 'America/Bogota'} — Moneda: ${company.curr
 
 TONO: Directo y profesional. Respuestas concisas. Sin saludos repetidos en cada turno.
 
-HERRAMIENTAS DISPONIBLES (18):
+HERRAMIENTAS DISPONIBLES (19):
 
 --- Pacientes y citas ---
 1.  searchContacts — Busca pacientes/leads por nombre, teléfono o estado.
@@ -354,22 +355,23 @@ HERRAMIENTAS DISPONIBLES (18):
 6.  sendMessageToPatient — Envía un mensaje WhatsApp a un paciente desde la clínica.
 7.  getDailySummary — Resumen del día: citas, leads nuevos, escalaciones, follow-ups.
 8.  connectGoogleCalendar — Envía al staff un link para conectar su Google Calendar. Usar cuando diga "conectar calendario", "vincular Google Calendar" o cuando quiera que el agente cree citas en su agenda personal.
+9.  sendAdminPortalLink — Envía el link del portal web de administración. Usar cuando el staff pida "el link del panel", "acceso al portal", "abrir el dashboard" o quiera configurar el agente desde la web.
 
 --- Tratamientos ---
-9.  listTreatments — Lista tratamientos (activos o todos). Llamar ANTES de updateTreatment o archiveTreatment para obtener UUIDs.
-10. createTreatment — Crea un nuevo tratamiento. El agente paciente lo conoce de inmediato al recompilarse.
-11. updateTreatment — Modifica campos de un tratamiento existente (nombre, precio, duración, etc.).
-12. archiveTreatment — Desactiva un tratamiento (soft-delete). Deja de aparecer en el catálogo del agente paciente.
+10. listTreatments — Lista tratamientos (activos o todos). Llamar ANTES de updateTreatment o archiveTreatment para obtener UUIDs.
+11. createTreatment — Crea un nuevo tratamiento. El agente paciente lo conoce de inmediato al recompilarse.
+12. updateTreatment — Modifica campos de un tratamiento existente (nombre, precio, duración, etc.).
+13. archiveTreatment — Desactiva un tratamiento (soft-delete). Deja de aparecer en el catálogo del agente paciente.
 
 --- Configuración de la clínica ---
-13. updateCompany — Actualiza nombre, ciudad, dirección, horarios o zona horaria de la clínica.
-14. updateAgentConfig — Modifica tono, personalidad, instrucciones de reserva y reglas del agente paciente.
+14. updateCompany — Actualiza nombre, ciudad, dirección, horarios o zona horaria de la clínica.
+15. updateAgentConfig — Modifica tono, personalidad, instrucciones de reserva y reglas del agente paciente.
 
 --- Staff ---
-15. listStaff — Lista el staff (activos o todos). Llamar ANTES de updateStaff o archiveStaff para obtener UUIDs.
-16. createStaff — Agrega un nuevo miembro al staff.
-17. updateStaff — Modifica datos de un miembro del staff.
-18. archiveStaff — Desactiva un miembro del staff (soft-delete).
+16. listStaff — Lista el staff (activos o todos). Llamar ANTES de updateStaff o archiveStaff para obtener UUIDs.
+17. createStaff — Agrega un nuevo miembro al staff.
+18. updateStaff — Modifica datos de un miembro del staff.
+19. archiveStaff — Desactiva un miembro del staff (soft-delete).
 
 REGLAS:
 - Después de cada tool call, genera texto que resuma el resultado para el staff.
@@ -399,6 +401,11 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
                     getDailySummary:         createAdminGetDailySummaryTool(company.id, company.timezone || 'America/Bogota'),
                     connectGoogleCalendar:   createAdminConnectGoogleCalendarTool(
                         staffMember.id,
+                        company.id,
+                        staffMember.phone,
+                        phoneNumberId
+                    ),
+                    sendAdminPortalLink:     createAdminSendPortalLinkTool(
                         company.id,
                         staffMember.phone,
                         phoneNumberId
