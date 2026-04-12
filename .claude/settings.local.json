@@ -15,7 +15,15 @@
       "Bash(vercel deploy:*)",
       "Bash(vercel env:*)",
       "Bash(curl -s \"https://sfbwxckfdsfwmvhbruwx.supabase.co/rest/v1/companies?select=id,name,slug,plan&limit=10\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmYnd4Y2tmZHNmd212aGJydXd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTUwMjQ2MywiZXhwIjoyMDg3MDc4NDYzfQ.8WT7m-W7Ic0wikKh0mgTd9zHCkbw_D3A5vOgqX_6qGU\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmYnd4Y2tmZHNmd212aGJydXd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTUwMjQ2MywiZXhwIjoyMDg3MDc4NDYzfQ.8WT7m-W7Ic0wikKh0mgTd9zHCkbw_D3A5vOgqX_6qGU\" -H \"Accept: application/json\")",
-      "Bash(python -m json.tool)"
+      "Bash(python -m json.tool)",
+      "Bash(railway variables:*)",
+      "Bash(railway service:*)",
+      "Bash(railway status:*)",
+      "Bash(kill 5607)",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(netstat -ano)",
+      "Bash(curl -s http://localhost:3001/)"
     ]
   }
 }

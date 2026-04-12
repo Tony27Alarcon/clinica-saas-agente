@@ -321,15 +321,30 @@ export class WebhookController {
         }
 
         // Comando /borrar (testing)
-        // Elimina el estado local del contacto para resetear el flujo del agente.
-        // Al próximo mensaje, el historial de Kapso se reimporta (Step C5) para
-        // que el agente recuerde el nombre y contexto previo del contacto.
+        // Elimina el estado local del contacto y pre-crea una conversación limpia
+        // con un mensaje seed para que el Step C5 NO reimporte el historial de Kapso.
         if (typeof text === 'string' && text.trim().toLowerCase() === '/borrar') {
             logger.info(`[Clinicas] Comando /borrar para ${from}`);
             await ClinicasDbService.deleteContact(company.id, from);
+
+            // Pre-crear contacto + conversación + seed para bloquear el import de Kapso
+            try {
+                const freshAgent = await ClinicasDbService.getActiveAgent(company.id);
+                const freshContact = await ClinicasDbService.getOrCreateContact(company.id, from, senderName);
+                const freshConv = await ClinicasDbService.getOrCreateConversation(
+                    company.id, freshContact.id, freshAgent.id, 'whatsapp'
+                );
+                await ClinicasDbService.saveMessage(
+                    freshConv.id, company.id, 'system',
+                    '--- Conversación reiniciada por /borrar (historial de Kapso omitido) ---'
+                );
+            } catch (seedErr) {
+                logger.error('[Clinicas] /borrar: no se pudo pre-crear conversación limpia', seedErr);
+            }
+
             await KapsoService.enviarMensaje(
                 from,
-                '✅ *Historial local borrado.* El próximo mensaje reinicia la conversación.',
+                '✅ *Historial local borrado.* El próximo mensaje inicia una conversación limpia sin historial previo.',
                 phoneNumberId
             );
             return;
@@ -370,6 +385,8 @@ export class WebhookController {
         // Step C5: Si la conversación no tiene mensajes, importar historial previo de Kapso.
         // Esto le da al agente contexto de conversaciones anteriores (incluyendo mensajes
         // enviados directamente desde el número sin pasar por el agente).
+        // NOTA: /borrar pre-crea la conversación con un mensaje seed 'system', por lo que
+        // tienesMensajes=true y este import se salta — permitiendo pruebas desde cero.
         const tienesMensajes = await ClinicasDbService.hasMessages(conversation.id);
         if (!tienesMensajes) {
             await logger.stage('C5', 'clinicas.KapsoHistoryImport', () =>

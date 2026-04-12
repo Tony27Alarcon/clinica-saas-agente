@@ -16,7 +16,8 @@
     "test:agenda": "ts-node scripts/testing/scenarios-admin.ts",
     "test:reminders": "ts-node scripts/testing/test-reminders.ts",
     "test:scheduled-reminders": "ts-node scripts/testing/test-scheduled-reminders.ts",
-    "test:rebuild": "ts-node scripts/testing/test-rebuild.ts"
+    "test:rebuild": "ts-node scripts/testing/test-rebuild.ts",
+    "test:crud": "ts-node scripts/testing/test-crud-tools.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",
