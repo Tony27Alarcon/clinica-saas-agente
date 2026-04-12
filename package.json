@@ -15,6 +15,7 @@
     "test:scenario": "ts-node scripts/testing/scenarios.ts",
     "test:agenda": "ts-node scripts/testing/scenarios-admin.ts",
     "test:reminders": "ts-node scripts/testing/test-reminders.ts",
+    "test:scheduled-reminders": "ts-node scripts/testing/test-scheduled-reminders.ts",
     "test:rebuild": "ts-node scripts/testing/test-rebuild.ts"
   },
   "dependencies": {

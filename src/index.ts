@@ -6,6 +6,7 @@ import { WebhookController } from './controllers/webhook.controller';
 import { OAuth2Client } from 'google-auth-library';
 import { ClinicasDbService } from './services/clinicas-db.service';
 import { PromptRebuildService } from './services/prompt-rebuild.service';
+import { ReminderService } from './services/reminder.service';
 
 // ============================================================================
 // Wiring del sink de persistencia: cada log emitido por el logger se buffer-ea
@@ -257,6 +258,17 @@ const server = app.listen(PORT, () => {
     PromptRebuildService.processRebuildQueue().catch(err =>
         logger.warn(`[Startup] processRebuildQueue falló: ${(err as Error).message}`)
     );
+
+    // Scheduler de recordatorios: cada 60s revisa si hay recordatorios pendientes
+    // y activa el agente correspondiente de forma proactiva.
+    // Usa UPDATE atómico (claim_due_reminders RPC) para garantizar idempotencia.
+    setInterval(() => {
+        ReminderService.checkAndFire().catch(err =>
+            logger.error('[Scheduler] checkAndFire error no capturado', err)
+        );
+    }, 60_000);
+
+    logger.info('Scheduler de recordatorios activo (intervalo: 60s).');
 });
 
 // ============================================================================

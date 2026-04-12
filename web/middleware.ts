@@ -5,7 +5,7 @@ const COOKIE  = 'admin_session';
 const COOKIE_MAX_AGE = 60 * 60 * 24; // 24 h
 
 function secret() {
-    const raw = process.env.INTERNAL_API_SECRET;
+    const raw = process.env.INTERNAL_API_SECRET?.trim();
     if (!raw) throw new Error('INTERNAL_API_SECRET no está configurado');
     return new TextEncoder().encode(raw);
 }
@@ -75,5 +75,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-    matcher: ['/admin/:path*'],
+    matcher: ['/admin/((?!auth-error).*)'],
 };

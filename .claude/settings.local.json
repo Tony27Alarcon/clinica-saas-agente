@@ -8,7 +8,14 @@
       "Bash(wc -l \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\"/*.sql)",
       "Bash(find \"C:\\\\Users\\\\Usuario\\\\Desktop\\\\dev\\\\base whtasapp agente/sql\" -name \"*.sql\" -exec wc -l {} +)",
       "Bash(node:*)",
-      "Bash(find src:*)"
+      "Bash(find src:*)",
+      "Bash(npm run:*)",
+      "Read(//c/Users/Usuario/AppData/Local/**)",
+      "Read(//c/Users/Usuario/**)",
+      "Bash(vercel deploy:*)",
+      "Bash(vercel env:*)",
+      "Bash(curl -s \"https://sfbwxckfdsfwmvhbruwx.supabase.co/rest/v1/companies?select=id,name,slug,plan&limit=10\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmYnd4Y2tmZHNmd212aGJydXd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTUwMjQ2MywiZXhwIjoyMDg3MDc4NDYzfQ.8WT7m-W7Ic0wikKh0mgTd9zHCkbw_D3A5vOgqX_6qGU\" -H \"Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmYnd4Y2tmZHNmd212aGJydXd4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTUwMjQ2MywiZXhwIjoyMDg3MDc4NDYzfQ.8WT7m-W7Ic0wikKh0mgTd9zHCkbw_D3A5vOgqX_6qGU\" -H \"Accept: application/json\")",
+      "Bash(python -m json.tool)"
     ]
   }
 }

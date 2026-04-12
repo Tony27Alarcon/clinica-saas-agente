@@ -21,7 +21,7 @@ interface AgentData {
     };
     escalation_rules: {
         trigger_keywords?: string[];
-        max_unanswered_turns?: number;
+        max_turns_without_intent?: number;
     };
     objections_kb: Objection[];
 }
@@ -348,8 +348,8 @@ export default function AgentePage() {
                             type="number"
                             min={1}
                             max={20}
-                            value={agent.escalation_rules.max_unanswered_turns ?? ''}
-                            onChange={e => setER('max_unanswered_turns', e.target.value ? Number(e.target.value) : undefined)}
+                            value={agent.escalation_rules.max_turns_without_intent ?? ''}
+                            onChange={e => setER('max_turns_without_intent', e.target.value ? Number(e.target.value) : undefined)}
                             placeholder="6"
                         />
                         <p className="field-hint">Después de N mensajes sin respuesta, el agente notifica al equipo.</p>
