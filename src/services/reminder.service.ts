@@ -92,7 +92,7 @@ export class ReminderService {
         );
 
         // Activar el agente según tipo
-        let respuesta: string;
+        let respuesta: string | null | undefined;
 
         if (reminder.agent_type === 'admin') {
             const staffMember = await ClinicasDbService.findStaffByPhone(
