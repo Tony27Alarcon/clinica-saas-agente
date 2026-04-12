@@ -709,6 +709,49 @@ a:hover { text-decoration: underline; }
     bottom: 16px;
 }
 
+/* ── Auth error page ──────────────────────────────────────────────────────── */
+.auth-error-shell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: var(--ab, #0a0a0a);
+    padding: 24px;
+}
+.auth-error-card {
+    background: var(--as, #111111);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 40px 36px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.auth-error-icon  { font-size: 2.5rem; }
+.auth-error-title {
+    font-family: var(--font-epilogue, 'Epilogue', sans-serif);
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    letter-spacing: -0.02em;
+}
+.auth-error-desc  { font-size: 0.9rem; color: #6b7280; line-height: 1.6; }
+.auth-error-hint  { font-size: 0.85rem; color: #6b7280; line-height: 1.6; margin-top: 4px; }
+.auth-error-quote {
+    display: inline-block;
+    margin-top: 8px;
+    background: rgba(34,197,94,0.08);
+    color: #22c55e;
+    border: 1px solid rgba(34,197,94,0.25);
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
     .admin-sidebar { display: none; }

@@ -520,6 +520,31 @@ export const createAdminArchiveStaffTool = (companyId: string) => tool({
  * Todos los parámetros vienen del closure — el LLM no controla la URL ni
  * el destinatario.
  */
+/**
+ * Genera un JWT HS256 firmado con INTERNAL_API_SECRET.
+ * Implementación manual con crypto nativo — sin dependencias extra.
+ * Compatible con la verificación de `jose` en el middleware de Next.js.
+ */
+function createPortalToken(companyId: string): string {
+    const crypto = require('crypto') as typeof import('crypto');
+    const secret = env.INTERNAL_API_SECRET;
+    if (!secret) throw new Error('INTERNAL_API_SECRET no está configurado');
+
+    const header  = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({
+        companyId,
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24 h
+    })).toString('base64url');
+
+    const sig = crypto
+        .createHmac('sha256', secret)
+        .update(`${header}.${payload}`)
+        .digest('base64url');
+
+    return `${header}.${payload}.${sig}`;
+}
+
 export const createAdminSendPortalLinkTool = (
     companyId: string,
     staffPhone: string,
@@ -532,8 +557,12 @@ export const createAdminSendPortalLinkTool = (
             if (!env.ADMIN_PORTAL_URL) {
                 return { ok: false, error: 'ADMIN_PORTAL_URL no está configurado en el servidor' };
             }
+            if (!env.INTERNAL_API_SECRET) {
+                return { ok: false, error: 'INTERNAL_API_SECRET no está configurado en el servidor' };
+            }
 
-            const url = `${env.ADMIN_PORTAL_URL}/admin/${companyId}/agente`;
+            const token = createPortalToken(companyId);
+            const url   = `${env.ADMIN_PORTAL_URL}/admin/${companyId}/agente?token=${token}`;
 
             const mensaje =
                 `Aquí está tu link de acceso al portal de administración:\n\n` +
@@ -542,12 +571,12 @@ export const createAdminSendPortalLinkTool = (
                 `• Editar las instrucciones del agente\n` +
                 `• Configurar el tono y las objeciones\n` +
                 `• Ajustar criterios de calificación y escalamiento\n\n` +
-                `Es personal — no lo compartas.`;
+                `⏱ El link expira en 24 horas. Es personal — no lo compartas.`;
 
             await KapsoService.enviarMensaje(staffPhone, mensaje, phoneNumberId);
 
-            logger.info(`[Admin Tool] sendAdminPortalLink: link enviado a ${staffPhone} (company: ${companyId})`);
-            return { ok: true, linkSent: true, to: staffPhone, url };
+            logger.info(`[Admin Tool] sendAdminPortalLink: link con token enviado a ${staffPhone} (company: ${companyId})`);
+            return { ok: true, linkSent: true, to: staffPhone };
         } catch (err: any) {
             logger.error(`[Admin Tool] sendAdminPortalLink error: ${err.message}`);
             return { ok: false, error: err.message };
