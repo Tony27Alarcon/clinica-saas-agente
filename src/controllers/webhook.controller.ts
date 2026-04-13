@@ -15,6 +15,56 @@ import { env } from '../config/env';
  */
 const UNREADABLE_MESSAGE_TYPES = new Set(['unsupported', 'unknown', 'system']);
 
+/**
+ * Normaliza un mensaje para comparación de duplicados:
+ * minúsculas, colapsa whitespace, recorta a primeros 200 chars.
+ * Mantiene emojis (son señales válidas) pero descarta diferencias triviales.
+ */
+function normalizeForCompare(s: string): string {
+    return (s || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 200);
+}
+
+/**
+ * Detecta si el contacto está enviando el mismo mensaje repetidamente
+ * (típicamente otro bot con respuesta automática en bucle).
+ *
+ * Devuelve true si los últimos `n` mensajes del usuario son idénticos
+ * (normalizados) al mensaje entrante actual.
+ */
+function contactIsRepeating(
+    historial: Array<{ role: 'user' | 'assistant'; content: string }>,
+    incomingText: string,
+    n: number = 2
+): boolean {
+    const normalizedIncoming = normalizeForCompare(incomingText);
+    if (!normalizedIncoming) return false;
+
+    const userMsgs = historial.filter(m => m.role === 'user').slice(-n);
+    if (userMsgs.length < n) return false;
+
+    return userMsgs.every(m => normalizeForCompare(m.content) === normalizedIncoming);
+}
+
+/**
+ * Detecta si el agente ya respondió el mismo contenido recientemente.
+ * Si el último assistant message ya es similar al que vamos a enviar, evita
+ * mandarlo (señal de que estamos atascados).
+ */
+function assistantIsRepeating(
+    historial: Array<{ role: 'user' | 'assistant'; content: string }>,
+    n: number = 2
+): boolean {
+    const assistantMsgs = historial.filter(m => m.role === 'assistant').slice(-n);
+    if (assistantMsgs.length < n) return false;
+    const first = normalizeForCompare(assistantMsgs[0].content);
+    if (!first) return false;
+    return assistantMsgs.every(m => normalizeForCompare(m.content) === first);
+}
+
 export class WebhookController {
     /**
      * Procesa el webhook entrante de Kapso.
@@ -309,8 +359,12 @@ export class WebhookController {
             return;
         }
 
-        if (UNREADABLE_MESSAGE_TYPES.has(messageType)) {
-            logger.warn(`[Clinicas] Mensaje tipo "${messageType}" no procesable.`);
+        // Solo enviar el fallback "no pude visualizar" cuando el mensaje es REALMENTE
+        // unsupported Y no trae texto recuperable. Algunos eventos llegan tipados como
+        // 'unsupported' pero contienen body/caption útil — en ese caso seguimos el flujo
+        // normal usando ese texto.
+        if (UNREADABLE_MESSAGE_TYPES.has(messageType) && !text?.trim()) {
+            logger.warn(`[Clinicas] Mensaje tipo "${messageType}" sin texto. Enviando fallback.`);
             try {
                 await KapsoService.enviarMensaje(
                     from,
@@ -437,11 +491,10 @@ export class WebhookController {
             ClinicasDbService.getHistorial(conversation.id, 25)
         );
 
-        // ── Capa 3: Guardarraíl por historial ────────────────────────────────────
-        // Si los últimos LOOP_THRESHOLD mensajes consecutivos son todos 'assistant',
-        // el agente está enviando mensajes sin que nadie responda (bug, reminder mal
-        // configurado, o loop interno). No aplica al escenario bot↔agente normal
-        // (cuyo historial alterna user/assistant) — para eso existe la tool noReply.
+        // ── Capa 3: Guardarraíles por historial ──────────────────────────────────
+        // (a) Si los últimos LOOP_THRESHOLD mensajes consecutivos son todos
+        //     'assistant', el agente está enviando mensajes sin que nadie responda
+        //     (bug, reminder mal configurado, o loop interno).
         const LOOP_THRESHOLD = 4;
         if (historial.length >= LOOP_THRESHOLD) {
             const tail = historial.slice(-LOOP_THRESHOLD);
@@ -452,6 +505,30 @@ export class WebhookController {
                 );
                 return;
             }
+        }
+
+        // (b) Detección determinística de bot del otro lado: si los últimos 2
+        //     mensajes del usuario son IDÉNTICOS al actual (mismo texto
+        //     normalizado), estamos contra una respuesta automática en bucle
+        //     (ej. otro agente con auto-reply). Cortamos sin invocar IA.
+        //     Nota: el mensaje entrante ya fue guardado en Step D, así que el
+        //     historial incluye el actual + los 2 previos = 3 idénticos en total.
+        if (text && contactIsRepeating(historial, text, 3)) {
+            logger.warn(
+                `[Clinicas] Loop bot↔bot detectado: últimos 3 mensajes del usuario son idénticos. Silencio total.`,
+                { conversationId: conversation.id, from, preview: text.substring(0, 60) }
+            );
+            return;
+        }
+
+        // (c) Si los últimos 2 mensajes del agente fueron idénticos, ya estamos
+        //     repitiéndonos. Cortar antes de generar otra variación inútil.
+        if (assistantIsRepeating(historial, 2)) {
+            logger.warn(
+                `[Clinicas] Agente repitiéndose: últimos 2 mensajes del assistant idénticos. Silencio.`,
+                { conversationId: conversation.id, from }
+            );
+            return;
         }
         // ────────────────────────────────────────────────────────────────────────
 

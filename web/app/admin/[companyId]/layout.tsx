@@ -70,16 +70,20 @@ export default async function AdminLayout({
                         <span className="admin-nav-icon">🤖</span>
                         Agente IA
                     </Link>
-                    <div className="admin-nav-item admin-nav-item--disabled">
-                        <span className="admin-nav-icon">💊</span>
-                        Tratamientos
-                        <span className="admin-nav-soon">Pronto</span>
-                    </div>
-                    <div className="admin-nav-item admin-nav-item--disabled">
+                    <Link
+                        href={`/admin/${companyId}/servicios`}
+                        className="admin-nav-item"
+                    >
+                        <span className="admin-nav-icon">💆</span>
+                        Servicios
+                    </Link>
+                    <Link
+                        href={`/admin/${companyId}/personal`}
+                        className="admin-nav-item"
+                    >
                         <span className="admin-nav-icon">👥</span>
                         Personal
-                        <span className="admin-nav-soon">Pronto</span>
-                    </div>
+                    </Link>
                 </nav>
             </aside>
 
