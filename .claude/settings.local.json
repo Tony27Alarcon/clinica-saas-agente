@@ -24,7 +24,8 @@
       "Bash(curl -s http://localhost:3000/)",
       "Bash(netstat -ano)",
       "Bash(curl -s http://localhost:3001/)",
-      "Bash(npx ts-node --log-error -e ':*)"
+      "Bash(npx ts-node --log-error -e ':*)",
+      "Bash(./node_modules/.bin/ts-node -e \":*)"
     ]
   }
 }

@@ -514,6 +514,8 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
             const allToolCalls = steps.flatMap((s: any) => s.toolCalls || []);
 
             // Si no hay texto pero sí hubo tool calls, forzar segunda llamada contextual
+            // IMPORTANTE: pasar TODOS los tools (no solo reminders) para que el modelo
+            // pueda interpretar los resultados de la primera llamada correctamente.
             if (!resultText && allToolCalls.length > 0) {
                 logger.info(`[IA Admin] Tool calls sin texto. Forzando segunda llamada...`);
                 const intermediateMessages = (result as any).response?.messages || [];
@@ -523,9 +525,37 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
                     messages: [...historial, ...intermediateMessages],
                     temperature: 0.5,
                     tools: {
-                        scheduleReminder: createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', company.timezone || 'America/Bogota'),
-                        listReminders:    createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
-                        cancelReminder:   createCancelReminderTool(company.id, contact.id),
+                        searchContacts:          createAdminSearchContactsTool(company.id),
+                        getUpcomingAppointments: createAdminGetAppointmentsTool(company.id),
+                        getFreeSlots:            createAdminGetFreeSlotsTool(company.id),
+                        updateAppointmentStatus: createAdminUpdateAppointmentTool(company.id),
+                        getContactSummary:       createAdminGetContactSummaryTool(company.id),
+                        sendMessageToPatient:    createAdminSendMessageToPatientTool(company.id, phoneNumberId),
+                        getDailySummary:         createAdminGetDailySummaryTool(company.id, tz),
+                        connectGoogleCalendar:   createAdminConnectGoogleCalendarTool(
+                            staffMember.id,
+                            company.id,
+                            staffMember.phone,
+                            phoneNumberId
+                        ),
+                        sendAdminPortalLink:     createAdminSendPortalLinkTool(
+                            company.id,
+                            staffMember.phone,
+                            phoneNumberId
+                        ),
+                        listTreatments:          createAdminListTreatmentsTool(company.id),
+                        createTreatment:         createAdminCreateTreatmentTool(company.id),
+                        updateTreatment:         createAdminUpdateTreatmentTool(company.id),
+                        archiveTreatment:        createAdminArchiveTreatmentTool(company.id),
+                        updateCompany:           createAdminUpdateCompanyTool(company.id),
+                        updateAgentConfig:       createAdminUpdateAgentConfigTool(company.id),
+                        listStaff:               createAdminListStaffTool(company.id),
+                        createStaff:             createAdminCreateStaffTool(company.id),
+                        updateStaff:             createAdminUpdateStaffTool(company.id),
+                        archiveStaff:            createAdminArchiveStaffTool(company.id),
+                        scheduleReminder:        createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', tz),
+                        listReminders:           createListRemindersTool(company.id, contact.id, tz),
+                        cancelReminder:          createCancelReminderTool(company.id, contact.id),
                     },
                 } as any);
                 return followUp.text || '¿En qué más puedo ayudarte?';

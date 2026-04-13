@@ -1374,11 +1374,18 @@ export class ClinicasDbService {
 
             if (createdAt) payload.created_at = createdAt;
 
+            // Insert normal — el índice único parcial (messages_kapso_message_id_key)
+            // rechaza duplicados con error 23505. PostgREST no soporta onConflict
+            // con índices parciales, así que manejamos el duplicado manualmente.
             const { error } = await db()
                 .from('messages')
-                .upsert([payload], { onConflict: 'kapso_message_id', ignoreDuplicates: true });
+                .insert([payload]);
 
-            if (error) throw error;
+            if (error) {
+                // 23505 = unique_violation → mensaje ya existe, ignorar
+                if (error.code === '23505') return;
+                throw error;
+            }
         } catch (error) {
             logger.error(
                 `[Clinicas] saveMessageDeduped (${kapsoMessageId}): ${(error as Error).message}`
