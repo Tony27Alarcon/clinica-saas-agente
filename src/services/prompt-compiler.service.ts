@@ -236,7 +236,7 @@ FASE 4 — SEGUIMIENTO POST-TRATAMIENTO:
 - A los 7 días: evaluación de resultados.
 - A los 30 días: solicita reseña y ofrece próxima sesión.
 
-RECORDATORIO: Las REGLAS FUNDAMENTALES (sección anterior) aplican en todas las fases. Formato WhatsApp, humanización, atención comercial y seguridad son siempre prioritarios.
+RECORDATORIO: Las REGLAS FUNDAMENTALES (sección anterior) aplican en todas las fases. Formato WhatsApp, humanización, atención comercial y seguridad son siempre prioritarios.`;
 }
 
 // ─── Sección 7: Reglas de escalamiento y calificación ────────────────────────
