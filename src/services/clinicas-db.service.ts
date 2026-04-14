@@ -387,6 +387,66 @@ export class ClinicasDbService {
     }
 
     /**
+     * Retorna las citas de un contacto específico.
+     *
+     * Uso principal: inyección automática en el system prompt del agente IA
+     * para que sepa si el contacto ya tiene citas agendadas.
+     *
+     * Ventana por defecto (includeHistory=false):
+     *   - Desde: hace `graceHours` horas (default 3h) — permite detectar
+     *     "acabo de salir de la cita" o consultas post-visita inmediata.
+     *   - Hasta: 30 días hacia adelante.
+     *   - Statuses: scheduled, confirmed, rescheduled.
+     *
+     * Con includeHistory=true:
+     *   - Sin ventana temporal, incluye todos los estados (incluyendo
+     *     cancelled, completed, no_show) para consultas históricas.
+     *
+     * Multi-tenant: filtra por company_id + contact_id para aislamiento.
+     * Fail-open: retorna [] en caso de error (mejor prompt sin citas que
+     * prompt con error leakeado).
+     */
+    static async getAppointmentsForContact(
+        companyId: string,
+        contactId: string,
+        options: { includeHistory?: boolean; limit?: number; graceHours?: number } = {}
+    ): Promise<any[]> {
+        try {
+            const { includeHistory = false, limit = 5, graceHours = 3 } = options;
+
+            const activeStatuses = ['scheduled', 'confirmed', 'rescheduled'];
+            const allStatuses    = [...activeStatuses, 'cancelled', 'completed', 'no_show'];
+
+            let query = db()
+                .from('appointments')
+                .select(`
+                    id, scheduled_at, status, notes, conversation_id, created_at,
+                    treatment:treatments (id, name, duration_min),
+                    staff:staff (id, name, role)
+                `)
+                .eq('company_id', companyId)
+                .eq('contact_id', contactId)
+                .in('status', includeHistory ? allStatuses : activeStatuses);
+
+            if (!includeHistory) {
+                const from = new Date(Date.now() - graceHours * 3_600_000).toISOString();
+                const to = new Date(Date.now() + 30 * 86_400_000).toISOString();
+                query = query.gte('scheduled_at', from).lte('scheduled_at', to);
+            }
+
+            const { data, error } = await query
+                .order('scheduled_at', { ascending: !includeHistory })
+                .limit(limit);
+
+            if (error) throw error;
+            return (data as any[]) || [];
+        } catch (error) {
+            logger.error(`[Clinicas] getAppointmentsForContact: ${(error as Error).message}`);
+            return [];
+        }
+    }
+
+    /**
      * Retorna slots de disponibilidad libres via RPC.
      */
     static async getFreeSlots(

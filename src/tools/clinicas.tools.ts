@@ -371,3 +371,50 @@ export const createClinicasNoReplyTool = () => tool({
         return { ok: true, noReply: true, reason };
     },
 });
+
+/**
+ * Tool: getAppointments
+ * Consulta el historial COMPLETO de citas del contacto actual (pasadas,
+ * canceladas, completadas, no-show, reagendadas).
+ *
+ * IMPORTANTE: Las PRÓXIMAS citas activas ya se inyectan automáticamente en el
+ * system prompt dentro del bloque --- CONTACTO ACTUAL ---. Esta tool es solo
+ * para casos donde el agente necesita histórico pasado (ej: paciente pregunta
+ * "¿cuándo fue mi última cita?", o reagendamiento que requiere ver cancelaciones
+ * previas).
+ */
+export const createClinicasGetAppointmentsTool = (companyId: string, contactId: string) => tool({
+    description:
+        'Consulta el historial de citas del contacto actual (canceladas, completadas, ' +
+        'no-show, reagendadas). Las PRÓXIMAS citas activas YA ESTÁN en --- CONTACTO ACTUAL --- ' +
+        'del system prompt: NO llames esta tool solo para verlas. Úsala solo cuando el paciente ' +
+        'pregunte por histórico pasado o cuando necesites confirmar una cita pasada/cancelada. ' +
+        'SILENCIOSA: no anuncies al paciente que estás revisando.',
+    inputSchema: z.object({
+        include_history: z
+            .boolean()
+            .default(false)
+            .describe('Si true, incluye citas canceladas, completadas y no-show. Por defecto solo las activas.'),
+        limit: z
+            .number()
+            .int()
+            .min(1)
+            .max(20)
+            .default(10)
+            .describe('Máximo de citas a retornar'),
+    }),
+    execute: async (args) => {
+        try {
+            const appts = await ClinicasDbService.getAppointmentsForContact(
+                companyId,
+                contactId,
+                { includeHistory: args.include_history, limit: args.limit }
+            );
+            logger.info(`[Clinicas Tool] getAppointments: ${appts.length} citas (history: ${args.include_history}, contactId: ${contactId})`);
+            return { ok: true, total: appts.length, appointments: appts };
+        } catch (err: any) {
+            logger.error(`[Clinicas Tool] getAppointments error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});

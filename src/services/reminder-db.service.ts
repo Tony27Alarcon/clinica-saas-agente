@@ -1,39 +1,11 @@
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
+import { normalizeTimezone } from '../utils/time';
 import { CronExpressionParser } from 'cron-parser';
 
 // Backoffs en minutos por intento (índice = retry_count actual antes del intento)
 const BACKOFF_MINUTES = [2, 5, 15, 30, 60, 120, 240, 480]; // 8 reintentos → ~14h total
 const MAX_RETRIES = BACKOFF_MINUTES.length;
-
-// Mapa de aliases no-IANA → IANA. Sólo para valores conocidos incorrectos en la BD.
-const TIMEZONE_ALIASES: Record<string, string> = {
-    'Medellin/Colombia': 'America/Bogota',
-    'Bogota/Colombia':   'America/Bogota',
-    'Colombia':          'America/Bogota',
-    'Medellin':          'America/Bogota',
-    'Bogota':            'America/Bogota',
-    'Cali/Colombia':     'America/Bogota',
-    'Lima/Peru':         'America/Lima',
-    'Ciudad de Mexico':  'America/Mexico_City',
-    'Buenos Aires':      'America/Argentina/Buenos_Aires',
-    'Santiago/Chile':    'America/Santiago',
-};
-
-function normalizeTimezone(tz: string): string {
-    if (!tz) return 'America/Bogota';
-    if (TIMEZONE_ALIASES[tz]) {
-        logger.warn(`[ReminderDb] Timezone no-IANA "${tz}" → "${TIMEZONE_ALIASES[tz]}". Actualiza companies.timezone en la BD.`);
-        return TIMEZONE_ALIASES[tz];
-    }
-    try {
-        Intl.DateTimeFormat('en-US', { timeZone: tz });
-        return tz;
-    } catch {
-        logger.warn(`[ReminderDb] Timezone inválido: "${tz}", usando America/Bogota como fallback.`);
-        return 'America/Bogota';
-    }
-}
 
 const db = () => (supabase as any).schema('clinicas');
 

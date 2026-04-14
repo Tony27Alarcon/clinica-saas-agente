@@ -17,6 +17,7 @@ import {
     createClinicasAddNoteTool,
     createClinicasEditNoteTool,
     createClinicasArchiveNoteTool,
+    createClinicasGetAppointmentsTool,
     createClinicasNoReplyTool,
 } from '../tools/clinicas.tools';
 import { createScheduleReminderTool, createListRemindersTool, createCancelReminderTool } from '../tools/clinicas-reminder.tool';
@@ -47,7 +48,7 @@ const google = createGoogleGenerativeAI({
     apiKey: env.GEMINI_API_KEY,
 });
 
-import { getColombianContext } from '../utils/time';
+import { getColombianContext, formatInTimezone } from '../utils/time';
 import { buildAdminSkillsSection, buildOnboardingSkillsSection } from '../skills';
 
 /**
@@ -153,6 +154,39 @@ function renderInstrucciones(value: any, depth: number = 0): string {
     return String(value);
 }
 
+/**
+ * Formatea una cita en una línea legible para inyectar en el system prompt.
+ * Incluye hora relativa en TZ de la clínica, tratamiento, staff, status flag
+ * y el appointment ID (marcado como interno — no debe mencionarse al paciente).
+ */
+function formatAppointmentLine(appt: any, tz: string): string {
+    const { relativeLabel } = formatInTimezone(appt.scheduled_at, tz);
+    const treatment = appt.treatment?.name || 'Tratamiento por definir';
+    const staffName = appt.staff?.name || 'profesional por asignar';
+
+    let statusLabel = '';
+    switch (appt.status) {
+        case 'cancelled':   statusLabel = ' ⚠️ CANCELADA — avisar al paciente'; break;
+        case 'rescheduled': statusLabel = ' (reagendada)'; break;
+        case 'confirmed':   statusLabel = ' ✓ confirmada'; break;
+        case 'completed':   statusLabel = ' (completada)'; break;
+        case 'no_show':     statusLabel = ' (no se presentó)'; break;
+        default:            statusLabel = ''; // scheduled = sin label
+    }
+
+    return `  • ${relativeLabel} — ${treatment} con ${staffName}${statusLabel}\n    ID (interno, no mencionar al paciente): ${appt.id}`;
+}
+
+/**
+ * Construye el bloque "--- PRÓXIMAS CITAS ---" para el system prompt.
+ * Retorna string vacío si no hay citas (para no renderizar "ninguna").
+ */
+function buildCitasBlock(appointments: any[], tz: string): string {
+    if (!appointments || appointments.length === 0) return '';
+    const lines = appointments.map(a => formatAppointmentLine(a, tz)).join('\n');
+    return `\n\n--- PRÓXIMAS CITAS ---\n${lines}`;
+}
+
 export class AiService {
     static async generarRespuestaClinicas(
         historial: Array<{ role: 'user' | 'assistant'; content: string }>,
@@ -172,6 +206,18 @@ export class AiService {
 
             const timeCtx = getColombianContext();
 
+            // Inyección automática de citas próximas del contacto. Evita que el agente
+            // tenga que llamar una tool solo para saber "¿tengo cita?" — lo cubre el 90%
+            // de los casos (paciente pregunta hora, confirma, reagenda). La tool
+            // getAppointments queda para histórico pasado/canceladas.
+            const tz = company?.timezone || 'America/Bogota';
+            const upcomingAppts = await ClinicasDbService.getAppointmentsForContact(
+                company.id,
+                contact.id,
+                { limit: 3 }
+            );
+            const citasBlock = buildCitasBlock(upcomingAppts, tz);
+
             // system_prompt viene compilado desde la BD (buildSystemPrompt).
             // Aquí agregamos contexto dinámico por mensaje: fecha, estado del contacto y
             // guía de uso de tools. NO repetir lógica de las 4 fases (ya está en el prompt compilado).
@@ -189,7 +235,7 @@ Nombre: ${contact?.name || 'Desconocido'}
 Teléfono: ${contact?.phone || 'Desconocido'}
 Estado: ${contactStatus}
 Temperatura: ${contact?.temperature || 'frio'}
-${isKnownContact ? '⚠️ Contacto con historial previo — carga notas antes de responder (ver reglas de notas).' : ''}
+${isKnownContact ? '⚠️ Contacto con historial previo — carga notas antes de responder (ver reglas de notas).' : ''}${citasBlock}
 
 --- HERRAMIENTAS DISPONIBLES ---
 
@@ -201,6 +247,7 @@ Servicios y agenda (silenciosas — genera siempre un mensaje de texto después)
   • getServices                           → Catálogo en tiempo real con IDs reales. Úsala cuando el paciente pregunte por servicios, precios o duraciones, y siempre antes de llamar getAvailableSlots.
   • getAvailableSlots(treatment_id?)      → Disponibilidad real desde Google Calendar. Ofrece EXACTAMENTE 2 opciones. Nunca preguntes "¿cuándo puedes?" de forma abierta.
   • bookAppointment(slot_id, starts_at, ends_at) → SOLO si el paciente confirmó el horario de forma explícita ("ese me sirve", "perfecto", "agéndame ahí"). Pasa el slot_id y los timestamps exactos del slot.
+  • getAppointments(include_history?)     → Consulta histórico de citas (canceladas, completadas, no-show). NO la llames solo para ver las próximas: ya están arriba en --- CONTACTO ACTUAL / PRÓXIMAS CITAS ---. Úsala si el paciente pregunta por citas pasadas o necesitas confirmar un no-show.
 
 Notas internas (silenciosas — el paciente nunca sabe que existen):
   • getNotes(include_archived?)  → Recuperar notas activas del contacto. Ver regla de cuándo llamarla.
@@ -223,9 +270,10 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
 
 --- ORDEN DE EJECUCIÓN EN CADA TURNO ---
 1. NOTAS (si aplica): Si el estado del contacto no es "prospecto", llama getNotes UNA SOLA VEZ al inicio del turno para cargar contexto previo antes de responder.
-2. RESPUESTA: Genera tu respuesta usando el contexto de las notas y el historial.
+2. RESPUESTA: Genera tu respuesta usando el contexto de las notas, el historial y las PRÓXIMAS CITAS inyectadas en --- CONTACTO ACTUAL ---.
 3. SERVICIOS/AGENDA (si el paciente lo pidió): getServices → getAvailableSlots → ofrece 2 opciones → espera confirmación → bookAppointment.
 4. REGISTRO: Al final del turno, si aprendiste algo relevante sobre el paciente → addNote y/o updateContactProfile.
+5. CITAS: Las próximas citas ya están en --- CONTACTO ACTUAL ---. Solo llama getAppointments si el paciente pregunta por historial pasado (ej: "¿cuándo fue mi última cita?").
 
 --- MANEJO DE CASOS ESPECIALES ---
 • getAvailableSlots vacío     → "No tenemos turnos disponibles en los próximos días. Te aviso cuando se libere uno, ¿te parece?" Luego escalateToHuman.
@@ -251,6 +299,7 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
                     getServices:            createClinicasGetServicesTool(company.id),
                     getAvailableSlots:      createClinicasGetSlotsTool(company.id),
                     bookAppointment:        createClinicasBookAppointmentTool(company.id, contact.id, phoneNumberId),
+                    getAppointments:        createClinicasGetAppointmentsTool(company.id, contact.id),
                     getNotes:               createClinicasGetNotesTool(company.id, contact.id),
                     addNote:                createClinicasAddNoteTool(company.id, contact.id),
                     editNote:               createClinicasEditNoteTool(company.id, contact.id),
@@ -309,6 +358,7 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
                         getServices:            createClinicasGetServicesTool(company.id),
                         getAvailableSlots:      createClinicasGetSlotsTool(company.id),
                         bookAppointment:        createClinicasBookAppointmentTool(company.id, contact.id, phoneNumberId),
+                        getAppointments:        createClinicasGetAppointmentsTool(company.id, contact.id),
                         getNotes:               createClinicasGetNotesTool(company.id, contact.id),
                         addNote:                createClinicasAddNoteTool(company.id, contact.id),
                         editNote:               createClinicasEditNoteTool(company.id, contact.id),
@@ -402,10 +452,19 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
             }
             // ── Normal admin mode ───────────────────────────────────────────────
 
+            // Inyección automática de citas del contacto actual (el staff viendo un paciente).
+            // Permite que el admin vea citas sin tener que llamar getContactSummary o getUpcomingAppointments.
+            const upcomingAppts = await ClinicasDbService.getAppointmentsForContact(
+                company.id,
+                contact.id,
+                { limit: 3 }
+            );
+            const citasBlock = buildCitasBlock(upcomingAppts, tz);
+
             const systemPrompt = `Eres el asistente administrativo de ${company.name}.
 Hablas con ${staffMember.name}${staffMember.role ? ` (${staffMember.role})` : ''}.
 Fecha: ${timeCtx.fullDate} — Hora: ${timeCtx.time}
-Zona horaria: ${tz} — Moneda: ${company.currency || 'COP'}
+Zona horaria: ${tz} — Moneda: ${company.currency || 'COP'}${citasBlock}
 
 TONO: Directo y profesional. Respuestas concisas. Sin saludos repetidos en cada turno.
 
