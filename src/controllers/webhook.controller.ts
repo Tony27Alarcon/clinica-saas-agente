@@ -65,6 +65,53 @@ function assistantIsRepeating(
     return assistantMsgs.every(m => normalizeForCompare(m.content) === first);
 }
 
+/**
+ * Construye el `content` que se guardará en DB para un mensaje entrante.
+ *
+ * Antes se guardaba el literal '[media]' cuando no había texto, lo que hacía
+ * que el agente IA perdiera completamente el contexto: no sabía si el paciente
+ * envió una imagen, una nota de voz, un sticker o un documento.
+ *
+ * Este helper devuelve contenido descriptivo legible por la IA:
+ *   - Texto tal cual si existe (aunque sea caption de imagen).
+ *   - Descripción del tipo de media si no hay texto.
+ *
+ * Si el mensaje tiene texto (o caption), lo preservamos y agregamos el tipo
+ * como prefijo entre corchetes, así:
+ *   "[Imagen] Mi alergia al látex"
+ *   "[Audio] (ver enlace adjunto)"
+ *   "[Sticker]"
+ */
+function buildIncomingContent(
+    text: string,
+    messageType: string,
+    hasMediaUrl: boolean
+): string {
+    const clean = (text || '').trim();
+
+    const typeLabel = ((): string | null => {
+        switch (messageType) {
+            case 'image':     return 'Imagen';
+            case 'audio':     return 'Nota de voz';
+            case 'voice':     return 'Nota de voz';
+            case 'video':     return 'Video';
+            case 'sticker':   return 'Sticker';
+            case 'document':  return 'Documento';
+            case 'location':  return 'Ubicación';
+            case 'contacts':  return 'Contacto compartido';
+            case 'contact':   return 'Contacto compartido';
+            case 'reaction':  return 'Reacción';
+            case 'media':     return hasMediaUrl ? 'Archivo adjunto' : null;
+            default:          return null;
+        }
+    })();
+
+    if (clean && typeLabel) return `[${typeLabel}] ${clean}`;
+    if (clean) return clean;
+    if (typeLabel) return `[${typeLabel}]`;
+    return '[mensaje vacío]';
+}
+
 export class WebhookController {
     /**
      * Procesa el webhook entrante de Kapso.
@@ -478,12 +525,17 @@ export class WebhookController {
             message_type: messageType,
             phone_number_id: phoneNumberId,
         };
+        const incomingContent = buildIncomingContent(
+            text,
+            messageType,
+            Boolean(safeKapsoUrl || metaDirectUrl || mediaId)
+        );
         await logger.stage('D', 'clinicas.saveMessage (entrante)', () =>
             messageId
                 ? ClinicasDbService.saveMessageDeduped(
-                    conversation.id, company.id, 'contact', text || '[media]', messageId, incomingMetadata
+                    conversation.id, company.id, 'contact', incomingContent, messageId, incomingMetadata
                 )
-                : ClinicasDbService.saveMessage(conversation.id, company.id, 'contact', text || '[media]', incomingMetadata)
+                : ClinicasDbService.saveMessage(conversation.id, company.id, 'contact', incomingContent, incomingMetadata)
         );
 
         // Step E: Cargar historial

@@ -8,6 +8,8 @@
 // la BD y pasar el objeto PromptCompilerInput completo.
 // =============================================================================
 
+import { buildBaseAgentSkills } from '../skills';
+
 // ─── Interfaces de entrada ───────────────────────────────────────────────────
 
 export interface PromptScheduleSlot {
@@ -73,6 +75,7 @@ export function buildSystemPrompt(input: PromptCompilerInput): string {
     const sections: string[] = [];
 
     sections.push(buildSection1_Identity(input));
+    sections.push(buildBaseAgentSkills());
     sections.push(buildSection2_ClinicContext(input));
     sections.push(buildSection3_Treatments(input));
 
@@ -233,30 +236,7 @@ FASE 4 — SEGUIMIENTO POST-TRATAMIENTO:
 - A los 7 días: evaluación de resultados.
 - A los 30 días: solicita reseña y ofrece próxima sesión.
 
-REGLA GENERAL — FORMATO DE MENSAJES WHATSAPP:
-- Máximo 3-4 líneas por burbuja. Nunca Wall of Text. Meta trunca mensajes largos.
-- Divide respuestas largas en 2-3 burbujas separadas, cada una con un solo propósito.
-- Usa *negrita* solo en 1-2 palabras clave por mensaje. El formateo excesivo se ve poco profesional.
-- Usa listas con guion cuando presentes 3+ opciones o pasos.
-- Emojis con moderación: 1-2 por mensaje para dar calidez, no para decorar.
-- Saltos de línea para separar ideas distintas.
-
-REGLA GENERAL — HUMANIZACIÓN:
-- Varía tus respuestas. No uses la misma frase de saludo, confirmación o despedida cada vez.
-- Usa muletillas naturales ocasionales: "¡Qué bien!", "Claro que sí", "Perfecto", "Dale".
-- Cuando necesites verificar algo, di "Déjame revisar..." en lugar de responder al instante.
-- Adapta el saludo según el contexto: no digas "¡Hola!" si ya llevas varios mensajes en la conversación.
-- Nunca termines TODOS los mensajes con "¿En qué más puedo ayudarte?" — varía: "¿Te queda alguna duda?", "¿Quieres saber algo más?", o simplemente no preguntes si el flujo es claro.
-
-ERRORES QUE DELATAN A UN ROBOT (EVITAR SIEMPRE):
-- Lenguaje corporativo: "Estimado/a", "Le informamos que", "Procedemos a". Habla como persona, no como email.
-- Bloques de texto de más de 5 líneas seguidas.
-- Repetir exactamente la misma frase en distintos momentos de la conversación.
-- Emojis excesivos: "¡Hola! 👋😊✨ Bienvenido/a 🏥💉" → MAL. Un emoji es suficiente.
-
-REGLA GENERAL — DIAGNÓSTICO PROHIBIDO:
-- Nunca diagnostiques condiciones médicas por WhatsApp.
-- Si el paciente envía fotos de condiciones o pide diagnóstico: "Por protocolo médico no puedo diagnosticarte por este medio. Con gusto te agendo una consulta de valoración con el especialista."
+RECORDATORIO: Las REGLAS FUNDAMENTALES (sección anterior) aplican en todas las fases. Formato WhatsApp, humanización, atención comercial y seguridad son siempre prioritarios.
 }
 
 // ─── Sección 7: Reglas de escalamiento y calificación ────────────────────────
