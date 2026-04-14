@@ -597,6 +597,10 @@
     </style>
 </head>
 <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-527LH8P9"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
     
     <!-- Barra de anuncio -->
     <div class="announce-bar">
@@ -1659,6 +1663,14 @@
                 navWrapper.classList.add('nav-hidden');
             } else if (currentScroll < lastScroll && navWrapper.classList.contains('nav-hidden')) {
                 // Scroll hacia arriba -> mostrar
+                navWrapper.classList.remove('nav-hidden');
+            }
+            lastScroll = currentScroll;
+        });
+    </script>
+</body>
+</html>
+oll hacia arriba -> mostrar
                 navWrapper.classList.remove('nav-hidden');
             }
             lastScroll = currentScroll;

@@ -556,6 +556,10 @@
     </style>
 </head>
 <body>
+    <!-- Google Tag Manager (noscript) -->
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-527LH8P9"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <!-- End Google Tag Manager (noscript) -->
 
     <!-- Navbar -->
     <div class="nav-wrapper">
@@ -1047,6 +1051,17 @@
                 this.classList.add('roi-plan-btn--active');
                 state.convs    = parseInt(this.dataset.convs, 10);
                 state.planCost = parseInt(this.dataset.cost, 10);
+                state.planName = this.dataset.name;
+                calculate();
+            });
+        });
+
+        calculate();
+    })();
+    </script>
+</body>
+</html>
+taset.cost, 10);
                 state.planName = this.dataset.name;
                 calculate();
             });
