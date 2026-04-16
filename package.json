@@ -10,6 +10,10 @@
     "start": "node dist/index.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:slots": "ts-node scripts/testing/test-slots-flow.ts",
     "test:seed": "ts-node scripts/testing/seed.ts",
     "test:chat": "ts-node scripts/testing/chat.ts",
     "test:scenario": "ts-node scripts/testing/scenarios.ts",
@@ -34,9 +38,11 @@
   "devDependencies": {
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.10",
+    "@vitest/coverage-v8": "^4.1.4",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.4"
   },
   "keywords": [],
   "author": "",
