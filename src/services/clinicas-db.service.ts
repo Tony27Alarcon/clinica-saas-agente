@@ -1317,7 +1317,22 @@ export class ClinicasDbService {
                 role:      s.role      ?? null,
                 specialty: s.specialty ?? null,
             })),
+            customSkills: await ClinicasDbService.getActiveCustomSkills(companyId),
         };
+    }
+
+    /**
+     * Skills configurables activas para la empresa (system con default true + private).
+     * Se inyectan en buildSystemPrompt → buildCompanySkillsSection.
+     */
+    private static async getActiveCustomSkills(companyId: string): Promise<import('../skills').PatientSkill[]> {
+        const { CompanySkillsService } = await import('./company-skills.service');
+        try {
+            return await CompanySkillsService.getActiveSkillsForPrompt(companyId);
+        } catch (err) {
+            logger.warn(`[PromptCompiler] No se pudieron cargar custom skills para ${companyId}: ${(err as Error).message}`);
+            return [];
+        }
     }
 
     /**

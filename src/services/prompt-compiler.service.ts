@@ -8,7 +8,7 @@
 // la BD y pasar el objeto PromptCompilerInput completo.
 // =============================================================================
 
-import { buildBaseAgentSkills } from '../skills';
+import { buildBaseAgentSkills, buildCompanySkillsSection, PatientSkill } from '../skills';
 
 // ─── Interfaces de entrada ───────────────────────────────────────────────────
 
@@ -65,8 +65,9 @@ export interface PromptCompilerInput {
             response:  string;
         }>;
     };
-    treatments: PromptTreatment[];
-    staff:      PromptStaffMember[];
+    treatments:    PromptTreatment[];
+    staff:         PromptStaffMember[];
+    customSkills?: PatientSkill[];   // skills configurables ya filtradas (solo activas)
 }
 
 // ─── Función principal ───────────────────────────────────────────────────────
@@ -76,6 +77,13 @@ export function buildSystemPrompt(input: PromptCompilerInput): string {
 
     sections.push(buildSection1_Identity(input));
     sections.push(buildBaseAgentSkills());
+
+    // Skills configurables por la empresa (system + private activas).
+    // Van DESPUÉS de las reglas fundamentales pero ANTES del contexto de clínica
+    // para que su prioridad quede clara: complementan, nunca anulan las base.
+    const customSection = buildCompanySkillsSection(input.customSkills ?? []);
+    if (customSection) sections.push(customSection);
+
     sections.push(buildSection2_ClinicContext(input));
     sections.push(buildSection3_Treatments(input));
 

@@ -84,6 +84,13 @@ export default async function AdminLayout({
                         <span className="admin-nav-icon">👥</span>
                         Personal
                     </Link>
+                    <Link
+                        href={`/admin/${companyId}/skills`}
+                        className="admin-nav-item"
+                    >
+                        <span className="admin-nav-icon">🧩</span>
+                        Skills
+                    </Link>
                 </nav>
             </aside>
 

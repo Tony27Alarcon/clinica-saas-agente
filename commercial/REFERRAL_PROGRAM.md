@@ -1,11 +1,40 @@
 # 🌱 Programa Embajadores Bruno Lab
 
-> Versión final · 2026-04-15
-> Mensaje base aprobado para difusión por WhatsApp.
+> Versión 2 · 2026-04-16
+> Dos modalidades: **Embajadores externos** (comisión cash) y **Clientes actuales** (meses gratis acumulables).
 
 ---
 
-## Mensaje oficial (WhatsApp)
+## 🔥 Beneficio para clientes actuales (Mes Gratis Acumulable)
+
+> Este mensaje es exclusivo para clientes activos de Bruno Lab. Se difunde de forma 1 a 1 o en grupos privados.
+
+```
+🔥 *¿Ya eres cliente Bruno Lab?*
+
+Cada referido que traigas te cubre
+*1 mes completo de tu plan, gratis.*
+
+12 referidos = *un año entero gratis* 🎁
+
+(Aplica desde tu segundo mes de
+suscripción y se acumula)
+```
+
+### Reglas operativas (clientes actuales)
+
+| Componente | Detalle |
+|---|---|
+| **Quién aplica** | Clientes con ≥ 1 mes activo (desde su segundo mes) |
+| **Beneficio** | 1 mes del plan propio por cada referido que active |
+| **Acumulable** | Sí — los meses se suman sin límite (12 = año gratis) |
+| **Disparador** | El referido debe superar los 15 días de garantía |
+| **Compatibilidad** | No acumulable con comisión en cash del programa Embajador |
+| **Vencimiento** | Los meses ganados no expiran mientras el plan esté activo |
+
+---
+
+## 🌱 Mensaje oficial Embajadores (WhatsApp externo)
 
 ```
 🌱 *Programa Embajadores Bruno Lab*

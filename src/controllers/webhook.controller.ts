@@ -351,10 +351,16 @@ export class WebhookController {
         // A partir de acá, todos los logs llevarán tel/messageId automáticamente.
         logger.enrichContext({ contacto: from, messageId, tipo: messageType });
 
-        logger.info(`📥 Webhook recibido`, {
-            tipo: messageType,
-            from,
-            preview: typeof text === 'string' ? text.substring(0, 60) : '[no-text]',
+        logger.event({
+            code: LOG_EVENTS.WEBHOOK_RECEIVED,
+            outcome: 'ok',
+            summary: `Webhook recibido: tipo=${messageType}`,
+            data: {
+                messageType,
+                from,
+                hasText: Boolean(typeof text === 'string' && text.trim()),
+                hasMedia: Boolean(safeKapsoUrl || metaDirectUrl || mediaId),
+            },
         });
 
         // ------------------------------------------------------------------
@@ -367,13 +373,24 @@ export class WebhookController {
         // ------------------------------------------------------------------
         const clinicaCompany = await ClinicasDbService.getCompanyByWaPhone(phoneNumberId);
         if (clinicaCompany) {
-            logger.info(`[Clinicas] Tenant identificado: "${clinicaCompany.name}" (${clinicaCompany.id})`);
+            logger.event({
+                code: LOG_EVENTS.ROUTE_TENANT_MATCHED,
+                outcome: 'ok',
+                summary: `Tenant identificado: "${clinicaCompany.name}"`,
+                data: { companyId: clinicaCompany.id, companyName: clinicaCompany.name, phoneNumberId },
+            });
 
             // Mensajes salientes (enviados desde el móvil o dashboard Kapso):
             // direction='outbound' → solo guardar en DB, nunca invocar IA.
             const direction = event.direction || event.message?.direction;
             if (direction && direction !== 'inbound') {
-                logger.info(`[Clinicas] Mensaje saliente (direction="${direction}") — guardando sin IA`);
+                logger.event({
+                    code: LOG_EVENTS.WEBHOOK_OUTBOUND_SAVED,
+                    outcome: 'skipped',
+                    reason: LOG_REASONS.OUTBOUND_DIRECTION,
+                    summary: `Mensaje saliente (direction="${direction}") guardado sin IA`,
+                    data: { direction },
+                });
                 await WebhookController.processOutgoingEvent(event);
                 return;
             }
@@ -387,7 +404,13 @@ export class WebhookController {
         }
 
         // phoneNumberId no registrado en ninguna clínica — descartamos sin fallback.
-        logger.warn(`[Webhook] phoneNumberId "${phoneNumberId}" no está registrado en ninguna clínica. Evento descartado.`);
+        logger.event({
+            code: LOG_EVENTS.ROUTE_TENANT_UNKNOWN,
+            outcome: 'skipped',
+            reason: LOG_REASONS.TENANT_NOT_REGISTERED,
+            summary: `phoneNumberId ${phoneNumberId} no pertenece a ninguna clínica; evento descartado`,
+            data: { phoneNumberId },
+        });
     }
 
     /**
@@ -415,7 +438,13 @@ export class WebhookController {
 
         // Filtros tempranos
         if (!from || (!text && !safeKapsoUrl && !metaDirectUrl && !mediaId)) {
-            logger.debug('[Clinicas] Evento ignorado (estado o datos incompletos)');
+            logger.event({
+                code: LOG_EVENTS.WEBHOOK_IGNORED_EMPTY,
+                outcome: 'noop',
+                reason: LOG_REASONS.EMPTY_EVENT,
+                summary: 'Evento ignorado: sin remitente o sin texto/media',
+                data: { hasFrom: Boolean(from), hasText: Boolean(text), hasMedia: Boolean(safeKapsoUrl || metaDirectUrl || mediaId) },
+            });
             return;
         }
 
@@ -466,7 +495,12 @@ export class WebhookController {
         // Elimina el estado local del contacto y pre-crea una conversación limpia
         // con un mensaje seed para que el Step C5 NO reimporte el historial de Kapso.
         if (typeof text === 'string' && text.trim().toLowerCase() === '/borrar') {
-            logger.info(`[Clinicas] Comando /borrar para ${from}`);
+            logger.event({
+                code: LOG_EVENTS.PIPELINE_CONTACT_RESET,
+                outcome: 'ok',
+                summary: `Comando /borrar ejecutado: estado local del contacto reseteado`,
+                data: { companyId: company.id },
+            });
             await ClinicasDbService.deleteContact(company.id, from);
 
             // Pre-crear contacto + conversación + seed para bloquear el import de Kapso
@@ -497,7 +531,13 @@ export class WebhookController {
             ClinicasDbService.findStaffByPhone(company.id, from)
         );
         if (staffMember) {
-            logger.info(`[Admin] Staff detectado: "${staffMember.name}" (${staffMember.id})`);
+            logger.event({
+                code: LOG_EVENTS.ROUTE_ADMIN_DETECTED,
+                outcome: 'ok',
+                reason: LOG_REASONS.STAFF_MATCHED_BY_PHONE,
+                summary: `Staff detectado: "${staffMember.name}"; enrutando a pipeline admin`,
+                data: { staffId: staffMember.id, staffName: staffMember.name },
+            });
             logger.enrichContext({ staffId: staffMember.id });
             await WebhookController.processAdminEvent({
                 event, company, staffMember,
@@ -545,7 +585,13 @@ export class WebhookController {
         if (messageId) {
             const alreadyProcessed = await ClinicasDbService.hasMessageByKapsoId(messageId);
             if (alreadyProcessed) {
-                logger.warn(`[Clinicas] messageId "${messageId}" ya procesado. Descartando evento duplicado.`);
+                logger.event({
+                    code: LOG_EVENTS.WEBHOOK_DEDUPED,
+                    outcome: 'skipped',
+                    reason: LOG_REASONS.DUPLICATE_MESSAGE_ID,
+                    summary: `messageId ya procesado: evento duplicado descartado`,
+                    data: { messageId },
+                });
                 return;
             }
         }
@@ -582,10 +628,13 @@ export class WebhookController {
         if (historial.length >= LOOP_THRESHOLD) {
             const tail = historial.slice(-LOOP_THRESHOLD);
             if (tail.every(m => m.role === 'assistant')) {
-                logger.warn(
-                    `[Clinicas] Bucle detectado: últimos ${LOOP_THRESHOLD} msgs son 'assistant'. Descartando.`,
-                    { conversationId: conversation.id, from }
-                );
+                logger.event({
+                    code: LOG_EVENTS.PIPELINE_LOOP_DETECTED,
+                    outcome: 'skipped',
+                    reason: LOG_REASONS.ASSISTANT_LOOP_THRESHOLD,
+                    summary: `Bucle detectado: últimos ${LOOP_THRESHOLD} mensajes son del agente; silencio`,
+                    data: { threshold: LOOP_THRESHOLD },
+                });
                 return;
             }
         }
@@ -597,20 +646,26 @@ export class WebhookController {
         //     Nota: el mensaje entrante ya fue guardado en Step D, así que el
         //     historial incluye el actual + los 2 previos = 3 idénticos en total.
         if (text && contactIsRepeating(historial, text, 3)) {
-            logger.warn(
-                `[Clinicas] Loop bot↔bot detectado: últimos 3 mensajes del usuario son idénticos. Silencio total.`,
-                { conversationId: conversation.id, from, preview: text.substring(0, 60) }
-            );
+            logger.event({
+                code: LOG_EVENTS.PIPELINE_LOOP_DETECTED,
+                outcome: 'skipped',
+                reason: LOG_REASONS.CONTACT_REPEATING_INPUT,
+                summary: 'Loop bot↔bot: últimos 3 mensajes del usuario idénticos; silencio total',
+                data: { sampleLen: text.length },
+            });
             return;
         }
 
         // (c) Si los últimos 2 mensajes del agente fueron idénticos, ya estamos
         //     repitiéndonos. Cortar antes de generar otra variación inútil.
         if (assistantIsRepeating(historial, 2)) {
-            logger.warn(
-                `[Clinicas] Agente repitiéndose: últimos 2 mensajes del assistant idénticos. Silencio.`,
-                { conversationId: conversation.id, from }
-            );
+            logger.event({
+                code: LOG_EVENTS.PIPELINE_LOOP_DETECTED,
+                outcome: 'skipped',
+                reason: LOG_REASONS.ASSISTANT_REPEATING_OUTPUT,
+                summary: 'Agente repitiéndose: últimos 2 mensajes del assistant idénticos; silencio',
+                data: {},
+            });
             return;
         }
         // ────────────────────────────────────────────────────────────────────────
@@ -645,7 +700,12 @@ export class WebhookController {
         //   ''    = tool interactiva exitosa → ya se envió por la tool
         //   texto = respuesta normal → guardar en DB y enviar por Kapso
         if (respuesta === null) {
-            logger.info('[Clinicas] Step G: silencio total por noReply tool — nada a guardar ni enviar.');
+            logger.event({
+                code: LOG_EVENTS.AI_NOREPLY_DECIDED,
+                outcome: 'noop',
+                reason: LOG_REASONS.AI_NOREPLY_GUARDRAIL,
+                summary: 'noReply tool activada: silencio total, no guardar ni enviar',
+            });
         } else if (respuesta && respuesta.trim()) {
             await logger.stage('G', 'clinicas.saveMessage (respuesta)', () =>
                 ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', respuesta)
@@ -653,13 +713,25 @@ export class WebhookController {
 
             try {
                 await logger.stage('H', 'clinicas.KapsoService.enviarMensaje', async () => {
-                    logger.info(`[Clinicas] Enviando respuesta: "${respuesta.substring(0, 80)}${respuesta.length > 80 ? '...' : ''}"`);
                     await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
+                });
+                logger.event({
+                    code: LOG_EVENTS.KAPSO_SEND_OK,
+                    outcome: 'ok',
+                    summary: `Respuesta enviada al usuario (${respuesta.length} chars)`,
+                    data: { responseLength: respuesta.length },
                 });
             } catch (sendError) {
                 // El mensaje ya fue guardado en DB (step G). El fallo de envío
                 // se loguea como error pero no rompe el pipeline.
-                logger.error('[Clinicas] Step H: fallo al enviar por Kapso (respuesta ya guardada en DB)', sendError);
+                logger.event({
+                    code: LOG_EVENTS.KAPSO_SEND_FAILED,
+                    outcome: 'failed',
+                    reason: LOG_REASONS.KAPSO_API_ERROR,
+                    summary: 'Fallo al enviar respuesta por Kapso (respuesta ya guardada en DB)',
+                    error: sendError,
+                    data: { responseLength: respuesta.length },
+                });
             }
         } else {
             logger.info('[Clinicas] Step G: sin texto — respuesta gestionada vía tool de envío');

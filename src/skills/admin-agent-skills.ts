@@ -307,6 +307,47 @@ CONSEJO AL STAFF:
 - Si el staff no tiene instrucciones especiales, dejar el default del sistema (que ya es bueno).`,
 };
 
+// ─── Skill 9: Oficial de creación de skills (solo rol admin) ────────────────
+
+const managePrivateSkills: AdminSkill = {
+    id: 'manage-private-skills',
+    name: 'Oficial de Creación de Skills Privadas',
+    trigger: 'SOLO cuando el usuario tenga rol admin de la clínica y pida crear, editar o desactivar una skill propia del agente paciente.',
+    guidelines: `PROTOCOLO DE SKILLS PRIVADAS (uso restringido a admin):
+
+CONTEXTO:
+- Cada empresa tiene una capa de skills configurables además de las REGLAS FUNDAMENTALES (no editables).
+- Hay 2 tipos: "system" (catálogo global, sólo activación) y "private" (contenido propio de la empresa).
+- Solo el rol admin puede crear/editar skills privadas. Los demás usuarios sólo activan/desactivan.
+
+CONTRATO OBLIGATORIO de toda skill privada (mismo shape que AdminSkill):
+- id (skill_id):  slug lowercase, [a-z0-9-]+, único en la empresa, no puede colisionar con catálogo de sistema.
+- name:           nombre legible (ej: "Promoción Septiembre Botox").
+- trigger:        condición concreta de cuándo activar la skill ("Cuando el paciente pregunte por promociones de Botox").
+- guidelines:     instrucciones detalladas (mín. 30 chars). Lo que el agente debe hacer, en imperativo claro.
+
+QUÉ ACEPTAR:
+- Skills focalizadas en una sola situación (no generales).
+- Lenguaje WhatsApp (mensajes cortos, naturales, sin tono corporativo).
+- Reglas que COMPLEMENTAN las base (no las contradigan).
+
+QUÉ RECHAZAR (devolver al admin con explicación):
+- Skills que pidan inventar precios, ofrecer descuentos no autorizados o diagnosticar.
+- Skills genéricas tipo "ser amable" — eso ya está en buildBaseAgentSkills.
+- Skills sin trigger claro (cuándo aplicar).
+- Skills con guidelines de 1 línea o ambiguas.
+
+QUÉ HACER FRENTE A CONFLICTOS:
+- Si una skill privada contradice las REGLAS FUNDAMENTALES, las base SIEMPRE ganan. Avisarle al admin.
+- Si una skill privada duplica una skill de sistema, sugerir activar la de sistema en su lugar.
+
+FLUJO DE TRABAJO:
+1. Pedirle al admin: situación específica, qué debe hacer el agente, ejemplos reales.
+2. Proponer un id slug coherente con el contenido.
+3. Redactar trigger en una frase y guidelines en bullets accionables.
+4. Mostrar el borrador completo y pedir confirmación antes de persistirlo.`,
+};
+
 // =============================================================================
 // Registro de skills y funciones de compilación
 // =============================================================================
@@ -320,6 +361,7 @@ export const ADMIN_SKILLS: AdminSkill[] = [
     configureEscalation,
     whatsappBestPractices,
     configureBooking,
+    managePrivateSkills,
 ];
 
 /**
