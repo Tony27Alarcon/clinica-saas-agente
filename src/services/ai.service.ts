@@ -565,6 +565,9 @@ HERRAMIENTAS DISPONIBLES (20):
 --- Recordatorios ---
 20. scheduleReminder — Programa un contacto futuro proactivo hacia un paciente o hacia el mismo staff. Úsalo cuando pidan ser contactados más tarde. Siempre confirma con texto la hora programada.
 
+--- Búsqueda web ---
+21. google_search — Grounding con Google Search en tiempo real. Úsalo cuando el staff pida información actualizada de internet (regulaciones sanitarias vigentes, precios de insumos, noticias, cotizaciones, datos médicos recientes, eventos, normativa, etc.) que va más allá del conocimiento del modelo o de los datos internos de la clínica. No lo uses para datos internos (pacientes, citas, staff, tratamientos): eso sale de las otras tools. Cita las fuentes en el texto de respuesta.
+
 REGLAS:
 - Después de cada tool call, genera texto que resuma el resultado para el staff.
 - Nunca termines un turno solo con tool calls. Siempre agrega texto de cierre.
@@ -627,6 +630,7 @@ ${buildAdminSkillsSection()}`;
                     scheduleReminder:        createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', tz),
                     listReminders:           createListRemindersTool(company.id, contact.id, tz),
                     cancelReminder:          createCancelReminderTool(company.id, contact.id),
+                    google_search:           google.tools.googleSearch({}),
                 },
             } as any);
 
@@ -683,6 +687,7 @@ ${buildAdminSkillsSection()}`;
                         scheduleReminder:        createScheduleReminderTool(company.id, contact.id, conversation.id, 'admin', tz),
                         listReminders:           createListRemindersTool(company.id, contact.id, tz),
                         cancelReminder:          createCancelReminderTool(company.id, contact.id),
+                        google_search:           google.tools.googleSearch({}),
                     },
                 } as any);
                 return followUp.text || '¿En qué más puedo ayudarte?';
@@ -945,6 +950,10 @@ Interlocutor: ${prospect.name || 'prospecto'} (${prospect.phone})
   (c) Bloqueo en la conexión Kapso.
   (d) Riesgo reputacional (queja, demanda, abogado, reembolso).
   (e) Pago/facturación dudoso.
+- google_search — Grounding con Google Search en tiempo real. Úsalo cuando necesites
+  información actualizada de internet (datos de la clínica del prospecto si te pasan
+  nombre/sitio, regulaciones, noticias del sector, benchmarks, etc.) que no tengas
+  en contexto. No lo uses para datos del onboarding en curso.
 
 ═══ SIN INVENTAR ═══
 - Nunca digas que creaste algo sin haber llamado la tool correspondiente.
@@ -973,6 +982,7 @@ Interlocutor: ${prospect.name || 'prospecto'} (${prospect.phone})
                         config.assignedAdvisor,
                         config.availableStaff
                     ),
+                    google_search:                   google.tools.googleSearch({}),
                 },
             } as any);
 

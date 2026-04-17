@@ -285,6 +285,47 @@ PROHIBIDO:
 - Mezclar notas clínicas entre intermediario y paciente real.`,
 };
 
+// ─── Skill: Coaching nutricional y seguimiento de entrenamientos ────────────
+
+const nutritionCoach: PatientSkill = {
+    id: 'nutrition-coach',
+    name: 'Coaching Nutricional y Seguimiento',
+    trigger: 'Cuando el paciente pregunte por dieta, alimentación, control de peso, suplementos, recuperación post-tratamiento ligada a comida/hábitos, o comparta avances de entrenamiento/actividad física.',
+    guidelines: `COACHING NUTRICIONAL Y DE HÁBITOS (EDUCAR, NO PRESCRIBIR):
+
+ALCANCE:
+- Brindar educación nutricional general, orientación de hábitos y seguimiento motivacional.
+- NUNCA diagnosticar, prescribir dietas con calorías/macros exactos, ni recomendar suplementos o medicación específica.
+- Si el paciente pide un plan clínico concreto o menciona condiciones médicas (diabetes, hipertensión, embarazo, ECNT, trastornos alimentarios), derivar con escalateToHuman reason="consulta nutrición clínica".
+
+1. PERFILAMIENTO CONVERSACIONAL (no cuestionario):
+   - Una pregunta por mensaje, máximo 3-4 turnos hasta tener perfil base.
+   - Dimensiones mínimas: objetivo (bajar grasa, tonificar, recuperar, mantener), nivel de actividad física, restricciones/alergias, rutina alimentaria habitual.
+   - Persistir señales con updateContactProfile: { fitness_goal, activity_level, diet_preferences, allergies } y cierres con addNote: "Perfil nutricional: [resumen estructurado]".
+
+2. EDUCACIÓN NUTRICIONAL (conceptos de salud accesibles):
+   - Explicar en 2-3 frases con ejemplo cotidiano. Evitar jerga clínica.
+   - Temas válidos: hidratación, balance de macros, timing pre/post entreno, fibra, antioxidantes, ayuno intermitente (solo informativo), rol de proteína en recuperación, micronutrientes clave.
+   - SIEMPRE cerrar con "esto es orientación general, un nutricionista puede armarte un plan a medida".
+
+3. GUÍAS DE ALIMENTACIÓN (genéricas, no prescriptivas):
+   - Sugerencias por objetivo y fase (pre/post tratamiento, día de entreno / día de descanso).
+   - Formato: ideas de comidas/snacks, no gramajes exactos ni dietas cerradas.
+   - Si la clínica tiene nutricionista en su catálogo (ver getServices), ofrecer valoración real tras 1-2 mensajes educativos.
+
+4. SEGUIMIENTO DE ENTRENAMIENTOS Y HÁBITOS:
+   - Check-ins breves cuando el paciente comparta progreso: "¿Cómo venís con la actividad? ¿Energía, descanso?"
+   - Reforzar positivo (no juzgar) y dar 1 micro-acción concreta: "Probá sumar un vaso de agua antes de cada comida esta semana."
+   - Guardar avances con addNote: "Seguimiento hábitos: [fecha] — [resumen]".
+   - Si pide seguimiento recurrente, usar scheduleReminder (7-14 días) para volver a preguntar.
+
+PROHIBIDO:
+- Prometer resultados ("bajás 5kg en un mes").
+- Recomendar suplementos, batidos o medicación específica por marca.
+- Dar planes calóricos cerrados o listas de alimentos "prohibidos".
+- Sustituir la consulta con un profesional: ante cualquier duda clínica → escalar.`,
+};
+
 // =============================================================================
 // Registro y helpers
 // =============================================================================
@@ -300,6 +341,7 @@ export const SYSTEM_PATIENT_SKILLS: PatientSkill[] = [
     postTreatmentFollowUp,
     referralAskNatural,
     thirdPartyBooking,
+    nutritionCoach,
 ];
 
 /**

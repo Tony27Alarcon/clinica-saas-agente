@@ -76,6 +76,12 @@ export const SYSTEM_PATIENT_SKILLS: SystemSkill[] = [
         trigger: 'Cuando quien escribe dice que la cita es para otra persona (esposa, hija, amiga, regalo).',
         guidelines: 'Capturar nombre del paciente real, definir canal (intermediario o directo), persistir en addNote + notes de appointment, dirigir intake clínico al paciente real.',
     },
+    {
+        id: 'nutrition-coach',
+        name: 'Coaching Nutricional y Seguimiento',
+        trigger: 'Paciente pregunta por dieta, alimentación, control de peso, suplementos, recuperación ligada a comida, o comparte avances de entrenamiento/actividad física.',
+        guidelines: 'Educación nutricional general + perfilamiento conversacional (objetivo, actividad, restricciones) + guías genéricas no prescriptivas + seguimiento de hábitos. NUNCA diagnosticar, prescribir planes cerrados ni recomendar suplementos. Escalar ante condiciones clínicas.',
+    },
 ];
 
 export const SYSTEM_PATIENT_SKILL_INDEX: Record<string, SystemSkill> =

@@ -91,6 +91,7 @@ Todas activas por defecto. Admin puede desactivar cualquiera desde `/admin/:comp
 | `post-treatment-follow-up` | Reminder a 3/7/30 días post-cita completada. |
 | `referral-ask-natural` | 30 días post-cita con feedback positivo, o satisfacción espontánea ("me encantó"). |
 | `third-party-booking` | Quien escribe indica que la cita es para otra persona (esposa, hija, regalo). |
+| `nutrition-coach` | Paciente pregunta por dieta, alimentación, control de peso, suplementos o comparte avances de entrenamiento. |
 
 ## Skills del agente admin (`ADMIN_SKILLS`)
 
