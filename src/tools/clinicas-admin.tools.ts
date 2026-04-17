@@ -5,6 +5,7 @@ import { ClinicasDbService } from '../services/clinicas-db.service';
 import { KapsoService } from '../services/kapso.service';
 import { env } from '../config/env';
 import { PromptRebuildService } from '../services/prompt-rebuild.service';
+import { CompanySkillsService } from '../services/company-skills.service';
 
 /**
  * Tool: searchContacts
@@ -556,7 +557,9 @@ export const createAdminCompleteOnboardingTool = (companyId: string) => tool({
  * Implementación manual con crypto nativo — sin dependencias extra.
  * Compatible con la verificación de `jose` en el middleware de Next.js.
  */
-function createPortalToken(companyId: string): string {
+export type PortalRole = 'admin' | 'staff';
+
+function createPortalToken(companyId: string, role: PortalRole = 'admin'): string {
     const crypto = require('crypto') as typeof import('crypto');
     const secret = env.INTERNAL_API_SECRET;
     if (!secret) throw new Error('INTERNAL_API_SECRET no está configurado');
@@ -564,6 +567,7 @@ function createPortalToken(companyId: string): string {
     const header  = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
     const payload = Buffer.from(JSON.stringify({
         companyId,
+        role,
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24 h
     })).toString('base64url');
@@ -611,6 +615,109 @@ export const createAdminSendPortalLinkTool = (
             return { ok: true, linkSent: true, to: staffPhone };
         } catch (err: any) {
             logger.error(`[Admin Tool] sendAdminPortalLink error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+// =============================================================================
+// Skills configurables por empresa — gestión vía agente admin (WhatsApp)
+//
+// Solo el rol admin de la clínica debería invocar las mutaciones. El check
+// de rol vive en el backend de la API web (requireAdmin); aquí confiamos en
+// el contexto: el agente admin solo se monta para conversaciones del staff
+// dueño del número de admin de la clínica.
+// =============================================================================
+
+export const createAdminListCompanySkillsTool = (companyId: string) => tool({
+    description: 'Lista las skills configurables del agente paciente: catálogo de sistema (con su estado activo/inactivo) y skills privadas de la clínica. Usar cuando el staff pregunte "qué skills tiene el agente", "qué puedo activar", "muéstrame las skills".',
+    inputSchema: z.object({}),
+    execute: async () => {
+        try {
+            const all = await CompanySkillsService.listForCompany(companyId);
+            return {
+                ok: true,
+                system:  all.filter(s => s.kind === 'system')
+                    .map(s => ({ skill_id: s.skill_id, name: s.name, enabled: s.enabled, trigger: s.trigger })),
+                private: all.filter(s => s.kind === 'private')
+                    .map(s => ({ skill_id: s.skill_id, name: s.name, enabled: s.enabled, trigger: s.trigger })),
+            };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] listCompanySkills error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminToggleCompanySkillTool = (companyId: string) => tool({
+    description: 'Activa o desactiva una skill del agente paciente. Para skills de sistema, usar kind="system" + el skill_id del catálogo. Para skills privadas de la clínica, kind="private" + el skill_id creado por el admin.',
+    inputSchema: z.object({
+        kind:     z.enum(['system', 'private']),
+        skill_id: z.string().min(2).max(64),
+        enabled:  z.boolean(),
+    }),
+    execute: async ({ kind, skill_id, enabled }) => {
+        try {
+            await CompanySkillsService.setEnabled(companyId, kind, skill_id, enabled);
+            return { ok: true, kind, skill_id, enabled };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] toggleCompanySkill error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminCreatePrivateSkillTool = (companyId: string) => tool({
+    description: 'Crea una skill privada para el agente paciente de esta clínica. Antes de invocar: aplicar el protocolo "manage-private-skills" (validar trigger claro, guidelines accionables ≥30 chars, slug único que no colisione con catálogo de sistema). Mostrar el borrador al staff y pedir confirmación.',
+    inputSchema: z.object({
+        skill_id:   z.string().regex(/^[a-z0-9][a-z0-9-]{1,63}$/, 'slug lowercase con guiones'),
+        name:       z.string().min(1),
+        trigger:    z.string().min(1).describe('Cuándo el agente debe activar esta skill (frase concreta).'),
+        guidelines: z.string().min(30).describe('Instrucciones detalladas para el agente, en imperativo. Mín. 30 chars.'),
+        enabled:    z.boolean().optional().default(true),
+    }),
+    execute: async (input) => {
+        try {
+            const created = await CompanySkillsService.createPrivate(companyId, input);
+            return { ok: true, skill: { skill_id: created.skill_id, name: created.name, enabled: created.enabled } };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] createPrivateSkill error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminUpdatePrivateSkillTool = (companyId: string) => tool({
+    description: 'Edita el contenido de una skill privada existente (name, trigger, guidelines, enabled). NO sirve para skills de sistema (esas solo se togglean).',
+    inputSchema: z.object({
+        skill_id:   z.string().min(2).max(64),
+        name:       z.string().min(1).optional(),
+        trigger:    z.string().min(1).optional(),
+        guidelines: z.string().min(30).optional(),
+        enabled:    z.boolean().optional(),
+    }),
+    execute: async ({ skill_id, ...updates }) => {
+        try {
+            await CompanySkillsService.updatePrivate(companyId, skill_id, updates);
+            return { ok: true, skill_id };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] updatePrivateSkill error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+export const createAdminDeletePrivateSkillTool = (companyId: string) => tool({
+    description: 'Elimina permanentemente una skill privada. Pedir confirmación explícita al staff antes de invocar. Las skills de sistema NO se borran (solo se desactivan con toggleCompanySkill).',
+    inputSchema: z.object({
+        skill_id: z.string().min(2).max(64),
+    }),
+    execute: async ({ skill_id }) => {
+        try {
+            await CompanySkillsService.deletePrivate(companyId, skill_id);
+            return { ok: true, skill_id };
+        } catch (err: any) {
+            logger.error(`[Admin Tool] deletePrivateSkill error: ${err.message}`);
             return { ok: false, error: err.message };
         }
     },

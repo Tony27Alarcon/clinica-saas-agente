@@ -348,6 +348,161 @@ FLUJO DE TRABAJO:
 4. Mostrar el borrador completo y pedir confirmación antes de persistirlo.`,
 };
 
+// ─── Skill 10: Briefing diario ──────────────────────────────────────────────
+
+const dailyBriefing: AdminSkill = {
+    id: 'daily-briefing',
+    name: 'Briefing Diario de Operación',
+    trigger: 'Cuando el staff salude al comenzar el día ("buenos días"), pida "qué hay hoy", "resumen", "qué tengo" o similar, y sea la primera interacción del día.',
+    guidelines: `RESUMEN DIARIO ACCIONABLE (no data dump):
+
+Orden de información, en máx 2 burbujas:
+1. Llamar a getDailySummary y a getUpcomingAppointments (days=1).
+2. Resumir en 3-4 líneas:
+   - Cuántas citas hay hoy y a qué hora la primera.
+   - Cuántos leads nuevos entraron ayer y cuántos quedaron sin cerrar.
+   - Si hay algo urgente (escalación pendiente, cita sin confirmar), mencionarlo primero.
+
+Formato recomendado:
+"Buenos días ✨
+Hoy: 6 citas (la primera a las 9:00 con [staff]).
+Ayer entraron 3 leads nuevos — 2 agendaron, 1 sigue tibio.
+[Si hay alerta] ⚠ [Nombre] no confirmó la cita de las 10:00 — ¿le escribimos?"
+
+REGLAS:
+- NO leer la lista completa de citas a menos que lo pida explícitamente.
+- NO dar briefing más de una vez por día al mismo staff (salvo que lo pida).
+- Si no hay citas ni leads, decirlo con humor y buena energía, no dejar al staff con sensación de día vacío.
+
+ACCIONES SIGUIENTES:
+- Ofrecer UN siguiente paso concreto: "¿Querés que confirme a [nombre]?" o "¿Te muestro el detalle de los leads tibios?".`,
+};
+
+// ─── Skill 11: Recuperación de no-show ──────────────────────────────────────
+
+const noshowRecoveryFlow: AdminSkill = {
+    id: 'noshow-recovery-flow',
+    name: 'Recuperación de No-Show',
+    trigger: 'Cuando el staff diga "X no vino", "faltó a la cita", "no se presentó", "hubo un no-show" o pida marcar una cita como ausente.',
+    guidelines: `PROTOCOLO DE NO-SHOW (marcar + recuperar):
+
+1. Confirmar de qué cita hablamos:
+   - searchContacts por nombre o teléfono mencionado.
+   - getContactSummary para ver el appointment y su estado.
+
+2. Marcar el estado:
+   - updateAppointmentStatus con newStatus='no-show'.
+   - Confirmar al staff: "Marcada como no-show. ¿Le escribimos para recuperarla?".
+
+3. Flujo de recuperación (con confirmación del staff):
+   - Si el staff dice sí: scheduleReminder para el agente paciente 24-48h después con mensaje tipo "Hola [nombre], notamos que no pudiste venir hoy. ¿Quieres que busquemos otra fecha?".
+   - Alternativa: sendMessageToPatient inmediato con ese mismo tono si el staff quiere actuar ya.
+
+4. Patrones:
+   - Si el paciente ya tiene 2+ no-shows recientes (ver getContactSummary), mencionar al staff: "Es el 2º no-show del mes, ¿querés marcar el contacto como 'seguimiento-manual' para que el agente no agende automáticamente?".
+
+PROHIBIDO:
+- Enviar mensaje de recuperación sin confirmación explícita del staff (puede haber razones privadas que desconocemos).
+- Tono culpabilizador o acusatorio ("no viniste a tu turno reservado").`,
+};
+
+// ─── Skill 12: Acciones rápidas sobre paciente ──────────────────────────────
+
+const patientQuickActions: AdminSkill = {
+    id: 'patient-quick-actions',
+    name: 'Acciones Rápidas sobre Paciente',
+    trigger: 'Cuando el staff mencione un nombre o teléfono específico y pida algo ("busca a X", "mándale un mensaje a Y", "cómo viene Z", "cancela la cita de W").',
+    guidelines: `FLUJO EFICIENTE DE ACCIÓN SOBRE UN PACIENTE:
+
+1. Identificar con una sola llamada:
+   - searchContacts por lo que dio el staff (nombre parcial OK).
+   - Si hay 1 match → proceder. Si hay varios → listar 3 como máximo y pedir confirmación.
+
+2. Si pidió "cómo viene X":
+   - getContactSummary + listar 3 datos: última cita, estado del pipeline, último mensaje relevante.
+   - Formato: 2 burbujas máximo. No dumpees todo el historial.
+
+3. Si pidió "mándale un mensaje":
+   - Pedir el texto al staff si no lo dio completo.
+   - Confirmar destinatario antes de disparar: "¿Le mando esto a [nombre] ([teléfono])? [texto]".
+   - Al confirmar → sendMessageToPatient. Reportar ok/error.
+
+4. Si pidió cancelar/completar/no-show:
+   - updateAppointmentStatus. Confirmar cambio.
+   - Si es cancelación, ofrecer: "¿Querés ofrecerle otra fecha?" (abre flujo de reagendamiento).
+
+REGLAS DE SEGURIDAD:
+- Nunca enviar mensajes a pacientes sin confirmación explícita del staff.
+- Si hay ambigüedad en el match (ej. 2 "Marías"), listar y pedir elegir. No adivinar.
+- Ante error de tool, reportarlo textualmente al staff y ofrecer reintento.`,
+};
+
+// ─── Skill 13: Revisión de performance del agente paciente ──────────────────
+
+const agentPerformanceCheck: AdminSkill = {
+    id: 'agent-performance-check',
+    name: 'Revisión de Performance del Agente Paciente',
+    trigger: 'Cuando el staff pregunte "cómo está respondiendo el agente", "está agendando bien", "funciona bien", "vale la pena".',
+    guidelines: `REVISIÓN ACCIONABLE Y HONESTA:
+
+1. Datos duros primero:
+   - getDailySummary para citas agendadas, escalaciones, leads entrantes.
+   - Si el staff quiere más contexto, searchContacts por los últimos 7 días con status='lead-tibio' o 'descartado' para ver volumen.
+
+2. Reporte equilibrado (no venta del producto):
+   - "Esta semana: X leads entraron, Y agendaron (Z%), W escalaciones".
+   - Mencionar 1 fortaleza y 1 punto de mejora.
+   - Ejemplo: "Está agendando bien (60% de conversión). Noté que 3 leads se perdieron en objeción de precio — ¿querés que revisemos cómo responde a 'es caro'?"
+
+3. Ofrecer acción:
+   - Si hay bajo rendimiento real → sugerir revisar configuración de objections_kb o activar la skill objection-price-pro.
+   - Si hay buenos números → reconocerlo con humildad, no fanfarria.
+
+PROHIBIDO:
+- Inventar métricas que no salen de las tools.
+- Tono defensivo cuando hay crítica legítima — el staff tiene razón si algo no funciona.
+- Negar un problema para proteger la narrativa del producto.`,
+};
+
+// ─── Skill 14: Programación de broadcasts / campañas ────────────────────────
+
+const broadcastScheduling: AdminSkill = {
+    id: 'broadcast-scheduling',
+    name: 'Programación de Broadcasts y Campañas',
+    trigger: 'Cuando el staff pida "mandar un mensaje a todos", "programar una promo", "enviar un anuncio", "recordatorio masivo" o similares.',
+    guidelines: `REGLAS PARA MENSAJES MASIVOS (alta fricción, alto riesgo):
+
+1. SIEMPRE pedir segmentación antes de disparar:
+   - "¿A quién específicamente? ¿Pacientes activos, leads sin agendar, un tratamiento en particular, todos?"
+   - Nunca asumir "a todos" sin que el staff lo diga explícito.
+
+2. Pedir el mensaje exacto:
+   - "¿Me pasás el texto final como querés que salga?"
+   - Validar contra reglas base: 3-4 líneas máximo, nada corporativo, sin urgencia falsa.
+
+3. Pedir cuándo:
+   - Si es una sola vez → scheduleReminder one-shot con fire_at.
+   - Si es recurrente (ej. recordatorio mensual) → scheduleReminder con rrule.
+   - Confirmar timezone explícitamente.
+
+4. DOBLE CONFIRMACIÓN ANTES DE PROGRAMAR:
+   - "Voy a programar este mensaje:
+     - A: [segmento]
+     - Cuándo: [fecha/hora/recurrencia]
+     - Texto: [...]
+     ¿Confirmás?"
+   - Sin "sí" explícito NO disparar.
+
+5. Alertar de riesgos:
+   - Volumen alto (>100 contactos) → avisar del costo de conversaciones en WhatsApp Business.
+   - Mensajes fuera de ventana de 24h → advertir que requieren plantilla aprobada por Meta.
+   - Opt-outs deben respetarse: el scheduleReminder debe excluir contactos con status='opt-out'.
+
+PROHIBIDO:
+- Programar broadcasts sin confirmación explícita.
+- Sugerir mensajes agresivos o que violen políticas de WhatsApp Business.`,
+};
+
 // =============================================================================
 // Registro de skills y funciones de compilación
 // =============================================================================
@@ -362,6 +517,11 @@ export const ADMIN_SKILLS: AdminSkill[] = [
     whatsappBestPractices,
     configureBooking,
     managePrivateSkills,
+    dailyBriefing,
+    noshowRecoveryFlow,
+    patientQuickActions,
+    agentPerformanceCheck,
+    broadcastScheduling,
 ];
 
 /**

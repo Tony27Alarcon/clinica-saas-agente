@@ -38,23 +38,35 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 // ─── Página ───────────────────────────────────────────────────────────────────
 
+type Role = 'admin' | 'staff';
+
 export default function SkillsPage() {
     const { companyId } = useParams<{ companyId: string }>();
     const [data, setData]       = useState<SkillsResponse>({ system: [], private: [] });
+    const [role, setRole]       = useState<Role>('staff');
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState<string | null>(null);
-    const [editingId, setEditingId] = useState<string | null>(null);   // skill_id en edición
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [creating, setCreating]   = useState(false);
     const [form, setForm]       = useState<PrivateForm>(EMPTY_FORM);
     const [savingId, setSavingId]   = useState<string | null>(null);
 
+    const isAdmin = role === 'admin';
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
-            const r = await fetch(`/api/admin/${companyId}/skills`, { cache: 'no-store' });
-            if (!r.ok) throw new Error((await r.json()).error ?? 'Error cargando skills');
-            const json: SkillsResponse = await r.json();
+            const [skillsR, meR] = await Promise.all([
+                fetch(`/api/admin/${companyId}/skills`, { cache: 'no-store' }),
+                fetch(`/api/admin/${companyId}/me`,     { cache: 'no-store' }),
+            ]);
+            if (!skillsR.ok) throw new Error((await skillsR.json()).error ?? 'Error cargando skills');
+            const json: SkillsResponse = await skillsR.json();
             setData(json);
+            if (meR.ok) {
+                const me = await meR.json();
+                setRole(me.role === 'admin' ? 'admin' : 'staff');
+            }
             setError(null);
         } catch (e: any) {
             setError(e.message);
@@ -186,6 +198,15 @@ export default function SkillsPage() {
                     <strong>Prioridad:</strong> reglas base → skills de sistema activas → skills privadas activas.
                     Si una skill privada contradice las base, las base ganan.
                 </p>
+                {!isAdmin && (
+                    <div style={{
+                        marginTop: 12, padding: 10, background: '#fff7ed',
+                        border: '1px solid #fed7aa', borderRadius: 6, fontSize: 13, color: '#9a3412',
+                    }}>
+                        Estás viendo esta página como <strong>staff</strong>. Solo el admin de la clínica
+                        puede activar/desactivar skills o crear/editar privadas.
+                    </div>
+                )}
             </header>
 
             {/* ─── Skills de Sistema ────────────────────────────────────────── */}
@@ -197,6 +218,7 @@ export default function SkillsPage() {
                             key={`s:${s.skill_id}`}
                             skill={s}
                             saving={savingId === s.skill_id}
+                            canToggle={isAdmin}
                             onToggle={(next) => toggle(s, next)}
                         />
                     ))}
@@ -207,7 +229,7 @@ export default function SkillsPage() {
             <section>
                 <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                     <h2 style={{ fontSize: 20, margin: 0 }}>Skills privadas</h2>
-                    {!creating && (
+                    {!creating && isAdmin && (
                         <button onClick={startCreate} style={btnPrimary}>+ Nueva skill privada</button>
                     )}
                 </header>
@@ -248,9 +270,10 @@ export default function SkillsPage() {
                                 key={`p:${s.skill_id}`}
                                 skill={s}
                                 saving={savingId === s.skill_id}
+                                canToggle={isAdmin}
                                 onToggle={(next) => toggle(s, next)}
-                                onEdit={() => startEdit(s)}
-                                onDelete={() => deletePrivate(s)}
+                                onEdit={isAdmin ? () => startEdit(s) : undefined}
+                                onDelete={isAdmin ? () => deletePrivate(s) : undefined}
                             />
                         )
                     ))}
@@ -263,13 +286,14 @@ export default function SkillsPage() {
 // ─── Subcomponentes ───────────────────────────────────────────────────────────
 
 function SkillCard(props: {
-    skill:    SkillView;
-    saving:   boolean;
-    onToggle: (next: boolean) => void;
-    onEdit?:  () => void;
-    onDelete?:() => void;
+    skill:     SkillView;
+    saving:    boolean;
+    canToggle: boolean;
+    onToggle:  (next: boolean) => void;
+    onEdit?:   () => void;
+    onDelete?: () => void;
 }) {
-    const { skill: s, saving, onToggle, onEdit, onDelete } = props;
+    const { skill: s, saving, canToggle, onToggle, onEdit, onDelete } = props;
     const [open, setOpen] = useState(false);
 
     return (
@@ -296,11 +320,11 @@ function SkillCard(props: {
                     </p>
                 </div>
 
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: canToggle ? 'pointer' : 'not-allowed' }}>
                     <input
                         type="checkbox"
                         checked={s.enabled}
-                        disabled={saving}
+                        disabled={saving || !canToggle}
                         onChange={(e) => onToggle(e.target.checked)}
                     />
                     <span style={{ fontSize: 13 }}>{s.enabled ? 'Activa' : 'Inactiva'}</span>

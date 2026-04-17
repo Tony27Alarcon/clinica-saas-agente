@@ -21,7 +21,8 @@
     "test:reminders": "ts-node scripts/testing/test-reminders.ts",
     "test:scheduled-reminders": "ts-node scripts/testing/test-scheduled-reminders.ts",
     "test:rebuild": "ts-node scripts/testing/test-rebuild.ts",
-    "test:crud": "ts-node scripts/testing/test-crud-tools.ts"
+    "test:crud": "ts-node scripts/testing/test-crud-tools.ts",
+    "test:smoke": "ts-node scripts/testing/smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",

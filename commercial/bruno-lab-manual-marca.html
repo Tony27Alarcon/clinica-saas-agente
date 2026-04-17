@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bruno Lab · Sistema de Marca</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================
+   BRUNO LAB · BRAND GUIDELINES
+   Reverse-engineered from bruno.builders
+   ========================================================== */
+
+:root {
+  /* === CORE PALETTE === */
+  --bruno-cream:   #FAF6EC;   /* fondo principal */
+  --bruno-cream-2: #F5EFDF;   /* fondo cálido alternativo */
+  --bruno-ink:     #0E0E0E;   /* tinta principal (casi negro) */
+  --bruno-ink-soft:#2A2A2A;   /* tinta secundaria */
+  --bruno-gray:    #6B6B6B;   /* texto cuerpo */
+  --bruno-gray-2:  #9A9A9A;   /* texto meta */
+  --bruno-line:    #E4DECC;   /* líneas del grid */
+
+  /* === COLORES DE ACENTO (neubrutalism pastel) === */
+  --bruno-cyan:    #8AD0EA;   /* cyan pastel */
+  --bruno-pink:    #FFB5D3;   /* rosa pastel */
+  --bruno-orange:  #FFA078;   /* naranja melocotón */
+  --bruno-lavender:#C8B6F5;   /* lavanda suave */
+  --bruno-mint:    #B8E6C8;   /* verde menta (confirmaciones) */
+  --bruno-yellow:  #FFE66A;   /* amarillo destacados */
+
+  /* === MOTION === */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background: var(--bruno-cream);
+  color: var(--bruno-ink);
+  line-height: 1.5;
+  /* GRID BACKGROUND — firma visual de Bruno Lab */
+  background-image:
+    linear-gradient(var(--bruno-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bruno-line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  overflow-x: hidden;
+}
+
+/* ==========================================================
+   NAVEGACIÓN FLOTANTE — PILL SHAPE (firma de Bruno)
+   ========================================================== */
+.nav-wrapper {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  width: calc(100% - 40px);
+  max-width: 820px;
+}
+.nav-pill {
+  background: var(--bruno-cream);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 100px;
+  padding: 10px 14px 10px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+}
+.nav-brand {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.nav-brand .spark { color: var(--bruno-orange); font-size: 18px; }
+.nav-links {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.nav-links a {
+  color: var(--bruno-ink-soft);
+  text-decoration: none;
+  transition: color 0.2s var(--ease);
+}
+.nav-links a:hover { color: var(--bruno-orange); }
+.nav-cta {
+  background: var(--bruno-ink);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.15s var(--ease);
+}
+.nav-cta:hover { transform: translateY(-1px); }
+
+@media (max-width: 760px) {
+  .nav-links { display: none; }
+  .nav-pill { padding: 8px 8px 8px 18px; }
+}
+
+/* ==========================================================
+   HERO
+   ========================================================== */
+.hero {
+  padding: 160px 6vw 100px;
+  text-align: center;
+  position: relative;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--bruno-cream);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 40px;
+  box-shadow: 3px 3px 0 var(--bruno-ink);
+}
+
+.hero h1 {
+  font-size: clamp(48px, 9vw, 112px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  max-width: 14ch;
+  margin: 0 auto 30px;
+}
+.hero h1 .hl { background: var(--bruno-yellow); padding: 0 8px; border-radius: 4px; display: inline-block; }
+
+.hero-sub {
+  font-size: clamp(16px, 1.8vw, 20px);
+  color: var(--bruno-gray);
+  max-width: 60ch;
+  margin: 0 auto 50px;
+  line-height: 1.55;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 60px;
+}
+
+.btn-primary {
+  background: var(--bruno-ink);
+  color: #fff;
+  padding: 16px 32px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s var(--ease);
+}
+.btn-primary:hover { transform: translateY(-2px); }
+
+.btn-secondary {
+  background: var(--bruno-cream);
+  color: var(--bruno-ink);
+  padding: 14px 30px;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 2px solid var(--bruno-ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s var(--ease);
+}
+.btn-secondary:hover { transform: translateY(-2px); }
+
+.hero-social-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  background: var(--bruno-cream);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 3px 3px 0 var(--bruno-ink);
+}
+
+/* ==========================================================
+   SECCIÓN GENÉRICA
+   ========================================================== */
+section.chapter {
+  padding: 90px 6vw;
+  max-width: 1280px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.chapter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bruno-lavender);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+.chapter-tag.cyan { background: var(--bruno-cyan); }
+.chapter-tag.pink { background: var(--bruno-pink); }
+.chapter-tag.orange { background: var(--bruno-orange); }
+.chapter-tag.mint { background: var(--bruno-mint); }
+.chapter-tag.yellow { background: var(--bruno-yellow); }
+
+.chapter h2 {
+  font-size: clamp(36px, 5.5vw, 64px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  margin-bottom: 20px;
+  max-width: 18ch;
+}
+.chapter h2.center { text-align: center; margin-left: auto; margin-right: auto; }
+
+.chapter-intro {
+  font-size: 18px;
+  color: var(--bruno-gray);
+  max-width: 65ch;
+  margin-bottom: 50px;
+  line-height: 1.6;
+}
+.chapter-intro.center { text-align: center; margin-left: auto; margin-right: auto; }
+
+/* ==========================================================
+   1. PERSONALIDAD DE MARCA
+   ========================================================== */
+.personality-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin: 40px 0;
+}
+
+.trait-card {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 30px 24px;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.trait-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 var(--bruno-ink);
+}
+.trait-icon {
+  font-size: 36px;
+  margin-bottom: 16px;
+  display: block;
+}
+.trait-card h4 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  letter-spacing: -0.01em;
+}
+.trait-card p {
+  font-size: 14px;
+  color: var(--bruno-gray);
+  line-height: 1.5;
+}
+
+/* Voice & Tone split */
+.voice-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 40px 0;
+}
+.voice-col {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 36px;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+}
+.voice-col.good { background: var(--bruno-mint); }
+.voice-col.bad { background: #FFDEDE; }
+.voice-col h4 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.voice-col ul { list-style: none; }
+.voice-col li {
+  padding: 12px 0;
+  font-size: 15px;
+  border-bottom: 1px dashed rgba(0,0,0,0.15);
+  font-weight: 500;
+}
+.voice-col li:last-child { border-bottom: none; }
+.voice-col li::before {
+  display: inline-block;
+  width: 24px;
+  font-weight: 700;
+}
+.voice-col.good li::before { content: '✓'; color: #0a7a3a; }
+.voice-col.bad li::before { content: '✗'; color: #c43a3a; }
+
+/* ==========================================================
+   2. LOGO
+   ========================================================== */
+.logo-showcase {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 24px;
+  padding: 60px;
+  box-shadow: 6px 6px 0 var(--bruno-ink);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 50px;
+  margin-bottom: 40px;
+}
+.logo-main {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  padding: 40px;
+  background: var(--bruno-cream);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 16px;
+}
+.logo-big {
+  font-size: 64px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-big .sp { color: var(--bruno-orange); }
+.logo-spec ul {
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.logo-spec li {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bruno-line);
+  font-size: 14px;
+}
+.logo-spec li span:first-child {
+  color: var(--bruno-gray);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.logo-spec li span:last-child {
+  font-weight: 600;
+}
+
+.logo-variants {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+.logo-variant {
+  border: 2px solid var(--bruno-ink);
+  border-radius: 16px;
+  padding: 30px 20px;
+  text-align: center;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+}
+.logo-variant.white { background: #fff; color: var(--bruno-ink); }
+.logo-variant.dark { background: var(--bruno-ink); color: #fff; }
+.logo-variant.cream { background: var(--bruno-cream); color: var(--bruno-ink); }
+.logo-variant.cyan { background: var(--bruno-cyan); color: var(--bruno-ink); }
+.logo-variant .mini {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+.logo-variant .mini .sp { color: var(--bruno-orange); }
+.logo-variant.dark .mini .sp { color: var(--bruno-yellow); }
+.logo-variant .lbl {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  opacity: 0.7;
+}
+
+/* Reglas de uso — do / don't */
+.logo-rules {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+}
+.logo-rule-box {
+  border: 2px solid var(--bruno-ink);
+  border-radius: 16px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+}
+.logo-rule-box .tag {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  border-radius: 100px;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  border: 2px solid var(--bruno-ink);
+}
+.logo-rule-box .tag.ok { background: var(--bruno-mint); }
+.logo-rule-box .tag.no { background: #FFDEDE; }
+.logo-rule-box p { font-size: 14px; font-weight: 500; line-height: 1.5; }
+
+/* ==========================================================
+   3. PALETA DE COLORES
+   ========================================================== */
+.palette-section { padding: 90px 6vw; }
+
+.palette-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.color-chip {
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+  transition: transform 0.2s var(--ease);
+}
+.color-chip:hover { transform: translate(-2px, -2px); }
+.color-chip .swatch {
+  height: 130px;
+  display: flex;
+  align-items: flex-end;
+  padding: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+}
+.color-chip .info {
+  background: #fff;
+  padding: 16px;
+  border-top: 2px solid var(--bruno-ink);
+}
+.color-chip .info h5 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.color-chip .info .hex {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--bruno-gray);
+  margin-bottom: 8px;
+}
+.color-chip .info .role {
+  font-size: 11px;
+  color: var(--bruno-gray-2);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.color-role-title {
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--bruno-gray);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--bruno-ink);
+}
+
+/* ==========================================================
+   4. TIPOGRAFÍA
+   ========================================================== */
+.type-hero {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 24px;
+  padding: 60px;
+  box-shadow: 6px 6px 0 var(--bruno-ink);
+  margin-bottom: 40px;
+}
+
+.type-hero .face-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bruno-gray);
+  margin-bottom: 20px;
+}
+
+.type-hero .big-aa {
+  font-size: clamp(120px, 20vw, 280px);
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.05em;
+  margin-bottom: 20px;
+}
+
+.type-hero .sub {
+  font-size: 18px;
+  color: var(--bruno-gray);
+  line-height: 1.5;
+  max-width: 60ch;
+}
+
+.type-scale {
+  display: grid;
+  gap: 0;
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+}
+
+.scale-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 240px;
+  align-items: center;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--bruno-line);
+  gap: 20px;
+}
+.scale-row:last-child { border-bottom: none; }
+
+.scale-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--bruno-gray);
+}
+.scale-sample {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+.scale-spec {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--bruno-gray);
+  text-align: right;
+}
+
+/* ==========================================================
+   5. COMPONENTES
+   ========================================================== */
+.components-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin: 40px 0;
+}
+.component-card {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+}
+.component-card .label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bruno-gray);
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--bruno-line);
+}
+.component-demo {
+  padding: 40px 20px;
+  background: var(--bruno-cream);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  min-height: 140px;
+  flex-wrap: wrap;
+  border: 1px solid var(--bruno-line);
+}
+.component-notes {
+  font-size: 13px;
+  color: var(--bruno-gray);
+  line-height: 1.6;
+}
+.component-notes code {
+  background: var(--bruno-cream);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--bruno-ink);
+}
+
+/* Feature card estilo Bruno */
+.feature-card-demo {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+  max-width: 240px;
+}
+.feature-card-demo .emoji { font-size: 24px; margin-bottom: 10px; }
+.feature-card-demo h5 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+.feature-card-demo p { font-size: 12px; color: var(--bruno-gray); line-height: 1.5; }
+
+/* Stat card */
+.stat-card-demo {
+  background: var(--bruno-cyan);
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+  transform: rotate(-2deg);
+  max-width: 180px;
+  text-align: center;
+}
+.stat-card-demo .emoji { font-size: 28px; margin-bottom: 8px; }
+.stat-card-demo .val { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* Mini stats row */
+.mini-stats-demo {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 100px;
+  padding: 16px 30px;
+  display: flex;
+  gap: 30px;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.mini-stats-demo .item { text-align: center; padding: 0 14px; }
+.mini-stats-demo .num { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.mini-stats-demo .desc { font-size: 10px; color: var(--bruno-gray); line-height: 1.4; }
+.mini-stats-demo .divider { width: 1px; background: var(--bruno-line); }
+
+/* ==========================================================
+   6. PATRONES DE LAYOUT
+   ========================================================== */
+.patterns-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 40px 0;
+}
+.pattern-card {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+}
+.pattern-card h4 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.pattern-card .code-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--bruno-gray);
+  padding: 6px 10px;
+  background: var(--bruno-cream);
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 10px;
+}
+.pattern-mini {
+  display: flex;
+  gap: 8px;
+  margin: 20px 0;
+  height: 80px;
+  align-items: stretch;
+}
+.pattern-mini > div {
+  border: 1.5px solid var(--bruno-ink);
+  border-radius: 8px;
+  flex: 1;
+  background: var(--bruno-cream);
+}
+.pattern-mini .big { flex: 2; background: var(--bruno-cyan); }
+.pattern-mini .sm { flex: 1; background: var(--bruno-pink); }
+
+/* ==========================================================
+   7. ICONOGRAFÍA
+   ========================================================== */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 14px;
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 5px 5px 0 var(--bruno-ink);
+}
+.icon-tile {
+  text-align: center;
+  padding: 16px 8px;
+  border-radius: 12px;
+  transition: background 0.2s var(--ease);
+}
+.icon-tile:hover { background: var(--bruno-cream); }
+.icon-tile .emoji { font-size: 32px; margin-bottom: 6px; }
+.icon-tile .name {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--bruno-gray);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ==========================================================
+   8. MICROCOPY / VOZ
+   ========================================================== */
+.copy-examples {
+  display: grid;
+  gap: 16px;
+  margin: 40px 0;
+}
+.copy-row {
+  background: #fff;
+  border: 2px solid var(--bruno-ink);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 4px 4px 0 var(--bruno-ink);
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.copy-row .ctx {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--bruno-gray);
+}
+.copy-row .text {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* ==========================================================
+   FOOTER
+   ========================================================== */
+footer {
+  background: var(--bruno-ink);
+  color: #fff;
+  padding: 80px 6vw 40px;
+  margin-top: 80px;
+  position: relative;
+}
+footer::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: var(--bruno-cream);
+  border-bottom-left-radius: 50% 100%;
+  border-bottom-right-radius: 50% 100%;
+}
+.footer-content {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 60px;
+  padding-bottom: 50px;
+  border-bottom: 1px solid #2a2a2a;
+}
+.footer-title {
+  font-size: clamp(40px, 6vw, 80px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.footer-title .sp { color: var(--bruno-orange); }
+.footer-title .hl { background: var(--bruno-yellow); color: var(--bruno-ink); padding: 0 8px; border-radius: 4px; }
+.footer-col h5 {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #8a8a8a;
+  margin-bottom: 16px;
+}
+.footer-col li {
+  list-style: none;
+  padding: 6px 0;
+  font-size: 14px;
+  color: #ccc;
+}
+.footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 30px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: #666;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+/* ==========================================================
+   RESPONSIVE
+   ========================================================== */
+@media (max-width: 960px) {
+  .personality-grid { grid-template-columns: repeat(2, 1fr); }
+  .logo-showcase { grid-template-columns: 1fr; padding: 30px; }
+  .logo-variants { grid-template-columns: repeat(2, 1fr); }
+  .voice-split { grid-template-columns: 1fr; }
+  .components-grid { grid-template-columns: 1fr; }
+  .patterns-grid { grid-template-columns: 1fr; }
+  .logo-rules { grid-template-columns: 1fr; }
+  .scale-row { grid-template-columns: 1fr; gap: 8px; padding: 20px; }
+  .scale-spec { text-align: left; }
+  .type-hero { padding: 30px; }
+  .footer-top { grid-template-columns: 1fr; gap: 40px; }
+}
+@media (max-width: 600px) {
+  section.chapter { padding: 60px 5vw; }
+  .hero { padding: 130px 5vw 60px; }
+  .personality-grid { grid-template-columns: 1fr; }
+  .copy-row { grid-template-columns: 1fr; gap: 6px; }
+}
+
+/* Utilidad */
+.underline-hl {
+  display: inline-block;
+  background: linear-gradient(180deg, transparent 60%, var(--bruno-cyan) 60%);
+  padding: 0 4px;
+}
+</style>
+</head>
+<body>
+
+<!-- ==========================================================
+     NAV
+     ========================================================== -->
+<nav class="nav-wrapper">
+  <div class="nav-pill">
+    <div class="nav-brand"><span class="spark">✦</span> Bruno Lab <span style="font-weight:500;font-size:13px;color:var(--bruno-gray);margin-left:8px;">Brand System</span></div>
+    <div class="nav-links">
+      <a href="#voz">Voz</a>
+      <a href="#logo">Logo</a>
+      <a href="#color">Color</a>
+      <a href="#tipografia">Tipografía</a>
+      <a href="#componentes">Componentes</a>
+    </div>
+    <a href="#footer" class="nav-cta">Descargar kit</a>
+  </div>
+</nav>
+
+<!-- ==========================================================
+     HERO
+     ========================================================== -->
+<section class="hero">
+  <span class="hero-badge">📘 Brand Guidelines · v1.0 · Abril 2026</span>
+  <h1>El sistema visual de <span class="hl">Bruno Lab</span></h1>
+  <p class="hero-sub">Un manual de instrucciones para mantener coherente la marca en cualquier soporte. Colores, tipografías, componentes, voz y patrones — todo documentado para que la marca se sienta igual de clara desde un tuit hasta una propuesta comercial.</p>
+  <div class="hero-ctas">
+    <a href="#voz" class="btn-primary">Empezar manual ⚡</a>
+    <a href="#componentes" class="btn-secondary">Ver componentes</a>
+  </div>
+  <div class="hero-social-proof">
+    <span style="font-size:18px;">🎨</span>
+    <span>Sistema rediseñado con pasión artificial · 100% open-book</span>
+  </div>
+</section>
+
+<!-- ==========================================================
+     1. PERSONALIDAD & VOZ
+     ========================================================== -->
+<section class="chapter" id="voz">
+  <span class="chapter-tag pink">01 · Personalidad de marca</span>
+  <h2>Hablamos como un amigo que entiende de tecnología.</h2>
+  <p class="chapter-intro">Bruno Lab es un asistente de IA para profesionales de LATAM — gente ocupada, pragmática, que no tiene tiempo para jerga de startup. La marca refleja eso: directa, cálida, un poco juguetona cuando hace falta, pero siempre al servicio de un negocio real.</p>
+
+  <div class="personality-grid">
+    <div class="trait-card">
+      <span class="trait-icon">💬</span>
+      <h4>Directa</h4>
+      <p>Va al grano. Dice "tu agenda pierde citas" antes que "optimización del funnel". El dolor primero, la solución después.</p>
+    </div>
+    <div class="trait-card">
+      <span class="trait-icon">🧠</span>
+      <h4>Inteligente sin ser snob</h4>
+      <p>Sabe de IA pero no lo usa para intimidar. Los términos técnicos aparecen sólo cuando suman claridad, nunca para vender aire.</p>
+    </div>
+    <div class="trait-card">
+      <span class="trait-icon">🫶</span>
+      <h4>Cálida, no corporativa</h4>
+      <p>Tuteo siempre (en LATAM). Emojis con moderación. Frases cortas. Como si un colega te estuviera contando qué funciona.</p>
+    </div>
+    <div class="trait-card">
+      <span class="trait-icon">⚡</span>
+      <h4>Concreta y medible</h4>
+      <p>Habla en números: "−30% de inasistencias", "menos de 1 min", "$13,500/mes". La especificidad genera confianza.</p>
+    </div>
+  </div>
+
+  <h3 style="font-size:24px;font-weight:700;margin:50px 0 24px;letter-spacing:-0.02em;">Voz: qué sí y qué no</h3>
+
+  <div class="voice-split">
+    <div class="voice-col good">
+      <h4>✓ Así sí</h4>
+      <ul>
+        <li>"Tu agenda pierde citas mientras el WhatsApp espera respuesta."</li>
+        <li>"Un asistente con IA atiende al instante, sin que tú estés presente."</li>
+        <li>"Seas médico, estilista o cualquier profesional: en menos de una semana está operando solo."</li>
+        <li>"Sin contratos anuales. Cancela cuando quieras."</li>
+        <li>"El setup toma menos de una semana. Nosotros configuramos todo contigo."</li>
+      </ul>
+    </div>
+    <div class="voice-col bad">
+      <h4>✗ Así no</h4>
+      <ul>
+        <li>"Optimizamos tu funnel de conversión con IA de última generación."</li>
+        <li>"Soluciones end-to-end impulsadas por machine learning."</li>
+        <li>"Sinergia disruptiva para stakeholders del sector salud."</li>
+        <li>"Nuestra plataforma empoderará a su equipo en la era digital."</li>
+        <li>"Revolucionamos el paradigma de la atención al cliente."</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     2. LOGO
+     ========================================================== -->
+<section class="chapter" id="logo">
+  <span class="chapter-tag cyan">02 · Logo</span>
+  <h2>Logotipo simple, destello reconocible.</h2>
+  <p class="chapter-intro">El logo es puramente tipográfico más un destello (✦) como marca distintiva. El destello va siempre en naranja Bruno (#FFA078) y funciona como el "sello de IA" — sugiere magia, chispa, automatización.</p>
+
+  <div class="logo-showcase">
+    <div class="logo-main">
+      <div class="logo-big"><span class="sp">✦</span> Bruno Lab</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--bruno-gray);letter-spacing:0.15em;text-transform:uppercase;">Lockup principal</div>
+    </div>
+    <div class="logo-spec">
+      <h4 style="font-size:14px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.2em;color:var(--bruno-gray);margin-bottom:20px;">Especificaciones</h4>
+      <ul>
+        <li><span>Tipografía</span><span>Plus Jakarta Sans</span></li>
+        <li><span>Peso</span><span>800 / ExtraBold</span></li>
+        <li><span>Letter-spacing</span><span>−0.04em</span></li>
+        <li><span>Destello</span><span>✦ · #FFA078</span></li>
+        <li><span>Separación</span><span>10px entre ✦ y texto</span></li>
+        <li><span>Altura mínima</span><span>20px (digital)</span></li>
+        <li><span>Zona de respeto</span><span>1× altura de "B"</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="font-size:20px;font-weight:700;margin:40px 0 20px;letter-spacing:-0.02em;">Variantes de color</h3>
+  <div class="logo-variants">
+    <div class="logo-variant white">
+      <div class="mini"><span class="sp">✦</span> Bruno Lab</div>
+      <div class="lbl">Default · fondos claros</div>
+    </div>
+    <div class="logo-variant cream">
+      <div class="mini"><span class="sp">✦</span> Bruno Lab</div>
+      <div class="lbl">Sobre crema brand</div>
+    </div>
+    <div class="logo-variant dark">
+      <div class="mini"><span class="sp">✦</span> Bruno Lab</div>
+      <div class="lbl">Sobre fondo oscuro</div>
+    </div>
+    <div class="logo-variant cyan">
+      <div class="mini"><span class="sp">✦</span> Bruno Lab</div>
+      <div class="lbl">Sobre acento pastel</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:20px;font-weight:700;margin:40px 0 20px;letter-spacing:-0.02em;">Reglas de uso</h3>
+  <div class="logo-rules">
+    <div class="logo-rule-box">
+      <span class="tag ok">Sí</span>
+      <p>Mantén siempre la proporción original entre el destello ✦ y las palabras. El símbolo nunca va solo como favicon sin acompañar el nombre en contextos comerciales primarios.</p>
+    </div>
+    <div class="logo-rule-box">
+      <span class="tag no">No</span>
+      <p>No rotes el logo. No le apliques sombras duras tipo brutalism al texto — las sombras son para contenedores y botones, no para la marca denominativa.</p>
+    </div>
+    <div class="logo-rule-box">
+      <span class="tag no">No</span>
+      <p>No reemplaces el destello ✦ por otros símbolos (⚡, ★, ✧). El destello de cuatro puntas es la firma visual — es el "copo" que asocia con IA.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     3. PALETA
+     ========================================================== -->
+<section class="palette-section" id="color">
+  <div style="max-width:1280px;margin:0 auto;">
+  <span class="chapter-tag lavender" style="background:var(--bruno-lavender)">03 · Paleta</span>
+  <h2>Crema cálida + pasteles vibrantes + tinta negra.</h2>
+  <p class="chapter-intro" style="max-width:70ch;">La paleta combina un fondo crema que evoca papel con acentos pastel saturados (no fluorescentes) y bordes siempre en tinta casi-negra. Es un neubrutalism "suave" que transmite seriedad técnica sin ser frío.</p>
+
+  <div class="color-role-title">Colores base · estructura</div>
+  <div class="palette-row">
+    <div class="color-chip">
+      <div class="swatch" style="background:#FAF6EC;color:var(--bruno-ink);">#FAF6EC</div>
+      <div class="info">
+        <h5>Crema Bruno</h5>
+        <div class="hex">var(--bruno-cream)</div>
+        <div class="role">Fondo principal</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#0E0E0E;color:#fff;">#0E0E0E</div>
+      <div class="info">
+        <h5>Tinta</h5>
+        <div class="hex">var(--bruno-ink)</div>
+        <div class="role">Bordes · botones · texto</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#6B6B6B;color:#fff;">#6B6B6B</div>
+      <div class="info">
+        <h5>Gris cuerpo</h5>
+        <div class="hex">var(--bruno-gray)</div>
+        <div class="role">Texto secundario</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#FFFFFF;color:var(--bruno-ink);border-bottom:2px solid var(--bruno-ink);">#FFFFFF</div>
+      <div class="info">
+        <h5>Blanco puro</h5>
+        <div class="hex">#FFFFFF</div>
+        <div class="role">Tarjetas sobre crema</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="color-role-title">Acentos · cards, stats, highlights</div>
+  <div class="palette-row">
+    <div class="color-chip">
+      <div class="swatch" style="background:#8AD0EA;color:var(--bruno-ink);">#8AD0EA</div>
+      <div class="info">
+        <h5>Cyan pastel</h5>
+        <div class="hex">var(--bruno-cyan)</div>
+        <div class="role">Velocidad · tiempo</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#FFB5D3;color:var(--bruno-ink);">#FFB5D3</div>
+      <div class="info">
+        <h5>Rosa pastel</h5>
+        <div class="hex">var(--bruno-pink)</div>
+        <div class="role">Métricas negativas</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#FFA078;color:var(--bruno-ink);">#FFA078</div>
+      <div class="info">
+        <h5>Naranja Bruno</h5>
+        <div class="hex">var(--bruno-orange)</div>
+        <div class="role">Destello ✦ · 24/7</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#C8B6F5;color:var(--bruno-ink);">#C8B6F5</div>
+      <div class="info">
+        <h5>Lavanda</h5>
+        <div class="hex">var(--bruno-lavender)</div>
+        <div class="role">Badges de sección</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="color-role-title">Funcionales · feedback & jerarquía</div>
+  <div class="palette-row">
+    <div class="color-chip">
+      <div class="swatch" style="background:#B8E6C8;color:var(--bruno-ink);">#B8E6C8</div>
+      <div class="info">
+        <h5>Verde menta</h5>
+        <div class="hex">var(--bruno-mint)</div>
+        <div class="role">Confirmaciones ✓</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#FFE66A;color:var(--bruno-ink);">#FFE66A</div>
+      <div class="info">
+        <h5>Amarillo highlight</h5>
+        <div class="hex">var(--bruno-yellow)</div>
+        <div class="role">Resaltar palabras clave</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#E4DECC;color:var(--bruno-ink);">#E4DECC</div>
+      <div class="info">
+        <h5>Línea grid</h5>
+        <div class="hex">var(--bruno-line)</div>
+        <div class="role">Grid de fondo · separadores</div>
+      </div>
+    </div>
+    <div class="color-chip">
+      <div class="swatch" style="background:#F5EFDF;color:var(--bruno-ink);">#F5EFDF</div>
+      <div class="info">
+        <h5>Crema 2</h5>
+        <div class="hex">var(--bruno-cream-2)</div>
+        <div class="role">Superficies secundarias</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:20px;padding:30px;box-shadow:5px 5px 0 var(--bruno-ink);margin-top:40px;">
+    <h4 style="font-size:18px;font-weight:700;margin-bottom:16px;">Reglas de combinación</h4>
+    <ul style="list-style:none;display:grid;gap:10px;font-size:14px;color:var(--bruno-gray-2);">
+      <li><strong style="color:var(--bruno-ink);">→</strong> Cada tarjeta de acento usa <strong>un solo color pastel</strong>, nunca dos mezclados en el mismo contenedor.</li>
+      <li><strong style="color:var(--bruno-ink);">→</strong> El borde y la sombra offset son <strong>siempre tinta (#0E0E0E)</strong>, sin excepción.</li>
+      <li><strong style="color:var(--bruno-ink);">→</strong> El texto sobre pasteles es siempre <strong>tinta</strong>, nunca blanco — los pasteles no tienen contraste suficiente para texto claro.</li>
+      <li><strong style="color:var(--bruno-ink);">→</strong> Usa el <strong>amarillo solo como highlight inline</strong> (fondo de palabra), no como fondo de tarjetas grandes.</li>
+    </ul>
+  </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     4. TIPOGRAFÍA
+     ========================================================== -->
+<section class="chapter" id="tipografia">
+  <span class="chapter-tag orange">04 · Tipografía</span>
+  <h2>Una familia, pero usada con carácter.</h2>
+  <p class="chapter-intro">Plus Jakarta Sans es la única tipografía de marca. Su rango de pesos (400–800) es suficiente para construir toda la jerarquía. Para elementos técnicos (código, especificaciones, etiquetas monoespaciadas) usamos JetBrains Mono como acento.</p>
+
+  <div class="type-hero">
+    <div class="face-name">Tipografía principal · Plus Jakarta Sans</div>
+    <div class="big-aa">Aa</div>
+    <p class="sub">Una sans-serif contemporánea con rasgos geométricos pero amables. Los pesos altos (700–800) tienen presencia brutal sin ser agresivos. Los pesos medios (500) son perfectos para navegación y botones. <a href="https://fonts.google.com/specimen/Plus+Jakarta+Sans" style="color:var(--bruno-ink);">Descargar en Google Fonts →</a></p>
+  </div>
+
+  <h3 style="font-size:20px;font-weight:700;margin:50px 0 24px;letter-spacing:-0.02em;">Escala tipográfica</h3>
+  <div class="type-scale">
+    <div class="scale-row">
+      <div class="scale-label">Display XL</div>
+      <div class="scale-sample" style="font-size:64px;">Tu agenda.</div>
+      <div class="scale-spec">96–112px / 800 / −0.04em</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Display</div>
+      <div class="scale-sample" style="font-size:44px;">Un asistente para ti</div>
+      <div class="scale-spec">44–64px / 800 / −0.03em</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Headline</div>
+      <div class="scale-sample" style="font-size:28px;">¿Qué hace tu asistente?</div>
+      <div class="scale-spec">24–32px / 700 / −0.02em</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Title</div>
+      <div class="scale-sample" style="font-size:20px;font-weight:700;">Conversación natural</div>
+      <div class="scale-spec">18–22px / 700 / −0.01em</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Body</div>
+      <div class="scale-sample" style="font-size:16px;font-weight:400;line-height:1.5;">Entiende y responde mensajes de texto, notas de voz e imágenes.</div>
+      <div class="scale-spec">15–17px / 400 / 0</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Label</div>
+      <div class="scale-sample" style="font-size:13px;font-weight:600;">Activar mi asistente</div>
+      <div class="scale-spec">13–14px / 600 / 0</div>
+    </div>
+    <div class="scale-row">
+      <div class="scale-label">Tag · Mono</div>
+      <div class="scale-sample" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;letter-spacing:0.15em;text-transform:uppercase;">01 / Personalidad</div>
+      <div class="scale-spec">11–13px / 500 / 0.15em</div>
+    </div>
+  </div>
+
+  <div style="background:var(--bruno-yellow);border:2px solid var(--bruno-ink);border-radius:16px;padding:24px 30px;margin-top:30px;box-shadow:5px 5px 0 var(--bruno-ink);">
+    <strong style="font-size:15px;">💡 Regla de oro:</strong> los titulares grandes <strong>siempre van en peso 800</strong>. Los pesos intermedios (500, 600) existen solo para UI — botones, navegación, etiquetas. Nunca uses peso 300/400 para títulos; la marca pierde personalidad.
+  </div>
+</section>
+
+<!-- ==========================================================
+     5. COMPONENTES
+     ========================================================== -->
+<section class="chapter" id="componentes">
+  <span class="chapter-tag mint">05 · Componentes</span>
+  <h2>Bordes, sombras offset y pills. Siempre.</h2>
+  <p class="chapter-intro">La firma visual de Bruno Lab vive en tres elementos que se repiten en todo: (1) <strong>bordes de 2px sólidos en tinta</strong>, (2) <strong>sombras duras desplazadas</strong> a 4-5px sin blur, y (3) <strong>píldoras</strong> (border-radius 100px) para todo contenedor con CTA. Todo componente que diseñes para la marca debe seguir al menos uno de estos patrones.</p>
+
+  <div class="components-grid">
+    <!-- Botones -->
+    <div class="component-card">
+      <div class="label">01 · Botones</div>
+      <div class="component-demo">
+        <button class="btn-primary">Activar asistente ⚡</button>
+        <button class="btn-secondary">¿Cómo funciona?</button>
+      </div>
+      <div class="component-notes">
+        <strong>Primario:</strong> fondo tinta, texto blanco, sin borde, <code>border-radius: 100px</code>. <strong>Secundario:</strong> fondo crema, texto tinta, borde 2px tinta. Ambos con <code>padding: 14-16px × 30px</code>. Hover levanta el botón con <code>translateY(-2px)</code>.
+      </div>
+    </div>
+
+    <!-- Navegación Pill -->
+    <div class="component-card">
+      <div class="label">02 · Navegación pill</div>
+      <div class="component-demo" style="padding:30px 14px;">
+        <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:100px;padding:8px 12px 8px 18px;display:flex;gap:14px;align-items:center;box-shadow:3px 3px 0 var(--bruno-ink);">
+          <strong style="font-size:14px;"><span style="color:var(--bruno-orange);">✦</span> Bruno Lab</strong>
+          <span style="font-size:12px;color:var(--bruno-gray);">Beneficios</span>
+          <span style="font-size:12px;color:var(--bruno-gray);">Precios</span>
+          <span style="background:var(--bruno-ink);color:#fff;padding:6px 14px;border-radius:100px;font-size:12px;font-weight:600;">Probar →</span>
+        </div>
+      </div>
+      <div class="component-notes">
+        Barra principal siempre <strong>flotante, centrada, con sombra offset</strong>. Se mantiene en la parte superior mientras se hace scroll. Es la pieza más icónica del sistema Bruno.
+      </div>
+    </div>
+
+    <!-- Feature card -->
+    <div class="component-card">
+      <div class="label">03 · Tarjeta feature (fondo claro)</div>
+      <div class="component-demo">
+        <div class="feature-card-demo">
+          <div class="emoji">💬</div>
+          <h5>Conversación natural</h5>
+          <p>Entiende y responde mensajes de texto, notas de voz e imágenes.</p>
+        </div>
+      </div>
+      <div class="component-notes">
+        Fondo blanco, borde tinta <code>2px</code>, sombra offset <code>4px 4px 0</code>, radius <code>16px</code>. Emoji como único elemento "ilustrativo" arriba. Título peso 700, cuerpo en gris.
+      </div>
+    </div>
+
+    <!-- Stat card torcida -->
+    <div class="component-card">
+      <div class="label">04 · Stat card (rotada + color)</div>
+      <div class="component-demo" style="background:var(--bruno-cream-2);">
+        <div class="stat-card-demo">
+          <div class="emoji">⏱️</div>
+          <div class="val">Responde en &lt;1 min</div>
+        </div>
+      </div>
+      <div class="component-notes">
+        Variante celebrativa: fondo pastel + <code>transform: rotate(-2deg)</code>. Úsala para stats destacadas, nunca en bloque — como pequeña sorpresa visual. Máximo 3 rotaciones en una misma fila (−4°, 0°, +3° por ejemplo).
+      </div>
+    </div>
+
+    <!-- Mini stats -->
+    <div class="component-card" style="grid-column: span 2;">
+      <div class="label">05 · Barra de stats horizontal (pill gigante)</div>
+      <div class="component-demo">
+        <div class="mini-stats-demo">
+          <div class="item"><div class="num">3 h</div><div class="desc">al día recuperadas</div></div>
+          <div class="divider"></div>
+          <div class="item"><div class="num">−30%</div><div class="desc">menos inasistencias</div></div>
+          <div class="divider"></div>
+          <div class="item"><div class="num">62%</div><div class="desc">leads fuera de horario</div></div>
+          <div class="divider"></div>
+          <div class="item"><div class="num">&lt;5 min</div><div class="desc">tiempo de respuesta</div></div>
+        </div>
+      </div>
+      <div class="component-notes">
+        Pill horizontal con 3-4 datos separados por divisores. Siempre <strong>número grande arriba</strong>, contexto pequeño abajo. El contenedor lleva sombra offset. Se usa para mostrar social proof cuantitativo justo después del hero.
+      </div>
+    </div>
+
+    <!-- Badges -->
+    <div class="component-card">
+      <div class="label">06 · Badges de sección</div>
+      <div class="component-demo" style="flex-direction:column;gap:10px;">
+        <span class="chapter-tag cyan" style="margin:0;">⚡ El flujo completo</span>
+        <span class="chapter-tag lavender" style="background:var(--bruno-lavender);margin:0;">🤖 Funciones autónomas</span>
+        <span class="chapter-tag orange" style="margin:0;">⚠️ Límites del sistema</span>
+      </div>
+      <div class="component-notes">
+        Pastel + emoji + texto corto + borde tinta. Abren cada sección. Son la versión "kawaii" del microcopy técnico.
+      </div>
+    </div>
+
+    <!-- Input/form -->
+    <div class="component-card">
+      <div class="label">07 · Input / Field</div>
+      <div class="component-demo">
+        <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:12px;padding:14px 20px;width:100%;max-width:280px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--bruno-gray);text-transform:uppercase;letter-spacing:0.15em;margin-bottom:4px;">Tu email</div>
+          <div style="font-size:15px;color:var(--bruno-gray-2);">ejemplo@tuclinica.com</div>
+        </div>
+      </div>
+      <div class="component-notes">
+        Fondo blanco, border 2px tinta, radius 12px. Label en mono arriba. Los inputs <strong>no llevan sombra offset</strong> — eso distingue visualmente lo accionable (botones) de lo que recibe datos.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     6. PATRONES DE LAYOUT
+     ========================================================== -->
+<section class="chapter">
+  <span class="chapter-tag yellow">06 · Patrones de layout</span>
+  <h2>Siempre sobre el papel cuadriculado.</h2>
+  <p class="chapter-intro">El fondo de Bruno Lab es literalmente un papel cuadriculado (grid de 48×48px con líneas en #E4DECC). Este fondo aparece en <strong>todas las páginas</strong> del sitio y es un ancla visual crucial. Transmite "cuaderno de laboratorio" — de ahí el "Lab" del nombre.</p>
+
+  <div class="patterns-grid">
+    <div class="pattern-card">
+      <h4>Centered hero</h4>
+      <p style="font-size:14px;color:var(--bruno-gray);">Texto centrado, ancho máximo ~14ch en el H1, CTAs pareados debajo. Ninguna imagen de producto encima del pliegue — Bruno vende <em>resultado</em>, no captura de pantalla.</p>
+      <div class="pattern-mini">
+        <div style="background:#fff;"></div>
+        <div style="background:var(--bruno-yellow);flex:2;"></div>
+        <div style="background:#fff;"></div>
+      </div>
+      <span class="code-hint">text-align: center · max-width: 14ch</span>
+    </div>
+
+    <div class="pattern-card">
+      <h4>Split dolor · solución</h4>
+      <p style="font-size:14px;color:var(--bruno-gray);">3 tarjetas en fila con el <strong>dolor en rojo/gris</strong> y la <strong>solución en verde menta abajo</strong> dentro de la misma tarjeta. Patrón que aparece en la sección "Lo que pasa en tu negocio".</p>
+      <div class="pattern-mini">
+        <div></div>
+        <div></div>
+        <div></div>
+      </div>
+      <span class="code-hint">grid-template-columns: repeat(3, 1fr)</span>
+    </div>
+
+    <div class="pattern-card">
+      <h4>Timeline horizontal (01 · 02 · 03)</h4>
+      <p style="font-size:14px;color:var(--bruno-gray);">Pasos numerados en fila, con <strong>una columna destacada en pastel</strong> (ej. cyan) y el resto en blanco. Los números en lavanda claro, tipografía ultra-bold. Ideal para "cómo funciona".</p>
+      <div class="pattern-mini">
+        <div></div>
+        <div></div>
+        <div class="big"></div>
+        <div></div>
+        <div></div>
+      </div>
+      <span class="code-hint">Highlight 1 de N en color brand</span>
+    </div>
+
+    <div class="pattern-card">
+      <h4>Grid oscuro alternado</h4>
+      <p style="font-size:14px;color:var(--bruno-gray);">Sección en <strong>fondo negro #0E0E0E con tarjetas gris oscuro</strong>, título blanco y una tarjeta destacada en lavanda. Se usa para romper el ritmo después de 2-3 secciones claras y dar "peso" al mensaje.</p>
+      <div class="pattern-mini" style="background:var(--bruno-ink);padding:6px;border-radius:8px;gap:4px;">
+        <div style="background:#2a2a2a;border:none;"></div>
+        <div style="background:#2a2a2a;border:none;"></div>
+        <div style="background:var(--bruno-lavender);border:none;"></div>
+        <div style="background:#2a2a2a;border:none;"></div>
+      </div>
+      <span class="code-hint">Contenedor negro con radius grande (24-32px)</span>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     7. ICONOGRAFÍA
+     ========================================================== -->
+<section class="chapter">
+  <span class="chapter-tag pink">07 · Iconografía</span>
+  <h2>Emojis nativos, no iconos custom.</h2>
+  <p class="chapter-intro">Bruno Lab usa <strong>emojis del sistema operativo</strong> como iconos. Sí, emojis. Esto es deliberado: son universalmente reconocibles, no requieren mantenimiento de un set SVG, y le dan a la marca ese tono de "chat de WhatsApp" que encaja con el producto (un asistente <em>en</em> WhatsApp).</p>
+
+  <div class="icon-grid">
+    <div class="icon-tile"><div class="emoji">💬</div><div class="name">Conversación</div></div>
+    <div class="icon-tile"><div class="emoji">🎯</div><div class="name">Calificar</div></div>
+    <div class="icon-tile"><div class="emoji">📅</div><div class="name">Agendar</div></div>
+    <div class="icon-tile"><div class="emoji">🔔</div><div class="name">Recordar</div></div>
+    <div class="icon-tile"><div class="emoji">📋</div><div class="name">Seguimiento</div></div>
+    <div class="icon-tile"><div class="emoji">🤝</div><div class="name">Escalar</div></div>
+    <div class="icon-tile"><div class="emoji">⏱️</div><div class="name">Velocidad</div></div>
+    <div class="icon-tile"><div class="emoji">📉</div><div class="name">Reducción</div></div>
+    <div class="icon-tile"><div class="emoji">🌙</div><div class="name">24/7</div></div>
+    <div class="icon-tile"><div class="emoji">⚡</div><div class="name">Acción</div></div>
+    <div class="icon-tile"><div class="emoji">✦</div><div class="name">Brand mark</div></div>
+    <div class="icon-tile"><div class="emoji">🩺</div><div class="name">Clínico</div></div>
+    <div class="icon-tile"><div class="emoji">💳</div><div class="name">Pagos</div></div>
+    <div class="icon-tile"><div class="emoji">🔒</div><div class="name">Privacidad</div></div>
+    <div class="icon-tile"><div class="emoji">⚙️</div><div class="name">Config</div></div>
+    <div class="icon-tile"><div class="emoji">🧮</div><div class="name">Calculadora</div></div>
+  </div>
+
+  <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:16px;padding:24px 30px;margin-top:30px;box-shadow:4px 4px 0 var(--bruno-ink);font-size:14px;">
+    <strong>Regla:</strong> un emoji por tarjeta, máximo dos en un titular (uno al inicio, uno al final como "cierre"). <strong>Nunca</strong> mezcles emojis estilo Apple con emojis estilo Google en la misma vista — deja que el sistema operativo del visitante los renderice consistentemente.
+  </div>
+</section>
+
+<!-- ==========================================================
+     8. MICROCOPY
+     ========================================================== -->
+<section class="chapter">
+  <span class="chapter-tag cyan">08 · Microcopy</span>
+  <h2>Fórmulas que funcionan.</h2>
+  <p class="chapter-intro">El copy de Bruno Lab sigue patrones reconocibles. Aquí van las fórmulas más útiles con ejemplos del sitio real.</p>
+
+  <div class="copy-examples">
+    <div class="copy-row">
+      <span class="ctx">CTA primario</span>
+      <span class="text">"Activar mi asistente ⚡" · "Quiero mi asistente" · "Hablar con el equipo →"</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Headline dolor</span>
+      <span class="text">"Tu agenda pierde citas mientras el WhatsApp espera respuesta."</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Headline split</span>
+      <span class="text">"De 'hola' a cita agendada, sin que tú intervengas."</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Social proof</span>
+      <span class="text">"+100 profesionales y consultorios en LATAM ya automatizan con IA"</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Sub-hero</span>
+      <span class="text">"Un asistente con IA atiende al instante, califica leads, agenda en Google Calendar y manda recordatorios automáticos — sin que tú estés presente."</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Cierre</span>
+      <span class="text">"Sin contratos anuales · Cancela cuando quieras"</span>
+    </div>
+    <div class="copy-row">
+      <span class="ctx">Meta de sección</span>
+      <span class="text">"😓 Lo que pasa en tu negocio cada semana" · "⚡ El flujo completo" · "⚠️ Límites del sistema"</span>
+    </div>
+  </div>
+
+  <div style="background:var(--bruno-lavender);border:2px solid var(--bruno-ink);border-radius:20px;padding:30px;margin-top:30px;box-shadow:5px 5px 0 var(--bruno-ink);">
+    <h4 style="font-size:18px;font-weight:700;margin-bottom:14px;">📝 Las 5 fórmulas de copy de Bruno</h4>
+    <ol style="padding-left:20px;font-size:14px;line-height:1.9;">
+      <li><strong>Dolor + contraste temporal.</strong> "Pierde citas <em>mientras</em> el WhatsApp espera" — dos cosas incompatibles sucediendo a la vez.</li>
+      <li><strong>Número específico + contexto.</strong> "−30% de inasistencias", "3h al día", "62% escriben fuera de horario". Evitar "miles" o "muchos".</li>
+      <li><strong>Negación de lo que NO hace.</strong> "Sin contratos" / "sin que tú intervengas" / "sin doble agendamiento". Vende por sustracción.</li>
+      <li><strong>Horario extremo.</strong> "Activo a las 2am" / "24/7" / "incluso a las 2am". Cero fricción horaria = sensación de super-poder.</li>
+      <li><strong>Comparación humana directa.</strong> "Empleado virtual por una fracción del costo humano". Concreto, comparable, medible.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ==========================================================
+     9. ESPACIADO & GRID
+     ========================================================== -->
+<section class="chapter">
+  <span class="chapter-tag mint">09 · Espaciado</span>
+  <h2>Múltiplos de 8. Siempre.</h2>
+  <p class="chapter-intro">Toda la UI se construye sobre una grid base de 8px (con algunos medios pasos a 4px para casos de ajuste fino). El grid de fondo del sitio es un múltiplo directo de esto: 48px = 6 unidades. Esta disciplina hace que todo encaje sin pensar.</p>
+
+  <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:20px;padding:30px;box-shadow:5px 5px 0 var(--bruno-ink);">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--bruno-ink);">
+          <th style="text-align:left;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--bruno-gray);">Token</th>
+          <th style="text-align:left;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--bruno-gray);">Valor</th>
+          <th style="text-align:left;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:var(--bruno-gray);">Uso</th>
+        </tr>
+      </thead>
+      <tbody style="font-size:14px;">
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-1</td><td style="padding:14px;font-weight:700;">4px</td><td style="padding:14px;color:var(--bruno-gray);">Ajuste fino entre icono y texto</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-2</td><td style="padding:14px;font-weight:700;">8px</td><td style="padding:14px;color:var(--bruno-gray);">Padding mínimo, gap interno</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-3</td><td style="padding:14px;font-weight:700;">16px</td><td style="padding:14px;color:var(--bruno-gray);">Gap entre componentes pequeños</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-4</td><td style="padding:14px;font-weight:700;">24px</td><td style="padding:14px;color:var(--bruno-gray);">Padding interno de tarjetas</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-5</td><td style="padding:14px;font-weight:700;">32px</td><td style="padding:14px;color:var(--bruno-gray);">Separación entre bloques</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-6</td><td style="padding:14px;font-weight:700;">48px</td><td style="padding:14px;color:var(--bruno-gray);">Padding de sección (móvil) · unidad del grid fondo</td></tr>
+        <tr style="border-bottom:1px solid var(--bruno-line);"><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-7</td><td style="padding:14px;font-weight:700;">64px</td><td style="padding:14px;color:var(--bruno-gray);">Separación entre secciones (tablet)</td></tr>
+        <tr><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-8</td><td style="padding:14px;font-weight:700;">96px</td><td style="padding:14px;color:var(--bruno-gray);">Separación entre secciones (desktop)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;">
+    <div style="background:var(--bruno-pink);border:2px solid var(--bruno-ink);border-radius:16px;padding:24px;box-shadow:4px 4px 0 var(--bruno-ink);">
+      <h5 style="font-weight:700;margin-bottom:10px;">Border-radius escala</h5>
+      <ul style="list-style:none;font-size:13px;line-height:2;font-family:'JetBrains Mono',monospace;">
+        <li><strong>8px</strong> — inputs, chips pequeños</li>
+        <li><strong>12px</strong> — cards pequeñas, badges</li>
+        <li><strong>16px</strong> — feature cards, alerts</li>
+        <li><strong>20-24px</strong> — containers grandes</li>
+        <li><strong>100px</strong> — pills, botones, nav</li>
+      </ul>
+    </div>
+    <div style="background:var(--bruno-cyan);border:2px solid var(--bruno-ink);border-radius:16px;padding:24px;box-shadow:4px 4px 0 var(--bruno-ink);">
+      <h5 style="font-weight:700;margin-bottom:10px;">Sombra offset escala</h5>
+      <ul style="list-style:none;font-size:13px;line-height:2;font-family:'JetBrains Mono',monospace;">
+        <li><strong>3px 3px 0</strong> — nav, mini pills</li>
+        <li><strong>4px 4px 0</strong> — botones, cards estándar</li>
+        <li><strong>5px 5px 0</strong> — cards con peso visual</li>
+        <li><strong>6px 6px 0</strong> — containers destacados</li>
+        <li><strong>—</strong> nunca uses blur radius &gt; 0</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================================
+     FOOTER
+     ========================================================== -->
+<footer id="footer">
+  <div class="footer-content">
+    <div class="footer-top">
+      <div class="footer-title"><span class="sp">✦</span> Usa este <span class="hl">sistema.</span><br>Mantén la <br>coherencia.</div>
+      <div class="footer-col">
+        <h5>Secciones</h5>
+        <ul>
+          <li>01 · Personalidad & Voz</li>
+          <li>02 · Logo</li>
+          <li>03 · Paleta de color</li>
+          <li>04 · Tipografía</li>
+          <li>05 · Componentes</li>
+          <li>06 · Patrones de layout</li>
+          <li>07 · Iconografía</li>
+          <li>08 · Microcopy</li>
+          <li>09 · Espaciado</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>Bruno Lab Brand System · v1.0</span>
+      <span>Basado en bruno.builders</span>
+      <span>Abril 2026 · Rediseñado con pasión artificial</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal sutil
+document.addEventListener('DOMContentLoaded', () => {
+  const cards = document.querySelectorAll('.trait-card, .component-card, .color-chip, .pattern-card, .logo-rule-box');
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+  cards.forEach(c => {
+    c.style.opacity = '0';
+    c.style.transform = 'translateY(20px)';
+    c.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    io.observe(c);
+  });
+});
+</script>
+</body>
+</html>

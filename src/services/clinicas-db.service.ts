@@ -1893,4 +1893,106 @@ export class ClinicasDbService {
             return { ok: false, error: (error as Error).message };
         }
     }
+
+    // =========================================================================
+    // Bruno onboarding — soporte para start_onboarding, send_kapso_link, etc.
+    // Ver commercial/omboarding_tecnico.md y src/tools/bruno-onboarding.tools.ts
+    // =========================================================================
+
+    /**
+     * Busca una company con onboarding pendiente asociada a un owner por teléfono.
+     * Sirve para que start_onboarding sea idempotente.
+     */
+    static async findPendingOnboardingByOwner(ownerPhone: string): Promise<any | null> {
+        try {
+            const phone = normalizePhone(ownerPhone);
+            const { data, error } = await db()
+                .from('staff')
+                .select(`
+                    id,
+                    company_id,
+                    company:companies (
+                        id, name, slug, plan, timezone, currency,
+                        country_code, onboarding_completed_at, active, referred_by
+                    )
+                `)
+                .eq('phone', phone)
+                .eq('staff_role', 'owner')
+                .eq('active', true)
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data?.company) return null;
+            return { staffId: data.id, ...(data.company as any) };
+        } catch (error) {
+            logger.error(`[Clinicas] findPendingOnboardingByOwner: ${(error as Error).message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Actualiza el staff_role (owner | admin | staff).
+     */
+    static async setStaffRole(staffId: string, staffRole: 'owner' | 'admin' | 'staff'): Promise<void> {
+        const { error } = await db()
+            .from('staff')
+            .update({ staff_role: staffRole })
+            .eq('id', staffId);
+        if (error) throw error;
+    }
+
+    /**
+     * Marca un canal como pending/connected. `connected` además fija connected_at=now().
+     */
+    static async updateChannelConnectionStatus(
+        channelId: string,
+        status: 'pending' | 'connected',
+        extra: { phoneNumber?: string; accessToken?: string; providerId?: string } = {}
+    ): Promise<void> {
+        const patch: any = {
+            metadata: { connection_status: status },
+            updated_at: new Date().toISOString(),
+        };
+        if (status === 'connected') patch.connected_at = new Date().toISOString();
+        if (extra.phoneNumber) patch.phone_number = extra.phoneNumber;
+        if (extra.accessToken) patch.access_token = extra.accessToken;
+        if (extra.providerId)  patch.provider_id  = extra.providerId;
+
+        const { error } = await db()
+            .from('channels')
+            .update(patch)
+            .eq('id', channelId);
+        if (error) throw error;
+    }
+
+    /**
+     * Fija el campo referred_by de una company (programa embajador).
+     */
+    static async setCompanyReferredBy(companyId: string, referredByCompanyId: string): Promise<void> {
+        const { error } = await db()
+            .from('companies')
+            .update({ referred_by: referredByCompanyId, updated_at: new Date().toISOString() })
+            .eq('id', companyId);
+        if (error) throw error;
+    }
+
+    /**
+     * Busca un staff owner por companyId. Retorna null si la company no tiene owner.
+     */
+    static async getOwnerStaff(companyId: string): Promise<any | null> {
+        const { data, error } = await db()
+            .from('staff')
+            .select('*')
+            .eq('company_id', companyId)
+            .eq('staff_role', 'owner')
+            .eq('active', true)
+            .limit(1)
+            .maybeSingle();
+        if (error) {
+            logger.error(`[Clinicas] getOwnerStaff: ${error.message}`);
+            return null;
+        }
+        return data;
+    }
 }

@@ -306,6 +306,134 @@ export class GoogleCalendarService {
         logger.info(`[GCal] Evento reprogramado: ${params.gcalEventId} → ${params.newStartAt}`);
     }
 
+    // ─── Disponibilidad por bloqueo (Bruno onboarding) ──────────────────────
+    //
+    // Modelo invertido: la disponibilidad se define marcando lo *ocupado*.
+    // Los eventos creados acá llevan extendedProperties.private.bruno_managed='true'
+    // para no tocar eventos personales del owner. Ver commercial/omboarding_tecnico.md §3.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private static readonly BRUNO_TAG_KEY   = 'bruno_managed';
+    private static readonly BRUNO_TAG_VALUE = 'true';
+
+    /**
+     * Crea un bloque de tiempo "ocupado" (busy) en el calendario del owner.
+     * El evento queda etiquetado para que solo Bruno lo manipule después.
+     *
+     * @returns el eventId creado (persistir si se necesita editar/borrar después).
+     */
+    static async createBusyBlock(params: {
+        refreshToken: string;
+        summary: string;
+        startAt: string;          // ISO 8601
+        endAt: string;
+        timezone: string;
+        description?: string;
+    }): Promise<string> {
+        const calendar = this.getOAuthClient(params.refreshToken);
+        const res = await calendar.events.insert({
+            calendarId: 'primary',
+            requestBody: {
+                summary: params.summary,
+                description: params.description ?? '',
+                start: { dateTime: params.startAt, timeZone: params.timezone },
+                end:   { dateTime: params.endAt,   timeZone: params.timezone },
+                transparency: 'opaque',   // cuenta como ocupado en freebusy
+                extendedProperties: {
+                    private: { [this.BRUNO_TAG_KEY]: this.BRUNO_TAG_VALUE },
+                },
+            },
+        });
+        const eventId = res.data.id;
+        if (!eventId) throw new Error('Google Calendar no retornó eventId al crear bloque busy');
+        logger.info(`[GCal] Busy block creado: ${eventId} (${params.summary})`);
+        return eventId;
+    }
+
+    /**
+     * Edita un bloque busy existente. Solo procede si el evento tiene la marca
+     * de Bruno — previene modificar eventos personales del owner.
+     */
+    static async updateBusyBlock(params: {
+        refreshToken: string;
+        eventId: string;
+        newStartAt?: string;
+        newEndAt?: string;
+        newSummary?: string;
+        timezone: string;
+    }): Promise<void> {
+        const calendar = this.getOAuthClient(params.refreshToken);
+
+        // Verificar marca
+        const existing = await calendar.events.get({ calendarId: 'primary', eventId: params.eventId });
+        const tag = existing.data.extendedProperties?.private?.[this.BRUNO_TAG_KEY];
+        if (tag !== this.BRUNO_TAG_VALUE) {
+            throw new Error(`El evento ${params.eventId} no fue creado por Bruno — no puede modificarse.`);
+        }
+
+        const patch: any = {};
+        if (params.newSummary) patch.summary = params.newSummary;
+        if (params.newStartAt) patch.start   = { dateTime: params.newStartAt, timeZone: params.timezone };
+        if (params.newEndAt)   patch.end     = { dateTime: params.newEndAt,   timeZone: params.timezone };
+
+        await calendar.events.patch({
+            calendarId: 'primary',
+            eventId: params.eventId,
+            requestBody: patch,
+        });
+        logger.info(`[GCal] Busy block actualizado: ${params.eventId}`);
+    }
+
+    /**
+     * Elimina un bloque busy. Rechaza si el evento no tiene la marca de Bruno.
+     */
+    static async deleteBusyBlock(refreshToken: string, eventId: string): Promise<void> {
+        const calendar = this.getOAuthClient(refreshToken);
+
+        try {
+            const existing = await calendar.events.get({ calendarId: 'primary', eventId });
+            const tag = existing.data.extendedProperties?.private?.[this.BRUNO_TAG_KEY];
+            if (tag !== this.BRUNO_TAG_VALUE) {
+                throw new Error(`El evento ${eventId} no fue creado por Bruno — no puede eliminarse.`);
+            }
+            await calendar.events.delete({ calendarId: 'primary', eventId });
+            logger.info(`[GCal] Busy block eliminado: ${eventId}`);
+        } catch (err: any) {
+            const status = err?.response?.status;
+            if (status === 404 || status === 410) {
+                logger.warn(`[GCal] Busy block ${eventId} ya no existía — ignorando`);
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Lista los bloques busy creados por Bruno en un rango.
+     * Usa `privateExtendedProperty` para filtrar server-side en Google.
+     */
+    static async listBusyBlocks(params: {
+        refreshToken: string;
+        timeMin: string;
+        timeMax: string;
+    }): Promise<Array<{ id: string; summary: string; startAt: string; endAt: string }>> {
+        const calendar = this.getOAuthClient(params.refreshToken);
+        const res = await calendar.events.list({
+            calendarId: 'primary',
+            timeMin: params.timeMin,
+            timeMax: params.timeMax,
+            singleEvents: true,
+            orderBy: 'startTime',
+            privateExtendedProperty: [`${this.BRUNO_TAG_KEY}=${this.BRUNO_TAG_VALUE}`],
+        });
+        return (res.data.items || []).map(ev => ({
+            id:      ev.id!,
+            summary: ev.summary || '',
+            startAt: ev.start?.dateTime || ev.start?.date || '',
+            endAt:   ev.end?.dateTime   || ev.end?.date   || '',
+        }));
+    }
+
     // ─── Utilidades privadas ─────────────────────────────────────────────────
 
     /**

@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { SYSTEM_PATIENT_SKILLS, SYSTEM_PATIENT_SKILL_INDEX } from '@/lib/skills-catalog';
+import { requireAdmin } from '@/lib/auth';
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
@@ -92,6 +93,11 @@ export async function POST(
     { params }: { params: Promise<{ companyId: string }> }
 ) {
     const { companyId } = await params;
+
+    // Solo el admin de la empresa puede crear skills privadas.
+    const auth = requireAdmin(req, companyId);
+    if (!auth.ok) return auth.response;
+
     const body = await req.json().catch(() => ({}));
 
     // ── Validación del protocolo ─────────────────────────────────────────────
@@ -118,6 +124,7 @@ export async function POST(
             skill_id:   skillId,
             name, trigger, guidelines,
             enabled:    body.enabled !== false,
+            created_by: auth.identity.role,
         })
         .select()
         .single();

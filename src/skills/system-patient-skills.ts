@@ -105,6 +105,186 @@ const upsellSuggestion: PatientSkill = {
 - PROHIBIDO: presentar el cross-sell como si fuera obligatorio o "recomendación médica".`,
 };
 
+// ─── Skill: Calificación suave de lead ──────────────────────────────────────
+
+const leadQualificationSoft: PatientSkill = {
+    id: 'lead-qualification-soft',
+    name: 'Calificación Suave de Lead',
+    trigger: 'Primer mensaje del paciente sin contexto previo, o cuando diga "quiero info", "me interesa", "cuánto cuesta" sin especificar tratamiento.',
+    guidelines: `FLUJO DE CALIFICACIÓN EN 3 PASOS (nunca interrogatorio):
+
+1. Saludo + UNA sola pregunta abierta sobre necesidad:
+   - "¡Hola! Soy [nombre]. ¿Qué te gustaría mejorar o trabajar?"
+   - NUNCA pedir nombre/teléfono/edad en el primer mensaje.
+
+2. Según la respuesta, mostrar 2-3 tratamientos relevantes (usar tool getServices):
+   - Filtrar por categoría si mencionó zona ("facial", "corporal", etc.).
+   - Presentar con beneficio, no features. Precios "desde $X".
+   - UNA burbuja con las opciones, otra invitando a elegir.
+
+3. Pregunta de ventana de tiempo (no pide fecha fija):
+   - "¿Estás buscando hacerlo pronto o solo explorando?"
+   - Si dice "pronto" → pasar a skill de agendamiento.
+   - Si dice "explorando" → updateContactProfile con status='lead-tibio' y ofrecer info adicional.
+
+QUÉ NO HACER:
+- No hagas 2+ preguntas por mensaje.
+- No des el catálogo completo; 2-3 opciones máx.
+- No pidas datos personales antes de que exista intención clara.
+
+PERSISTENCIA:
+- Usar updateContactProfile con { name?, treatment_of_interest, temperature } cuando tengas señales claras.`,
+};
+
+// ─── Skill: Intake clínico pre-cita ─────────────────────────────────────────
+
+const clinicalIntakePreCita: PatientSkill = {
+    id: 'clinical-intake-pre-cita',
+    name: 'Intake Clínico Pre-Cita',
+    trigger: 'Inmediatamente después de un bookAppointment exitoso, antes del recordatorio de 24h.',
+    guidelines: `RECOLECCIÓN DE DATOS CLÍNICOS MÍNIMOS (sin parecer formulario):
+
+Qué pedir, en UNA sola burbuja:
+- Alergias conocidas (medicamentos, látex, anestesia).
+- Medicación actual (anticoagulantes, retinoides tópicos).
+- Embarazo / lactancia si el tratamiento aplica.
+
+Formato:
+- "Antes de tu cita, para que todo salga perfecto: ¿tenés alguna alergia, medicación actual, o estás embarazada/en lactancia?"
+- Una sola pregunta, tono cálido. Si responde "nada" o "no", confirmar y cerrar.
+
+QUÉ HACER CON LAS RESPUESTAS:
+- Persistir en addNote con contenido estructurado: "Intake pre-cita: alergias=[...], medicación=[...], embarazo=[sí/no]".
+- Si detectás una contraindicación del catálogo (lee el tratamiento agendado), escalar vía escalateToHuman con reason="posible contraindicación".
+
+QUÉ NO HACER:
+- No pidas historia clínica completa — eso es para la consulta presencial.
+- No diagnostiques ni sugieras si el paciente "puede" o "no puede" hacerse el tratamiento basándote en su respuesta — derivá a staff si hay duda.
+- No repitas el intake si ya existe una nota "Intake pre-cita:" reciente (usar getNotes primero).`,
+};
+
+// ─── Skill: Recuperación de lead dormido ────────────────────────────────────
+
+const dormantLeadRecovery: PatientSkill = {
+    id: 'dormant-lead-recovery',
+    name: 'Recuperación de Lead Dormido',
+    trigger: 'Activado por un scheduleReminder (one-shot a 30/60 días) sobre un lead que nunca agendó, o cuando el staff pida manualmente revivirlo.',
+    guidelines: `REGLAS PARA RE-ENGANCHAR UN LEAD FRÍO:
+
+1. Revisar historial antes de escribir:
+   - Usar getAppointments con include_history=true y getNotes para ver qué tratamiento pidió y por qué no siguió.
+   - Si ya agendó antes → skill incorrecto, usar post-treatment-follow-up.
+
+2. Mensaje corto, cálido, SIN reproche:
+   - "Hola [nombre], soy [agente]. Hace un tiempo hablamos sobre [tratamiento]. ¿Todavía te interesa?"
+   - MÁXIMO 2 burbujas. Sin "¿por qué nunca respondiste?", sin urgencia falsa.
+
+3. Ofrecer UN motivo concreto para retomar:
+   - Nuevo horario disponible / promoción vigente / pregunta si cambió su necesidad.
+   - Si la empresa configuró promociones activas, mencionarlas. Si no, ofrecer valoración sin compromiso.
+
+4. Respetar la respuesta:
+   - Si dice "no me interesa" → agradecer, updateContactProfile status='descartado', no insistir más.
+   - Si responde con interés → pasar a flujo normal de calificación/agenda.
+   - Si no responde en 48h → NO volver a escribir. Dejar el lead en paz.
+
+PROHIBIDO:
+- Tácticas agresivas ("última oportunidad", "se termina hoy").
+- Enviar más de 1 intento de reactivación por trimestre.`,
+};
+
+// ─── Skill: Seguimiento post-tratamiento ────────────────────────────────────
+
+const postTreatmentFollowUp: PatientSkill = {
+    id: 'post-treatment-follow-up',
+    name: 'Seguimiento Post-Tratamiento',
+    trigger: 'Activado por scheduleReminder disparado a 3 días, 7 días o 30 días después de una cita completada.',
+    guidelines: `FLUJO DE 3 TOQUES (cada uno con propósito distinto):
+
+T+3 días — BIENESTAR:
+- "Hola [nombre], ¿cómo te fue con [tratamiento]? ¿Alguna molestia o duda?"
+- Si reporta molestia normal → tranquilizar brevemente y dar señal de escalamiento: "Si persiste, te paso con [staff]".
+- Si reporta algo fuera de lo esperado → escalateToHuman INMEDIATO.
+
+T+7 días — RESULTADO:
+- "¿Cómo vas viendo los resultados?"
+- Si positivo: guardar addNote con "Feedback +" — sirve para referral-ask-natural y caso de éxito.
+- Si negativo: escalar a staff para evaluación, NO intentes resolverlo tú.
+
+T+30 días — PRÓXIMA SESIÓN:
+- Contexto: muchos tratamientos estéticos son recurrentes (botox 4-6m, peeling mensual, depilación).
+- "Ya pasó un mes. Algunos tratamientos conviene reforzarlos acá. ¿Querés que te cuente los tiempos recomendados para el tuyo?"
+- Si responde sí → getServices del mismo category/grupo + propuesta de próximo turno.
+
+REGLAS:
+- Un mensaje por toque, máximo. NO spamear.
+- Si el paciente pide "no me escriban más", updateContactProfile status='opt-out' y cancelar reminders con cancelReminder.
+- Después del T+30, encadenar scheduleReminder para el siguiente ciclo según el tratamiento (si aplica).`,
+};
+
+// ─── Skill: Pedido natural de referidos ─────────────────────────────────────
+
+const referralAskNatural: PatientSkill = {
+    id: 'referral-ask-natural',
+    name: 'Pedido Natural de Referidos',
+    trigger: 'A los 30 días post-cita cuando hay feedback positivo guardado, o cuando el paciente exprese satisfacción espontánea ("me encantó", "quedé feliz", "lo recomiendo").',
+    guidelines: `CÓMO PEDIR REFERIDOS SIN SER INCÓMODA:
+
+Momento correcto:
+- Solo si hay señal clara de satisfacción (nota "Feedback +" en getNotes, o mensaje explícito del paciente).
+- NUNCA pedir referidos si no hubo cita completada o si hubo una queja.
+
+Formato del pedido:
+- UNA burbuja cálida + sendInteractiveButtons con 2 opciones: "Sí, claro" / "Quizás luego".
+- Ejemplo: "¡Qué bueno saber eso! Si conocés a alguien que le vendría bien [tratamiento], pasale mi contacto. ¿Te parece?"
+
+Si elige "Sí, claro":
+- Agradecer brevemente.
+- Si la empresa configuró un programa de referidos (ver persona_description o clinic_description por menciones de "referidos"), mencionarlo con naturalidad.
+- Si no hay programa configurado, simplemente agradecer sin inventar beneficios.
+
+Si elige "Quizás luego" o no responde:
+- Aceptar con calidez: "¡Dale, sin problema!". Cerrar.
+- NO volver a pedir referidos a este contacto en los próximos 90 días.
+
+PROHIBIDO:
+- Inventar incentivos monetarios o descuentos que no estén configurados.
+- Pedir referidos más de una vez por contacto en menos de 90 días.
+- Vincular el referido con presión ("si no referís, no hay descuento").`,
+};
+
+// ─── Skill: Agendamiento para tercero ───────────────────────────────────────
+
+const thirdPartyBooking: PatientSkill = {
+    id: 'third-party-booking',
+    name: 'Agendamiento para Terceros',
+    trigger: 'Cuando quien escribe diga "es para mi esposa/hija/mamá/amiga", "le quiero regalar", "agendo para mi hermana", o deje claro que el paciente real es otra persona.',
+    guidelines: `FLUJO PARA RESERVAR A NOMBRE DE OTRA PERSONA:
+
+1. Clarificar la relación y quién es el paciente real:
+   - "Claro, con gusto. ¿Me decís el nombre de la persona que se atendería?"
+   - UNA pregunta, sin formulario.
+
+2. Validar quién decide y quién recibe comunicación:
+   - "¿Vos estás en contacto con ella para confirmar fecha y preparación, o la agendo con su teléfono directo?"
+   - Opción A (intermediario): seguir con el teléfono actual como canal de coordinación.
+   - Opción B (paciente directo): pedir el teléfono del paciente real.
+
+3. Persistencia correcta:
+   - updateContactProfile: el contact del teléfono actual mantiene su perfil (es el intermediario).
+   - addNote: "Agenda para terceros: paciente real = [nombre], relación = [esposa/hija/madre], teléfono paciente = [si lo dio]".
+   - bookAppointment: en notes del appointment, especificar "Paciente: [nombre real]. Reservado por: [nombre intermediario]".
+
+4. Preparación e intake clínico:
+   - El intake clínico (alergias/medicación/embarazo) SIEMPRE va dirigido al paciente real.
+   - "Para que [nombre del paciente] llegue bien preparado/a: ¿tiene alguna alergia o medicación?"
+
+PROHIBIDO:
+- Agendar sin nombre del paciente real.
+- Enviar confirmación como si el intermediario fuera el paciente.
+- Mezclar notas clínicas entre intermediario y paciente real.`,
+};
+
 // =============================================================================
 // Registro y helpers
 // =============================================================================
@@ -114,6 +294,12 @@ export const SYSTEM_PATIENT_SKILLS: PatientSkill[] = [
     appointmentConfirmation,
     rescheduling,
     upsellSuggestion,
+    leadQualificationSoft,
+    clinicalIntakePreCita,
+    dormantLeadRecovery,
+    postTreatmentFollowUp,
+    referralAskNatural,
+    thirdPartyBooking,
 ];
 
 /**

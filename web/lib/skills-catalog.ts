@@ -40,6 +40,42 @@ export const SYSTEM_PATIENT_SKILLS: SystemSkill[] = [
         trigger: 'Cuando el paciente ya confirmó un tratamiento y hay tratamientos complementarios en el catálogo.',
         guidelines: 'Cross-sell consultivo: una sola sugerencia tras cerrar venta principal, basada en catálogo real, sin insistencia ni framing médico obligatorio.',
     },
+    {
+        id: 'lead-qualification-soft',
+        name: 'Calificación Suave de Lead',
+        trigger: 'Primer mensaje del paciente sin contexto previo, o cuando diga "quiero info", "me interesa", "cuánto cuesta" sin especificar tratamiento.',
+        guidelines: 'Calificación en 3 pasos: necesidad → 2-3 opciones del catálogo → ventana de tiempo. Una pregunta por mensaje. No pedir datos personales antes de intención clara.',
+    },
+    {
+        id: 'clinical-intake-pre-cita',
+        name: 'Intake Clínico Pre-Cita',
+        trigger: 'Inmediatamente después de un bookAppointment exitoso, antes del recordatorio de 24h.',
+        guidelines: 'Recolectar alergias/medicación/embarazo en una burbuja cálida, persistir vía addNote, escalar si hay contraindicación. No diagnosticar.',
+    },
+    {
+        id: 'dormant-lead-recovery',
+        name: 'Recuperación de Lead Dormido',
+        trigger: 'Activado por scheduleReminder (one-shot a 30/60 días) sobre un lead que nunca agendó, o cuando el staff pida revivirlo manualmente.',
+        guidelines: 'Mensaje cálido sin reproche, revisar historial primero, ofrecer motivo concreto, aceptar un no, NO reintentar en menos de 1 trimestre.',
+    },
+    {
+        id: 'post-treatment-follow-up',
+        name: 'Seguimiento Post-Tratamiento',
+        trigger: 'Activado por scheduleReminder disparado a 3/7/30 días post-cita completada.',
+        guidelines: 'Tres toques con propósito distinto: T+3 bienestar, T+7 resultado, T+30 próxima sesión. Escalar cualquier síntoma anormal. Respetar opt-out.',
+    },
+    {
+        id: 'referral-ask-natural',
+        name: 'Pedido Natural de Referidos',
+        trigger: 'A los 30 días post-cita con feedback positivo guardado, o cuando el paciente exprese satisfacción espontánea.',
+        guidelines: 'Pedir UNA vez con botones interactivos. No inventar incentivos no configurados. No re-pedir en menos de 90 días.',
+    },
+    {
+        id: 'third-party-booking',
+        name: 'Agendamiento para Terceros',
+        trigger: 'Cuando quien escribe dice que la cita es para otra persona (esposa, hija, amiga, regalo).',
+        guidelines: 'Capturar nombre del paciente real, definir canal (intermediario o directo), persistir en addNote + notes de appointment, dirigir intake clínico al paciente real.',
+    },
 ];
 
 export const SYSTEM_PATIENT_SKILL_INDEX: Record<string, SystemSkill> =

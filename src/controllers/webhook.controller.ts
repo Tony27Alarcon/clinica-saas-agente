@@ -6,6 +6,9 @@ import { KapsoHistoryImportService } from '../services/kapso-history-import.serv
 import { MediaService } from '../services/media.service';
 import { MediaPartsService, type GeminiPart } from '../services/media-parts.service';
 import { NotificationService } from '../services/notification.service';
+import { TestModeService } from '../services/test-mode.service';
+import { processTestModeTurn } from '../pipelines/test-mode.pipeline';
+import { TEST_MODE_COMMANDS } from '../config/constants';
 import { logger, newRequestId, getContext, toErrorMessage } from '../utils/logger';
 import { LOG_EVENTS, LOG_REASONS } from '../utils/log-events';
 import { env } from '../config/env';
@@ -395,6 +398,22 @@ export class WebhookController {
                 return;
             }
 
+            // ── Routing SuperAdmin: si la company es la "platform" (Bruno Lab),
+            //    despacha al agente SuperAdmin (Bruno comercial/onboarder). Ver
+            //    commercial/BRUNO_AGENTE_COMERCIAL.md y doc de roles de agentes.
+            const isPlatform =
+                clinicaCompany.kind === 'platform' ||
+                (env.BRUNO_LAB_COMPANY_ID && clinicaCompany.id === env.BRUNO_LAB_COMPANY_ID);
+
+            if (isPlatform) {
+                logger.info(`[SuperAdmin] Canal de plataforma detectado — enrutando a Bruno`);
+                await WebhookController.processSuperAdminEvent({
+                    event, company: clinicaCompany,
+                    from, senderName, text, phoneNumberId, messageId, messageType,
+                });
+                return;
+            }
+
             await WebhookController.processClinicasEvent({
                 event, company: clinicaCompany,
                 from, senderName, text, phoneNumberId, messageId, messageType,
@@ -539,6 +558,33 @@ export class WebhookController {
                 data: { staffId: staffMember.id, staffName: staffMember.name },
             });
             logger.enrichContext({ staffId: staffMember.id });
+
+            // ── Modo test (/test, /exit, sesión activa) ─────────────────────────
+            const cmd = (typeof text === 'string' ? text.trim().toLowerCase() : '');
+            const testSession = await TestModeService.getActiveSession(staffMember.id);
+            const isTestCommand = cmd === TEST_MODE_COMMANDS.START || cmd === TEST_MODE_COMMANDS.EXIT;
+
+            if (testSession || isTestCommand) {
+                // Resolver la conv admin (sin pasar por IA): sólo necesitamos el id
+                // para poder inyectar el resumen al cerrar la sesión de test.
+                const adminContact = await ClinicasDbService.getOrCreateContact(
+                    company.id, from, staffMember.name, 'staff'
+                );
+                const adminAgent = await ClinicasDbService.getActiveAgent(company.id);
+                const adminConv = await ClinicasDbService.getOrCreateConversation(
+                    company.id, adminContact.id, adminAgent.id, 'admin'
+                );
+
+                const outcome = await processTestModeTurn({
+                    event, company, staffMember, session: testSession,
+                    adminConversationId: adminConv.id,
+                    from, text, phoneNumberId, messageId, messageType,
+                });
+
+                if (outcome === 'handled') return;
+                // passthrough_admin → el mensaje sigue al pipeline admin normal.
+            }
+
             await WebhookController.processAdminEvent({
                 event, company, staffMember,
                 from, senderName, text, phoneNumberId, messageId, messageType,
@@ -824,6 +870,130 @@ export class WebhookController {
             }
         } else {
             logger.info('[Admin] Step G: sin texto a enviar');
+        }
+    }
+
+    /**
+     * Pipeline SuperAdmin (Bruno) — agente comercial + onboarder de la platform.
+     *
+     * Se ejecuta cuando el canal inbound corresponde a `companies.kind='platform'`
+     * (Bruno Lab). El interlocutor es un PROSPECTO, no un tenant existente.
+     * Bruno cumple dos roles en el mismo hilo:
+     *  1. Comercial (calificación + cierre).
+     *  2. Onboarder: cuando el prospecto acepta, crea el tenant y lo deja operativo.
+     *
+     * Los mensajes se persisten en la misma conversation (de la company platform),
+     * así el hilo del prospecto queda auditado en BD.
+     */
+    private static async processSuperAdminEvent(ctx: {
+        event: any;
+        company: any;
+        from: string;
+        senderName: string;
+        text: string;
+        phoneNumberId: string;
+        messageId: string;
+        messageType: string;
+    }): Promise<void> {
+        const { event, company, from, senderName, text, phoneNumberId, messageId, messageType } = ctx;
+
+        if (!from || !text) {
+            logger.debug('[SuperAdmin] Evento ignorado (sin remitente o texto)');
+            return;
+        }
+
+        // Confirmación de lectura (fire-and-forget)
+        if (messageId) {
+            KapsoService.marcarComoLeido(messageId, phoneNumberId).catch((err) =>
+                logger.error('[SuperAdmin] marcarComoLeido falló', err, { messageId })
+            );
+        }
+
+        // Equipo comercial que puede recibir notifyStaff. TODO: mover a tabla
+        // de config o a clinicas.staff de la company platform con staff_role='admin'.
+        // Por ahora leemos el staff de la platform directamente.
+        const platformStaff = await ClinicasDbService.listStaff(company.id, false);
+        const advisors = platformStaff
+            .filter((s: any) => s.phone)
+            .map((s: any) => ({
+                id:   s.id,
+                name: s.name,
+                phone: s.phone,
+                role: s.role || undefined,
+            }));
+
+        if (advisors.length === 0) {
+            logger.warn(`[SuperAdmin] La company platform ${company.id} no tiene staff con phone — notifyStaff quedará deshabilitada`);
+        }
+
+        const assignedAdvisor = advisors[0] || {
+            id: 'default', name: 'Equipo Bruno Lab', phone: '', role: 'Asesor',
+        };
+
+        // Step A: contacto del prospecto en la company platform (status='prospecto')
+        const contact = await logger.stage('A', 'superadmin.getOrCreateContact', () =>
+            ClinicasDbService.getOrCreateContact(company.id, from, senderName)
+        );
+        logger.enrichContext({ contactoId: contact.id });
+
+        // Step B/C: agente activo de la platform + conversación
+        const agent = await logger.stage('B', 'superadmin.getActiveAgent', () =>
+            ClinicasDbService.getActiveAgent(company.id)
+        );
+        const conversation = await logger.stage('C', 'superadmin.getOrCreateConversation', () =>
+            ClinicasDbService.getOrCreateConversation(company.id, contact.id, agent.id, 'whatsapp')
+        );
+        logger.enrichContext({ conversacionId: conversation.id });
+
+        // Step D: guardar mensaje entrante
+        if (messageId) {
+            const already = await ClinicasDbService.hasMessageByKapsoId(messageId);
+            if (already) {
+                logger.debug('[SuperAdmin] messageId ya procesado — skip');
+                return;
+            }
+        }
+        await logger.stage('D', 'superadmin.saveMessage (entrante)', () =>
+            messageId
+                ? ClinicasDbService.saveMessageDeduped(
+                    conversation.id, company.id, 'contact', text, messageId,
+                    { raw_payload: event, message_type: messageType, phone_number_id: phoneNumberId, role: 'prospect' }
+                )
+                : ClinicasDbService.saveMessage(
+                    conversation.id, company.id, 'contact', text,
+                    { raw_payload: event, message_type: messageType, phone_number_id: phoneNumberId, role: 'prospect' }
+                )
+        );
+
+        // Step E: historial
+        const historial = await logger.stage('E', 'superadmin.getHistorial', () =>
+            ClinicasDbService.getHistorial(conversation.id, 30)
+        );
+
+        // Step F: Bruno genera la respuesta
+        const respuesta = await logger.stage('F', 'superadmin.AiService.generarRespuestaSuperAdmin', () =>
+            AiService.generarRespuestaSuperAdmin(
+                historial,
+                { phone: from, name: senderName },
+                phoneNumberId,
+                { assignedAdvisor, availableStaff: advisors }
+            )
+        );
+
+        // Step G/H: guardar y enviar
+        if (respuesta && respuesta.trim()) {
+            await logger.stage('G', 'superadmin.saveMessage (respuesta)', () =>
+                ClinicasDbService.saveMessage(conversation.id, company.id, 'agent', respuesta)
+            );
+            try {
+                await logger.stage('H', 'superadmin.KapsoService.enviarMensaje', async () => {
+                    await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
+                });
+            } catch (sendError) {
+                logger.error('[SuperAdmin] Fallo al enviar (respuesta ya en DB)', sendError);
+            }
+        } else {
+            logger.info('[SuperAdmin] Sin texto a enviar (tool interactiva)');
         }
     }
 

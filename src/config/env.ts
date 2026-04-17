@@ -79,6 +79,21 @@ export const env = {
      * Ej: https://web-lovat-sigma-58.vercel.app
      */
     ADMIN_PORTAL_URL: process.env.ADMIN_PORTAL_URL || '',
+
+    /**
+     * URL base del onboarding de Kapso (embedded signup de WhatsApp Business).
+     * Bruno se la envía al owner para que conecte su número. Se concatena con
+     * `?company_id=...&slug=...` para correlacionar la conexión con el tenant.
+     * Ej: https://app.kapso.ai/embed/signup
+     */
+    KAPSO_ONBOARDING_URL: process.env.KAPSO_ONBOARDING_URL || '',
+
+    /**
+     * UUID de la company "platform" (Bruno Lab). Debe coincidir con la fila
+     * que tiene `clinicas.companies.kind = 'platform'` en BD. Cuando el webhook
+     * resuelve el tenant a esta company, se activa el agente SuperAdmin (Bruno).
+     */
+    BRUNO_LAB_COMPANY_ID: process.env.BRUNO_LAB_COMPANY_ID || '',
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
@@ -88,7 +103,7 @@ const optionalKeys = [
     'GOOGLE_SERVICE_ACCOUNT_JSON', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'GCAL_LOOK_AHEAD_DAYS',
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
     'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
-    'ADMIN_PORTAL_URL',
+    'ADMIN_PORTAL_URL', 'KAPSO_ONBOARDING_URL', 'BRUNO_LAB_COMPANY_ID',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

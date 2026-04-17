@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { SYSTEM_PATIENT_SKILL_INDEX } from '@/lib/skills-catalog';
+import { requireAdmin } from '@/lib/auth';
 
 function db() {
     return (createClient(
@@ -46,6 +47,10 @@ export async function PATCH(
     const { companyId, skillId } = await params;
     const kind = parseKind(req);
     if (!kind) return NextResponse.json({ error: 'query param "kind" requerido (system|private)' }, { status: 400 });
+
+    // Toggles y edición restringidos al admin de la empresa.
+    const auth = requireAdmin(req, companyId);
+    if (!auth.ok) return auth.response;
 
     const body = await req.json().catch(() => ({}));
 
@@ -116,6 +121,9 @@ export async function DELETE(
     if (kind !== 'private') {
         return NextResponse.json({ error: 'Solo se pueden borrar skills privadas. Para system usar PATCH enabled=false.' }, { status: 400 });
     }
+
+    const auth = requireAdmin(req, companyId);
+    if (!auth.ok) return auth.response;
 
     const { data, error } = await db()
         .from('company_skills')
