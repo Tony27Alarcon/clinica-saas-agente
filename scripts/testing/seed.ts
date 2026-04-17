@@ -89,6 +89,7 @@ async function seed() {
                     { days: ['sab'], open: '09:00', close: '14:00' },
                 ],
                 active: true,
+                kind: 'tenant',
             }])
             .select('id, name')
             .single();
@@ -292,6 +293,7 @@ async function seed() {
                 phone: TEST_CONFIG.TEST_ADMIN_PHONE,
                 max_daily_appointments: 8,
                 active: true,
+                staff_role: 'owner',
             }])
             .select('id, name, phone')
             .single();
@@ -323,6 +325,7 @@ async function seed() {
                 email: 'laura@clinicabella.test',
                 max_daily_appointments: 6,
                 active: true,
+                staff_role: 'staff',
             }])
             .select('id, name, phone')
             .single();
@@ -333,6 +336,18 @@ async function seed() {
     } else {
         console.log(`✓ Staff secundario existente: ${staff2.name} (${staff2.id})`);
     }
+
+    // Roles funcionales (sql/add_bruno_onboarding_fields.sql): owner único + staff.
+    const { error: staffRoleErr } = await db()
+        .from('staff')
+        .update({ staff_role: 'owner' })
+        .eq('id', staff.id);
+    if (staffRoleErr) throw new Error(`Error actualizando staff_role (principal): ${staffRoleErr.message}`);
+    const { error: staff2RoleErr } = await db()
+        .from('staff')
+        .update({ staff_role: 'staff' })
+        .eq('id', staff2.id);
+    if (staff2RoleErr) throw new Error(`Error actualizando staff_role (secundario): ${staff2RoleErr.message}`);
 
     // ── 6. Availability slots ────────────────────────────────────────────────
     const { count: slotCount } = await db()

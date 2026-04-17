@@ -43,6 +43,8 @@ body {
   background: var(--bruno-cream);
   color: var(--bruno-ink);
   line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   /* GRID BACKGROUND — firma visual de Bruno Lab */
   background-image:
     linear-gradient(var(--bruno-line) 1px, transparent 1px),
@@ -50,6 +52,7 @@ body {
   background-size: 48px 48px;
   overflow-x: hidden;
 }
+img, svg { max-width: 100%; display: block; }
 
 /* ==========================================================
    NAVEGACIÓN FLOTANTE — PILL SHAPE (firma de Bruno)
@@ -109,9 +112,15 @@ body {
 }
 .nav-cta:hover { transform: translateY(-1px); }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   .nav-links { display: none; }
-  .nav-pill { padding: 8px 8px 8px 18px; }
+  .nav-pill { padding: 8px 8px 8px 18px; gap: 12px; }
+  .nav-brand { font-size: 15px; }
+  .nav-brand .brand-sub { display: none; }
+}
+@media (max-width: 420px) {
+  .nav-wrapper { top: 12px; width: calc(100% - 24px); }
+  .nav-cta { padding: 9px 14px; font-size: 12px; }
 }
 
 /* ==========================================================
@@ -865,24 +874,109 @@ footer::before {
 /* ==========================================================
    RESPONSIVE
    ========================================================== */
-@media (max-width: 960px) {
-  .personality-grid { grid-template-columns: repeat(2, 1fr); }
-  .logo-showcase { grid-template-columns: 1fr; padding: 30px; }
-  .logo-variants { grid-template-columns: repeat(2, 1fr); }
-  .voice-split { grid-template-columns: 1fr; }
-  .components-grid { grid-template-columns: 1fr; }
-  .patterns-grid { grid-template-columns: 1fr; }
-  .logo-rules { grid-template-columns: 1fr; }
-  .scale-row { grid-template-columns: 1fr; gap: 8px; padding: 20px; }
-  .scale-spec { text-align: left; }
-  .type-hero { padding: 30px; }
-  .footer-top { grid-template-columns: 1fr; gap: 40px; }
+
+/* Tablet grande / laptops pequeñas */
+@media (max-width: 1100px) {
+  .scale-row { grid-template-columns: 140px 1fr 200px; padding: 22px 24px; }
 }
-@media (max-width: 600px) {
-  section.chapter { padding: 60px 5vw; }
-  .hero { padding: 130px 5vw 60px; }
+
+/* Tablet */
+@media (max-width: 960px) {
+  body { background-size: 40px 40px; }
+  .personality-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .logo-showcase { grid-template-columns: 1fr; padding: 36px; gap: 32px; }
+  .logo-main { padding: 32px 20px; }
+  .logo-big { font-size: 52px; }
+  .logo-variants { grid-template-columns: repeat(2, 1fr); }
+  .logo-rules { grid-template-columns: 1fr; }
+  .voice-split { grid-template-columns: 1fr; gap: 16px; }
+  .voice-col { padding: 28px 24px; }
+  .components-grid { grid-template-columns: 1fr; gap: 18px; }
+  .components-grid > .component-card[style*="span 2"] { grid-column: span 1 !important; }
+  .patterns-grid { grid-template-columns: 1fr; gap: 18px; }
+  .scale-row { grid-template-columns: 1fr; gap: 10px; padding: 22px 24px; }
+  .scale-spec { text-align: left; }
+  .type-hero { padding: 36px 28px; }
+  .type-hero .big-aa { font-size: clamp(96px, 24vw, 200px); }
+  .logo-showcase, .type-hero { box-shadow: 5px 5px 0 var(--bruno-ink); }
+  .footer-top { grid-template-columns: 1fr; gap: 40px; }
+  .palette-section { padding: 70px 6vw; }
+}
+
+/* Móvil estándar */
+@media (max-width: 640px) {
+  body { background-size: 32px 32px; }
+  section.chapter { padding: 56px 5vw; }
+  .palette-section { padding: 56px 5vw; }
+  .hero { padding: 120px 5vw 60px; }
+  .hero-badge { margin-bottom: 28px; font-size: 12px; padding: 8px 16px; }
+  .hero-sub { margin-bottom: 36px; }
+  .hero-ctas { gap: 12px; margin-bottom: 40px; }
+  .btn-primary, .btn-secondary { padding: 14px 24px; font-size: 14px; width: 100%; justify-content: center; max-width: 320px; }
+  .hero-social-proof { font-size: 12px; padding: 10px 18px; text-align: center; }
+
+  .chapter-intro { font-size: 16px; margin-bottom: 36px; }
+
   .personality-grid { grid-template-columns: 1fr; }
-  .copy-row { grid-template-columns: 1fr; gap: 6px; }
+  .trait-card { padding: 26px 22px; }
+
+  .logo-showcase { padding: 24px; gap: 24px; }
+  .logo-main { padding: 28px 16px; }
+  .logo-big { font-size: 40px; }
+  .logo-variants { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .logo-variant { padding: 24px 14px; }
+  .logo-rule-box { padding: 20px; }
+
+  .palette-row { gap: 14px; }
+  .color-chip .swatch { height: 100px; }
+
+  .type-hero { padding: 28px 22px; }
+  .type-hero .big-aa { font-size: clamp(88px, 32vw, 160px); margin-bottom: 16px; }
+  .type-hero .sub { font-size: 15px; }
+
+  .scale-row { padding: 18px 20px; }
+  .scale-label { font-size: 10px; }
+  .scale-sample { font-size: 28px !important; }
+
+  .component-card { padding: 22px; }
+  .component-demo { padding: 28px 14px; min-height: 120px; }
+  .mini-stats-demo { gap: 16px; padding: 14px 20px; border-radius: 24px; }
+  .mini-stats-demo .item { padding: 0 6px; }
+  .mini-stats-demo .num { font-size: 18px; }
+  .mini-stats-demo .divider { display: none; }
+  .stat-card-demo { transform: rotate(-2deg) scale(0.95); }
+
+  .icon-grid { padding: 20px; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  .icon-tile .emoji { font-size: 26px; }
+
+  .copy-row { grid-template-columns: 1fr; gap: 6px; padding: 18px 20px; }
+  .copy-row .text { font-size: 15px; }
+
+  /* Tabla de espaciado → scroll horizontal suave en móvil */
+  .space-table-wrap { padding: 18px !important; }
+  .space-table-wrap table { font-size: 13px; min-width: 460px; }
+  .space-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -6px; }
+  .space-table-scroll table th,
+  .space-table-scroll table td { padding: 12px 10px !important; white-space: nowrap; }
+  .space-table-scroll table td:last-child { white-space: normal; min-width: 180px; }
+
+  footer { padding: 60px 5vw 30px; margin-top: 60px; }
+  .footer-col h5 { margin-bottom: 10px; }
+  .footer-bottom { flex-direction: column; gap: 10px; font-size: 10px; }
+}
+
+/* Móvil pequeño */
+@media (max-width: 420px) {
+  .hero { padding: 110px 4vw 48px; }
+  .hero h1 { font-size: clamp(40px, 12vw, 56px); }
+  .chapter h2 { font-size: clamp(30px, 8vw, 40px); }
+  .logo-variants { grid-template-columns: 1fr; }
+  .personality-grid { gap: 14px; }
+  .trait-card { box-shadow: 4px 4px 0 var(--bruno-ink); }
+  .color-chip { box-shadow: 4px 4px 0 var(--bruno-ink); }
+  .type-hero .big-aa { font-size: 96px; }
+  .scale-sample { font-size: 24px !important; }
+  .footer-title { font-size: clamp(34px, 9vw, 48px); }
 }
 
 /* Utilidad */
@@ -900,7 +994,7 @@ footer::before {
      ========================================================== -->
 <nav class="nav-wrapper">
   <div class="nav-pill">
-    <div class="nav-brand"><span class="spark">✦</span> Bruno Lab <span style="font-weight:500;font-size:13px;color:var(--bruno-gray);margin-left:8px;">Brand System</span></div>
+    <div class="nav-brand"><span class="spark">✦</span> Bruno Lab <span class="brand-sub" style="font-weight:500;font-size:13px;color:var(--bruno-gray);margin-left:8px;">Brand System</span></div>
     <div class="nav-links">
       <a href="#voz">Voz</a>
       <a href="#logo">Logo</a>
@@ -1500,7 +1594,8 @@ footer::before {
   <h2>Múltiplos de 8. Siempre.</h2>
   <p class="chapter-intro">Toda la UI se construye sobre una grid base de 8px (con algunos medios pasos a 4px para casos de ajuste fino). El grid de fondo del sitio es un múltiplo directo de esto: 48px = 6 unidades. Esta disciplina hace que todo encaje sin pensar.</p>
 
-  <div style="background:#fff;border:2px solid var(--bruno-ink);border-radius:20px;padding:30px;box-shadow:5px 5px 0 var(--bruno-ink);">
+  <div class="space-table-wrap" style="background:#fff;border:2px solid var(--bruno-ink);border-radius:20px;padding:30px;box-shadow:5px 5px 0 var(--bruno-ink);">
+   <div class="space-table-scroll">
     <table style="width:100%;border-collapse:collapse;">
       <thead>
         <tr style="border-bottom:2px solid var(--bruno-ink);">
@@ -1520,6 +1615,7 @@ footer::before {
         <tr><td style="padding:14px;font-family:'JetBrains Mono',monospace;">--space-8</td><td style="padding:14px;font-weight:700;">96px</td><td style="padding:14px;color:var(--bruno-gray);">Separación entre secciones (desktop)</td></tr>
       </tbody>
     </table>
+   </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:30px;">

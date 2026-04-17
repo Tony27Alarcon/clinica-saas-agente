@@ -210,7 +210,7 @@ export class WebhookController {
                         env.KAPSO_PHONE_NUMBER_ID;
                     const body = NotificationService.buildSystemErrorBody({
                         message:
-                            'El pipeline se cayó procesando un mensaje. Revisar logs en `logs_eventos` filtrando por el request_id de abajo.',
+                            'El pipeline se cayó procesando un mensaje. Revisar logs en `clinicas.logs_eventos` filtrando por el request_id de abajo.',
                         error: err,
                         eventPreview,
                     });
@@ -454,6 +454,10 @@ export class WebhookController {
         mediaId: string;
     }): Promise<void> {
         const { event, company, from, senderName, text, phoneNumberId, messageId, messageType, safeKapsoUrl, metaDirectUrl, mediaId } = ctx;
+
+        // Enriquecer el contexto de logging lo antes posible: a partir de acá,
+        // todos los logs (y las filas en clinicas.logs_eventos) llevan el tenant.
+        logger.enrichContext({ companyId: company.id });
 
         // Filtros tempranos
         if (!from || (!text && !safeKapsoUrl && !metaDirectUrl && !mediaId)) {
@@ -805,6 +809,10 @@ export class WebhookController {
     }): Promise<void> {
         const { event, company, staffMember, from, senderName, text, phoneNumberId, messageId, messageType } = ctx;
 
+        // Si se entró por el path de staff directo (sin pasar por processClinicasEvent),
+        // garantizamos que el companyId quede en el contexto de logging.
+        logger.enrichContext({ companyId: company.id });
+
         if (!from || !text) {
             logger.debug('[Admin] Evento ignorado (sin remitente o texto)');
             return;
@@ -896,6 +904,8 @@ export class WebhookController {
         messageType: string;
     }): Promise<void> {
         const { event, company, from, senderName, text, phoneNumberId, messageId, messageType } = ctx;
+
+        logger.enrichContext({ companyId: company.id });
 
         if (!from || !text) {
             logger.debug('[SuperAdmin] Evento ignorado (sin remitente o texto)');

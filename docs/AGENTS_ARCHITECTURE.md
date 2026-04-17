@@ -2,6 +2,20 @@
 
 > Taxonomía de los agentes del sistema, cómo se enrutan los mensajes y dónde vive cada pieza en el código.
 
+---
+
+## Regla de oro — propiedad de esquemas en Supabase
+
+La base de datos es **compartida** con otro proyecto. Para que los dos coexistan sin pisarse:
+
+1. **Este proyecto vive íntegramente en el esquema `clinicas`.** Toda tabla, función y trigger nuevos se crean ahí. Todo acceso desde el backend usa `supabase.schema('clinicas')` o el RPC correspondiente.
+2. **En `public` NO escribimos ni leemos.** `public` pertenece al otro proyecto (tiene su propio modelo: `agents`, `contacts`, `threads`, `messages`, `projects`, `tasks`, etc., todos con IDs `bigint`). No agregamos tablas, no alteramos sus tablas, no corremos `CREATE` ahí. Si alguien necesita algo nuevo, va a `clinicas`.
+3. **Sin excepciones.** Todo lo que teníamos en `public` (`logs_eventos`, `is_admin()`, views de logs, `fn_request_trace()`) se **eliminó** con `sql/cleanup_public_artifacts.sql`. La tabla híbrida `public.media_assets` **no se toca** porque el otro proyecto la usa; nuestra versión limpia es `clinicas.media_assets`.
+4. **SQL en el repo.** La carpeta `sql/` solo contiene scripts que aplican sobre `clinicas`. El único script que menciona `public` es `cleanup_public_artifacts.sql`, y solo para hacer `DROP`. Si un archivo nuevo pide tocar `public.*` para crear/alterar, se rechaza en code review.
+5. **Nombres.** Cuando un mismo concepto existe en ambos mundos (`agents`, `contacts`, `companies`, `messages`, `channels`, `media_assets`), **siempre** referirse al nuestro como `clinicas.<tabla>` en SQL y con `.schema('clinicas').from('<tabla>')` en código. Nunca dejar `FROM agents` a secas.
+
+Cualquier cambio que necesite tocar `public` se discute antes con el otro equipo.
+
 Tres agentes, un solo webhook, un árbol de decisión único:
 
 ```
@@ -160,6 +174,36 @@ UPDATE clinicas.companies
 | AI method | `generarRespuestaSuperAdmin` | `generarRespuestaAdmin` (+ `generarRespuestaOnboarding`) | `generarRespuestaClinicas` |
 | Tools | `bruno-onboarding.tools.ts` + `bruno-commercial.tools.ts` | `clinicas-admin.tools.ts` | `clinicas.tools.ts` |
 | System prompt | Hardcoded (basado en playbook) | Hardcoded (método) | Compilado en BD via `PromptCompilerService` |
+
+---
+
+## Envío de documentos HTML por WhatsApp
+
+El agente puede **entregar contenido enriquecido** (resúmenes, confirmaciones, reportes) como **archivo `.html` adjunto** en el chat de WhatsApp. La pieza está implementada como tool de AI SDK, pero **aún no está cableada** a ningún `generateText` en `AiService` (ver checklist en `docs/PENDIENTES.md` → *HTML enriquecido en mensajes*).
+
+### Implementación actual
+
+| Pieza | Detalle |
+|---|---|
+| **Código** | `src/tools/send-html.tool.ts` — factory `createSendHtmlDocumentTool(phoneNumberId, telefono, folderHint?)` |
+| **Export** | `src/tools/index.ts` reexporta el módulo |
+| **Entrada del modelo** | `html` (string ≥ 20 caracteres), `filename` (nombre visible; se añade `.html` si falta), `caption` (opcional, máx. 1024 caracteres) |
+| **Almacenamiento** | `MediaService.uploadToSupabase`: bucket Supabase **`mensajes`**, ruta lógica `html/<folderHint>/…`, MIME `text/html; charset=utf-8`, extensión de archivo `.html` |
+| **Entrega** | `KapsoService.enviarDocumento(telefono, { link, filename, caption }, phoneNumberId)` — documento por URL pública (mismo patrón que otros adjuntos) |
+| **Simulación** | Si Kapso no está configurado, el envío se loguea como simulado (igual que video/documento) |
+
+### Comportamiento esperado del LLM
+
+La descripción de la tool pide HTML **autocontenido**: `<!DOCTYPE html>`, `<html>`, `<head>` con estilos en línea o `<style>`, `<body>`, sin dependencias externas, UTF-8. Sirve para que el usuario abra el archivo en el navegador del móvil u ordenador.
+
+### Estado respecto a los tres agentes
+
+Hoy **ningún** flujo (`generarRespuestaSuperAdmin`, `generarRespuestaAdmin`, `generarRespuestaClinicas`, onboarding) incluye esta tool en el objeto `tools` del `generateText`. Hasta que se registre, el modelo **no puede** invocar el envío de HTML.
+
+### Riesgos y mejoras pendientes (no bloquean el wire)
+
+- El HTML se sube a una URL **pública**; conviene validar o sanitizar (p. ej. scripts) antes de exponerlo (pendiente en `PENDIENTES.md`).
+- Opcional: inyectar branding (`company.logo_url`, colores) en el contexto del prompt para que el HTML refleje la clínica.
 
 ---
 

@@ -2,8 +2,14 @@ import { supabase } from '../config/supabase';
 import type { LogEntry, LogLevel } from '../utils/logger';
 
 /**
- * Sink que persiste los logs del backend en la tabla `public.logs_eventos`
+ * Sink que persiste los logs del backend en la tabla `clinicas.logs_eventos`
  * de Supabase, con buffer en memoria + batch insert.
+ *
+ * ¿Por qué `clinicas` y no `public`?
+ *   `public` pertenece a otro proyecto (ver regla de oro en
+ *   `docs/AGENTS_ARCHITECTURE.md`). Además, los IDs de `contacts` y
+ *   `conversations` son UUID — la tabla vieja `public.logs_eventos` los usaba
+ *   como BIGINT, así que todo UUID terminaba en NULL y rompía el drilldown.
  *
  * ¿Por qué buffer en memoria?
  *   Hacer un INSERT por log mata Supabase: cada webhook puede emitir 10-30
@@ -31,14 +37,15 @@ import type { LogEntry, LogLevel } from '../utils/logger';
 // Tipos
 // ============================================================================
 
-/** Forma exacta que se inserta en `public.logs_eventos`. */
+/** Forma exacta que se inserta en `clinicas.logs_eventos`. */
 interface LogRow {
     created_at: string;
     level: string;
     message: string;
     request_id: string | null;
-    contacto_id: number | null;
-    conversacion_id: number | null;
+    company_id: string | null;
+    contact_id: string | null;
+    conversation_id: string | null;
     stage: string | null;
     tipo: string | null;
     error_message: string | null;
@@ -50,6 +57,18 @@ interface LogRow {
     outcome: string | null;
     reason: string | null;
     summary: string | null;
+}
+
+/**
+ * UUID v4 (o cualquier versión sensata). Postgres acepta el formato canónico
+ * sin mayúsculas importando demasiado, pero insertar garbage hace fallar el
+ * batch entero. Validamos antes de enviar.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toUuidOrNull(v: unknown): string | null {
+    if (typeof v !== 'string') return null;
+    return UUID_RE.test(v) ? v : null;
 }
 
 // ============================================================================
@@ -149,18 +168,15 @@ export class LogService {
     }
 
     /**
-     * Convierte una `LogEntry` del logger a una row de la tabla. Tolerante a
-     * tipos: si `contactoId` viene como string lo intenta parsear, si no lo
-     * deja en null.
+     * Convierte una `LogEntry` del logger a una row de la tabla.
+     *
+     * `company_id`, `contact_id` y `conversation_id` son UUID (columnas
+     * `uuid` en Postgres). Si el valor en el context no es un UUID válido lo
+     * mandamos como null para no romper el batch entero: Postgres rechaza
+     * strings no-UUID con un error que tira TODO el INSERT.
      */
     private static toRow(entry: LogEntry): LogRow {
         const ctx = entry.context || {};
-
-        const toIntOrNull = (v: unknown): number | null => {
-            if (v === undefined || v === null) return null;
-            const n = typeof v === 'number' ? v : Number(v);
-            return Number.isFinite(n) ? n : null;
-        };
 
         // Limpia `extra`: si vino con `error` adentro (lo agrega logger.error
         // como string para grep en consola), lo sacamos para no duplicarlo
@@ -180,8 +196,9 @@ export class LogService {
             // Sanitizar el mensaje principal y los stacks de error
             message: LogService.sanitize(entry.message),
             request_id: typeof ctx.requestId === 'string' ? ctx.requestId : null,
-            contacto_id: toIntOrNull(ctx.contactoId),
-            conversacion_id: toIntOrNull(ctx.conversacionId),
+            company_id: toUuidOrNull(ctx.companyId),
+            contact_id: toUuidOrNull(ctx.contactoId),
+            conversation_id: toUuidOrNull(ctx.conversacionId),
             stage: typeof ctx.stage === 'string' ? ctx.stage : null,
             tipo: typeof ctx.tipo === 'string' ? ctx.tipo : null,
             error_message: entry.error?.message ? LogService.sanitize(entry.error.message) : null,
@@ -262,7 +279,10 @@ export class LogService {
         const batch = LogService.buffer.splice(0, LogService.buffer.length);
 
         try {
-            const { error } = await supabase.from('logs_eventos').insert(batch);
+            const { error } = await supabase
+                .schema('clinicas')
+                .from('logs_eventos')
+                .insert(batch);
             if (error) {
                 // No usamos logger.* acá → recursión infinita si supabase está
                 // caído. console.error directo.

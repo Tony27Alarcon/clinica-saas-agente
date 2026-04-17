@@ -36,9 +36,11 @@ function header(title: string) {
 }
 
 function runNpmScript(script: string, extraArgs: string[] = []): boolean {
+    // Windows: spawnSync(..., { shell: false }) con npm.cmd suele fallar con EINVAL;
+    // hace que el smoke falle al instante en el paso seed/test/unit/e2e.
     const res = spawnSync(NPM, ['run', script, ...(extraArgs.length ? ['--', ...extraArgs] : [])], {
         stdio: 'inherit',
-        shell: false,
+        shell: isWin,
     });
     return res.status === 0;
 }

@@ -39,10 +39,16 @@ export interface LogContext {
     requestId?: string;
     /** Teléfono del contacto, si aplica. */
     contacto?: string;
-    /** ID del contacto en BD (numérico). */
+    /**
+     * ID del contacto en BD. UUID (string) en el esquema `clinicas`.
+     * Se mantiene `number` por compatibilidad con el código legacy (eliminable
+     * cuando `public.logs_eventos` quede totalmente archivada).
+     */
     contactoId?: number | string;
-    /** ID de la conversación en BD. */
+    /** ID de la conversación en BD. UUID (string) en el esquema `clinicas`. */
     conversacionId?: number | string;
+    /** ID del tenant (UUID en `clinicas.companies`). Se resuelve temprano en el webhook. */
+    companyId?: string;
     /** wamid del mensaje de WhatsApp, si aplica. */
     messageId?: string;
     /** Etapa actual del pipeline (A, B, C, D, E, F, G). */
@@ -101,8 +107,12 @@ function formatContext(ctx: LogContext | undefined): string {
     if (!ctx) return '';
     const parts: string[] = [];
     if (ctx.requestId) parts.push(`req=${ctx.requestId}`);
+    if (ctx.companyId) parts.push(`co=${String(ctx.companyId).substring(0, 8)}`);
     if (ctx.contacto) parts.push(`tel=${ctx.contacto}`);
-    if (ctx.conversacionId !== undefined) parts.push(`conv=${ctx.conversacionId}`);
+    if (ctx.conversacionId !== undefined) {
+        const conv = String(ctx.conversacionId);
+        parts.push(`conv=${conv.length > 8 ? conv.substring(0, 8) : conv}`);
+    }
     if (ctx.stage) parts.push(`stage=${ctx.stage}`);
     return parts.length > 0 ? ` [${parts.join(' ')}]` : '';
 }

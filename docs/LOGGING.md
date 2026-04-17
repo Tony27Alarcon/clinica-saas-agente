@@ -6,10 +6,30 @@ Este documento describe el sistema de logs pensado para que una IA pueda leerlos
 
 | Canal | Formato | Quién lo lee |
 |---|---|---|
-| Consola (Railway) | `[LEVEL] marker [ts] [req=... tel=...] mensaje {extra}` | Humanos depurando en vivo. |
-| `public.logs_eventos` (Supabase) | JSON estructurado con columnas dedicadas. | IA, dashboards, post-mortems. |
+| Consola (Railway) | `[LEVEL] marker [ts] [req=… co=… tel=… conv=…] mensaje {extra}` | Humanos depurando en vivo. |
+| `clinicas.logs_eventos` (Supabase) | JSON estructurado con columnas dedicadas. | IA, dashboards, post-mortems. |
 
 El logger (`src/utils/logger.ts`) emite a ambos. El sink a BD vive en `src/services/log.service.ts` y batchea inserts.
+
+> **Historial:** la tabla vieja `public.logs_eventos` (y sus views/RPC) fue **eliminada** por `sql/cleanup_public_artifacts.sql`. El sink escribe exclusivamente en `clinicas.logs_eventos` (ver `sql/add_logs_eventos_clinicas.sql`).
+
+> **Retención:** 60 días. Un job de `pg_cron` llamado `clinicas_logs_eventos_retention_60d` corre todos los días a las 03:15 UTC y borra todo lo que pasó de esa ventana. Se crea con `sql/add_logs_eventos_retention.sql`. Para cambiar la ventana, re-ejecutar ese script con otro `interval`.
+
+### Columnas relevantes de `clinicas.logs_eventos`
+
+| Columna | Tipo | Origen en el logger |
+|---|---|---|
+| `request_id` | text | `context.requestId` |
+| `company_id` | uuid | `context.companyId` (se setea al entrar al webhook) |
+| `contact_id` | uuid | `context.contactoId` (post Step A) |
+| `conversation_id` | uuid | `context.conversacionId` (post Step C) |
+| `stage` | text | `context.stage` (se setea automáticamente dentro de `logger.stage(...)`) |
+| `tipo` | text | `context.tipo` (tipo de mensaje WhatsApp) |
+| `event_code` / `outcome` / `reason` / `summary` | text | campos estructurados de `logger.event()` |
+| `error_message` / `error_stack` | text | pasado desde `logger.error(...)` / `logger.critical(...)` |
+| `extra` | jsonb | `data` del `event()` / `extra` del clásico, sanitizado |
+
+El sink valida que `company_id`, `contact_id` y `conversation_id` sean UUID antes de insertar; si no lo son, los manda como `NULL` para no romper el batch.
 
 ## API rápida
 
@@ -70,30 +90,36 @@ Fuente de verdad: `src/utils/log-events.ts`. Los grupos actuales:
 
 ## Consultas típicas para la IA
 
+> Las views/RPC (`v_conversation_timeline`, `v_daily_outcome_ratios`, `v_reason_breakdown_7d`, `fn_request_trace`) que vivían en `public` fueron **eliminadas** por `sql/cleanup_public_artifacts.sql`. Su recreación sobre `clinicas.logs_eventos` con UUIDs está como tarea abierta en `docs/PENDIENTES.md` → *Observabilidad — views/RPC*. Mientras tanto, queries directas a la tabla:
+
 Timeline completo de una conversación:
 ```sql
-select * from v_conversation_timeline
-where conversacion_id = $1
+select created_at, level, stage, event_code, outcome, reason, summary, message
+from clinicas.logs_eventos
+where conversation_id = $1
 order by created_at;
 ```
 
-Drill-down por request_id (todo lo que pasó en un webhook):
+Drill-down por `request_id` (todo lo que pasó en un webhook):
 ```sql
-select * from fn_request_trace($1);
+select created_at, level, stage, event_code, outcome, message, error_message
+from clinicas.logs_eventos
+where request_id = $1
+order by created_at;
 ```
 
-Ratios del último día, agrupados por outcome:
+Todo lo de un tenant en las últimas 24h:
 ```sql
-select * from v_daily_outcome_ratios where day = current_date;
-```
-
-Top reasons detrás de los fallbacks/failures de la semana:
-```sql
-select * from v_reason_breakdown_7d where outcome = 'fallback';
+select date_trunc('hour', created_at) h, outcome, count(*)
+from clinicas.logs_eventos
+where company_id = $1
+  and created_at > now() - interval '1 day'
+group by 1, 2
+order by 1 desc;
 ```
 
 ## Cómo agregar un código nuevo
 
 1. Definir la entrada en `LOG_EVENTS` (o `LOG_REASONS`) en `src/utils/log-events.ts`. Documentar cuándo se emite.
 2. Importar y usarlo desde el call site con `logger.event()`.
-3. Si encaja en un dashboard o métrica, agregar view/RPC en `sql/add_logs_eventos_ai_fields.sql` (o nueva migración).
+3. Si encaja en un dashboard o métrica, agregar view/RPC en el esquema `clinicas` con una nueva migración en `sql/`.

@@ -10,7 +10,7 @@ import { ReminderService } from './services/reminder.service';
 
 // ============================================================================
 // Wiring del sink de persistencia: cada log emitido por el logger se buffer-ea
-// y se inserta en batch en `public.logs_eventos` (Supabase). Esto debe quedar
+// y se inserta en batch en `clinicas.logs_eventos` (Supabase). Esto debe quedar
 // configurado ANTES que cualquier otro código emita logs, para no perderlos.
 // ============================================================================
 addLogSink((entry) => LogService.enqueue(entry));
