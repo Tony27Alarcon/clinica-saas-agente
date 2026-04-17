@@ -2,6 +2,7 @@ import axios from 'axios';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { KapsoService } from './kapso.service';
+import { DOWNLOAD_TIMEOUT_MS } from '../config/media.constants';
 
 export class MediaService {
     /**
@@ -17,7 +18,7 @@ export class MediaService {
                 .from('mensajes')
                 .upload(fileName, buffer, {
                     contentType: mimeType,
-                    cacheControl: '3600',
+                    cacheControl: '86400',
                     upsert: false
                 });
 
@@ -74,9 +75,10 @@ export class MediaService {
             // 3. Fallback: descarga HTTP directa
             else {
                 const headers: any = kapsoToken ? { 'Authorization': `Bearer ${kapsoToken}` } : {};
-                const response = await axios.get(url, { 
+                const response = await axios.get(url, {
                     responseType: 'arraybuffer',
-                    headers
+                    headers,
+                    timeout: DOWNLOAD_TIMEOUT_MS,
                 });
                 buffer = Buffer.from(response.data, 'binary');
                 mimeType = response.headers['content-type'] || 'application/octet-stream';

@@ -4,8 +4,10 @@ import { AiService } from '../services/ai.service';
 import { KapsoService } from '../services/kapso.service';
 import { KapsoHistoryImportService } from '../services/kapso-history-import.service';
 import { MediaService } from '../services/media.service';
+import { MediaPartsService, type GeminiPart } from '../services/media-parts.service';
 import { NotificationService } from '../services/notification.service';
 import { logger, newRequestId, getContext, toErrorMessage } from '../utils/logger';
+import { LOG_EVENTS, LOG_REASONS } from '../utils/log-events';
 import { env } from '../config/env';
 
 /**
@@ -266,6 +268,17 @@ export class WebhookController {
             event.message?.text?.body ||
             event.message?.text ||
             event.message?.button?.text ||
+            // Captions de media: WhatsApp permite adjuntar texto a imagen/video/documento.
+            // Si no los extraíamos, el mensaje quedaba sin texto y un evento tipado
+            // 'unsupported'/'unknown' con caption útil caía al fallback "no pude visualizarlo".
+            event.message?.image?.caption ||
+            event.message?.video?.caption ||
+            event.message?.document?.caption ||
+            event.message?.audio?.caption ||
+            event.image?.caption ||
+            event.video?.caption ||
+            event.document?.caption ||
+            event.audio?.caption ||
             // Soporte para botones interactivos (Reply Buttons)
             event.message?.interactive?.button_reply?.title ||
             event.message?.interactive?.button_reply?.id ||
@@ -411,7 +424,25 @@ export class WebhookController {
         // 'unsupported' pero contienen body/caption útil — en ese caso seguimos el flujo
         // normal usando ese texto.
         if (UNREADABLE_MESSAGE_TYPES.has(messageType) && !text?.trim()) {
-            logger.warn(`[Clinicas] Mensaje tipo "${messageType}" sin texto. Enviando fallback.`);
+            // Evento estructurado para consumo por IA. Filtrable en logs_eventos
+            // por event_code='webhook.fallback.sent' para medir recurrencia y
+            // en v_reason_breakdown_7d para ver los tipos reales que caen acá.
+            logger.event({
+                code: LOG_EVENTS.WEBHOOK_FALLBACK_SENT,
+                outcome: 'fallback',
+                reason: LOG_REASONS.TYPE_IN_UNREADABLE_SET,
+                summary: `Fallback "no pude visualizarlo": tipo=${messageType} sin texto recuperable`,
+                data: {
+                    messageType,
+                    rawType: event.type,
+                    innerType: event.message?.type,
+                    hasReferral: Boolean(event.message?.referral || event.referral),
+                    hasInteractive: Boolean(event.message?.interactive || event.interactive),
+                    hasMedia: Boolean(safeKapsoUrl || metaDirectUrl || mediaId),
+                    eventKeys: Object.keys(event || {}),
+                    innerKeys: event.message ? Object.keys(event.message) : [],
+                },
+            });
             try {
                 await KapsoService.enviarMensaje(
                     from,
@@ -584,9 +615,29 @@ export class WebhookController {
         }
         // ────────────────────────────────────────────────────────────────────────
 
-        // Step F: Generar respuesta IA
+        // Step E2: Si el mensaje entrante trae media, construir parts multimodales
+        // para que Gemini reciba la imagen/audio/documento nativamente.
+        let currentUserParts: GeminiPart[] | null = null;
+        const hasIncomingMedia = Boolean(safeKapsoUrl || metaDirectUrl || mediaId);
+        const isMediaType = ['image', 'audio', 'voice', 'video', 'document', 'sticker'].includes(messageType);
+        if (hasIncomingMedia && isMediaType) {
+            currentUserParts = await logger.stage('E2', 'clinicas.MediaParts.buildFromIncoming', () =>
+                MediaPartsService.buildFromIncoming(
+                    {
+                        mediaId: mediaId || undefined,
+                        phoneNumberId,
+                        url: safeKapsoUrl || metaDirectUrl || undefined,
+                        messageType,
+                        caption: text || undefined,
+                    },
+                    `contact-${contact.id}`
+                )
+            );
+        }
+
+        // Step F: Generar respuesta IA (con multimodal si aplica)
         const respuesta = await logger.stage('F', 'clinicas.AiService.generarRespuestaClinicas', () =>
-            AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId, company)
+            AiService.generarRespuestaClinicas(historial, agent, contact, conversation, phoneNumberId, company, currentUserParts)
         );
 
         // Step G/H: Guardar y enviar respuesta

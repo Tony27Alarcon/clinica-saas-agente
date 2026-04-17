@@ -21,6 +21,7 @@ import {
     createClinicasNoReplyTool,
 } from '../tools/clinicas.tools';
 import { createScheduleReminderTool, createListRemindersTool, createCancelReminderTool } from '../tools/clinicas-reminder.tool';
+import type { GeminiPart } from './media-parts.service';
 import {
     createAdminSearchContactsTool,
     createAdminGetAppointmentsTool,
@@ -188,13 +189,44 @@ function buildCitasBlock(appointments: any[], tz: string): string {
 }
 
 export class AiService {
+    /**
+     * Fusiona el último mensaje del usuario con parts multimodales (imagen/audio/doc)
+     * para que Gemini reciba el media nativamente en lugar de un placeholder textual.
+     *
+     * Si `currentUserParts` es null, se devuelve el historial tal cual.
+     */
+    private static mergeMultimodalLastMessage(
+        historial: Array<{ role: 'user' | 'assistant'; content: string }>,
+        currentUserParts: GeminiPart[] | null
+    ): any[] {
+        if (!currentUserParts || currentUserParts.length === 0) return historial;
+
+        const idx = [...historial].reverse().findIndex(m => m.role === 'user');
+        if (idx === -1) return historial;
+        const realIdx = historial.length - 1 - idx;
+        const last = historial[realIdx];
+
+        const textCarrier = (last.content || '').trim();
+        const parts: GeminiPart[] = [];
+        // Preservar el texto original del historial como contexto textual adicional
+        if (textCarrier && !textCarrier.startsWith('[')) {
+            parts.push({ type: 'text', text: textCarrier });
+        }
+        parts.push(...currentUserParts);
+
+        const rebuilt = [...historial];
+        rebuilt[realIdx] = { role: 'user', content: parts as any };
+        return rebuilt;
+    }
+
     static async generarRespuestaClinicas(
         historial: Array<{ role: 'user' | 'assistant'; content: string }>,
         agent: any,
         contact: any,
         conversation: any,
         phoneNumberId: string,
-        company: any
+        company: any,
+        currentUserParts: GeminiPart[] | null = null
     ): Promise<string | null> {
         try {
             logger.info(`[IA Clinicas] Generando respuesta para ${contact?.phone} (Conv: ${conversation?.id}) — historial: ${historial.length} msgs`);
@@ -268,6 +300,14 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
     ("[AUTO]", "BOT:", "I am an automated assistant"), intervalos perfectamente regulares,
     texto sin sentido conversacional. NO usar con humanos tímidos o que escriben poco.
 
+--- CAPACIDADES MULTIMEDIA ---
+Cuando el paciente envía una imagen, nota de voz, video o documento (PDF), recibes el archivo real en el mensaje, no solo una etiqueta. Debes:
+  • Imagen: describir qué ves brevemente (receta, estudio, parte del cuerpo, documento de identidad, etc.) y actuar sobre su contenido.
+  • Audio/nota de voz: transcribir mentalmente en español y responder como si hubiera sido un mensaje de texto equivalente.
+  • PDF/documento: leer el contenido y responder lo que el paciente pregunte sobre él.
+  • Nunca digas "no puedo ver imágenes" ni "no puedo escuchar audios" — sí puedes.
+  • Si el archivo no se pudo procesar, el mensaje llegará como etiqueta "[Imagen]"/"[Nota de voz]" sin contenido: en ese caso pide amablemente que lo reenvíe o lo describa por texto.
+
 --- ORDEN DE EJECUCIÓN EN CADA TURNO ---
 1. NOTAS (si aplica): Si el estado del contacto no es "prospecto", llama getNotes UNA SOLA VEZ al inicio del turno para cargar contexto previo antes de responder.
 2. RESPUESTA: Genera tu respuesta usando el contexto de las notas, el historial y las PRÓXIMAS CITAS inyectadas en --- CONTACTO ACTUAL ---.
@@ -287,10 +327,12 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
 • Nunca menciones las tools, el sistema, ni las notas al paciente.
 • noReply activado: NO generes texto adicional. La respuesta queda cancelada por completo.`;
 
+            const mergedMessages = AiService.mergeMultimodalLastMessage(historial, currentUserParts);
+
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
                 system: systemPrompt,
-                messages: historial,
+                messages: mergedMessages,
                 temperature: 0.7,
                 maxSteps: 25,
                 tools: {
@@ -349,7 +391,7 @@ Protección anti-bucle (silenciosa — el interlocutor NUNCA sabe que existe):
                 const followUp = await generateText({
                     model: google(env.GEMINI_MODEL),
                     system: systemPrompt,
-                    messages: [...historial, ...intermediateMessages],
+                    messages: [...mergedMessages, ...intermediateMessages],
                     temperature: 0.7,
                     maxSteps: 10,
                     tools: {

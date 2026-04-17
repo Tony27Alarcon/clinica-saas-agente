@@ -44,6 +44,12 @@ interface LogRow {
     error_message: string | null;
     error_stack: string | null;
     extra: Record<string, unknown> | null;
+    // --- Campos estructurados para consumo por IA (pueden ser null en logs
+    //     "clásicos" de info/warn/error que no usan logger.event()) ----------
+    event_code: string | null;
+    outcome: string | null;
+    reason: string | null;
+    summary: string | null;
 }
 
 // ============================================================================
@@ -181,6 +187,13 @@ export class LogService {
             error_message: entry.error?.message ? LogService.sanitize(entry.error.message) : null,
             error_stack: entry.error?.stack ? LogService.sanitize(entry.error.stack) : null,
             extra: cleanedExtra,
+            // Campos estructurados: sanitizamos `summary` (puede contener PII
+            // si alguien metió el texto del usuario ahí sin querer). Los otros
+            // tres son vocabulario cerrado, no hace falta sanitizarlos.
+            event_code: entry.eventCode ?? null,
+            outcome: entry.outcome ?? null,
+            reason: entry.reason ?? null,
+            summary: entry.summary ? LogService.sanitize(entry.summary) : null,
         };
     }
 

@@ -137,6 +137,40 @@ export interface LogEntry {
     error?: { message: string; stack?: string };
     /** Metadata adicional libre. */
     extra?: Record<string, unknown>;
+    // ---- Campos estructurados para consumo por IA (opcionales) -------------
+    /** Código enumerado del evento (ver src/utils/log-events.ts). */
+    eventCode?: string;
+    /** ok | skipped | fallback | failed | noop */
+    outcome?: string;
+    /** snake_case, causa específica de la decisión. */
+    reason?: string;
+    /** Una línea ≤120 chars, autoexplicativa. */
+    summary?: string;
+}
+
+/** Payload del método `logger.event()` — log pensado para consumo por IA. */
+export interface LogEventPayload {
+    /** Código enumerado (usar LOG_EVENTS en src/utils/log-events.ts). */
+    code: string;
+    /** ok | skipped | fallback | failed | noop */
+    outcome: 'ok' | 'skipped' | 'fallback' | 'failed' | 'noop';
+    /** Una línea autoexplicativa ≤120 chars. Se trunca si es más larga. */
+    summary: string;
+    /** Causa específica en snake_case. Opcional pero muy recomendado. */
+    reason?: string;
+    /** Payload plano y chico (<20 keys, <2KB). */
+    data?: Record<string, unknown>;
+    /** Error original si el outcome es failed. */
+    error?: unknown;
+    /**
+     * Level explícito si la heurística por defecto no encaja. Por default:
+     *   failed   → ERROR
+     *   fallback → WARN
+     *   skipped  → INFO
+     *   ok       → INFO
+     *   noop     → DEBUG
+     */
+    level?: LogLevel;
 }
 
 export type LogSink = (entry: LogEntry) => void;
@@ -301,6 +335,116 @@ export const logger = {
             entry.error = { message: errMsg, stack: stack || undefined };
         }
         dispatchToSinks(entry);
+    },
+
+    // ------------------------------------------------------------------------
+    // Logs estructurados para consumo por IA
+    // ------------------------------------------------------------------------
+
+    /**
+     * Emite un log estructurado pensado para ser leído por una IA.
+     *
+     * A diferencia de `info/warn/error` (mensaje libre), este método exige:
+     *   - `code`      : vocabulario cerrado (ver LOG_EVENTS)
+     *   - `outcome`   : ok|skipped|fallback|failed|noop
+     *   - `summary`   : una línea autoexplicativa
+     * y opcionalmente `reason` y `data`.
+     *
+     * Se persiste en `logs_eventos` poblando las columnas dedicadas
+     * (event_code, outcome, reason, summary), para que la IA pueda
+     * filtrar/agrupar sin parsear prosa.
+     *
+     * Uso:
+     *   logger.event({
+     *       code: LOG_EVENTS.WEBHOOK_FALLBACK_SENT,
+     *       outcome: 'fallback',
+     *       reason: LOG_REASONS.TYPE_IN_UNREADABLE_SET,
+     *       summary: `Fallback enviado: tipo=${messageType} sin texto`,
+     *       data: { messageType, rawType: event.type },
+     *   });
+     */
+    event: (payload: LogEventPayload) => {
+        // Heurística de nivel por outcome si no vino explícito.
+        const level: LogLevel =
+            payload.level ??
+            (payload.outcome === 'failed'   ? 'ERROR'
+             : payload.outcome === 'fallback' ? 'WARN'
+             : payload.outcome === 'noop'     ? 'DEBUG'
+             : 'INFO');
+
+        if (!shouldLog(level)) return;
+
+        const ctx = als.getStore();
+        const ts = new Date().toISOString();
+
+        // Truncar summary defensivo (la columna en DB asume ≤120, pero
+        // no pusimos CHECK para no romper flush si alguien se pasa).
+        const summary =
+            payload.summary.length > 200
+                ? payload.summary.substring(0, 197) + '...'
+                : payload.summary;
+
+        // Mensaje humano para consola: `[event.code] summary`.
+        // Sigue el formato del resto de logs así no rompemos la vista en Railway.
+        const humanMessage = `[${payload.code}] ${summary}`;
+
+        // Extra unificado: data + metadata estructural (para que los humanos
+        // que miren consola vean contexto también).
+        const consoleExtra: Record<string, unknown> = {
+            outcome: payload.outcome,
+            ...(payload.reason ? { reason: payload.reason } : {}),
+            ...(payload.data || {}),
+        };
+
+        const marker = LEVEL_MARKER[level];
+        const ctxStr = formatContext(ctx);
+        const extraStr = formatExtra(consoleExtra);
+        const line = `[${level}] ${marker} [${ts}]${ctxStr} ${humanMessage}${extraStr}`;
+
+        if (level === 'ERROR' || level === 'CRITICAL') console.error(line);
+        else if (level === 'WARN') console.warn(line);
+        else console.log(line);
+
+        // Entry para el sink: campos estructurados poblados.
+        const errMsg =
+            payload.error instanceof Error ? payload.error.message
+            : payload.error !== undefined  ? String(payload.error)
+            : undefined;
+        const stack = payload.error instanceof Error ? payload.error.stack : undefined;
+
+        const entry: LogEntry = {
+            level,
+            message: humanMessage,
+            timestamp: ts,
+            context: ctx ? { ...ctx } : {},
+            extra: payload.data,
+            eventCode: payload.code,
+            outcome: payload.outcome,
+            reason: payload.reason,
+            summary,
+        };
+        if (errMsg) entry.error = { message: errMsg, stack };
+        dispatchToSinks(entry);
+    },
+
+    /**
+     * Azúcar para el patrón "registré una decisión del pipeline".
+     * Equivalente a `event()` pero con nombres más cortos y un outcome default
+     * de 'skipped' (el caso más común al registrar una rama del flujo).
+     */
+    decision: (
+        code: string,
+        payload: Omit<LogEventPayload, 'code' | 'outcome'> & { outcome?: LogEventPayload['outcome'] }
+    ) => {
+        logger.event({
+            code,
+            outcome: payload.outcome ?? 'skipped',
+            summary: payload.summary,
+            reason: payload.reason,
+            data: payload.data,
+            error: payload.error,
+            level: payload.level,
+        });
     },
 
     // ------------------------------------------------------------------------

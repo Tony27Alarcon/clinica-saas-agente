@@ -504,10 +504,13 @@ export class KapsoService {
             const client = this.getClient();
             logger.info(`[downloadMedia] Descargando media_id: ${mediaId} via proxy de Kapso...`);
 
-            const arrayBuffer = await client.media.download({
-                mediaId,
-                phoneNumberId,
-            }) as ArrayBuffer;
+            // Timeout para evitar colgar el pipeline si el proxy no responde.
+            const { DOWNLOAD_TIMEOUT_MS } = await import('../config/media.constants');
+            const downloadPromise = client.media.download({ mediaId, phoneNumberId }) as Promise<ArrayBuffer>;
+            const timeoutPromise = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`downloadMedia timeout ${DOWNLOAD_TIMEOUT_MS}ms`)), DOWNLOAD_TIMEOUT_MS)
+            );
+            const arrayBuffer = await Promise.race([downloadPromise, timeoutPromise]);
 
             if (!arrayBuffer || arrayBuffer.byteLength < 1024) {
                 logger.warn(`[downloadMedia] Buffer demasiado pequeño (${arrayBuffer?.byteLength} bytes). Posible error de auth o media expirada.`);
