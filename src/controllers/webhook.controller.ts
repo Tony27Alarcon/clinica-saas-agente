@@ -21,6 +21,17 @@ import { env } from '../config/env';
 const UNREADABLE_MESSAGE_TYPES = new Set(['unsupported', 'unknown', 'system']);
 
 /**
+ * Comprueba si un número está en la lista de bloqueados (env BLOCKED_PHONES).
+ * Compara solo dígitos para tolerar formatos con/sin "+" o espacios.
+ */
+function isBlockedPhone(phone: string | undefined | null): boolean {
+    if (!phone || env.BLOCKED_PHONES.length === 0) return false;
+    const normalized = String(phone).replace(/\D+/g, '');
+    if (!normalized) return false;
+    return env.BLOCKED_PHONES.includes(normalized);
+}
+
+/**
  * Normaliza un mensaje para comparación de duplicados:
  * minúsculas, colapsa whitespace, recorta a primeros 200 chars.
  * Mantiene emojis (son señales válidas) pero descarta diferencias triviales.
@@ -256,6 +267,19 @@ export class WebhookController {
             event.sender ||
             event.contact?.phone ||
             event.phone_number;
+
+        // Bloqueo total: si el número está en BLOCKED_PHONES, descartamos el
+        // evento sin loggear payload, sin guardar nada en BD y sin invocar IA.
+        if (isBlockedPhone(from)) {
+            logger.event({
+                code: LOG_EVENTS.WEBHOOK_IGNORED_EMPTY,
+                outcome: 'skipped',
+                reason: 'blocked_phone',
+                summary: 'Remitente en BLOCKED_PHONES: evento descartado sin guardar ni responder',
+                data: { from },
+            });
+            return;
+        }
 
         const senderName =
             event.senderName ||
@@ -1087,6 +1111,12 @@ export class WebhookController {
             'text';
 
         logger.enrichContext({ contacto: to, messageId, tipo: messageType });
+
+        // Bloqueo total: tampoco persistimos salientes hacia/desde números bloqueados.
+        if (isBlockedPhone(to)) {
+            logger.info('[Outgoing] Destinatario en BLOCKED_PHONES — evento descartado', { to });
+            return;
+        }
 
         if (!to || !text) {
             logger.debug('[Outgoing] Evento ignorado (sin destinatario o contenido)');

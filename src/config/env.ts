@@ -31,6 +31,18 @@ export const env = {
      */
     SUPPORT_PHONE_NUMBER: normalizePhoneEnv(process.env.SUPPORT_PHONE_NUMBER || ''),
 
+    /**
+     * Lista de teléfonos bloqueados (separados por coma). Cualquier mensaje
+     * entrante o saliente de estos números se descarta sin contestar y sin
+     * guardar nada en BD. Útil para silenciar bots, spam o números internos
+     * que no deben generar tráfico al agente.
+     * Formato libre — se normaliza a sólo dígitos. Ej: "573001112233,+52 1 55 1234 5678"
+     */
+    BLOCKED_PHONES: (process.env.BLOCKED_PHONES || '')
+        .split(',')
+        .map(p => normalizePhoneEnv(p))
+        .filter(Boolean),
+
     // ─── Google Calendar (Service Account) ───────────────────────────────────
     /**
      * JSON completo del service account de Google Cloud, parseado desde la
@@ -104,6 +116,7 @@ const optionalKeys = [
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
     'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
     'ADMIN_PORTAL_URL', 'KAPSO_ONBOARDING_URL', 'BRUNO_LAB_COMPANY_ID',
+    'BLOCKED_PHONES',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {
