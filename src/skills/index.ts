@@ -14,3 +14,6 @@ export {
     buildCompanySkillsSection,
 } from './system-patient-skills';
 export type { PatientSkill } from './system-patient-skills';
+
+export { buildHtmlStylesSkill } from './html-styles.skill';
+export type { BrandColors, HtmlStylesContext } from './html-styles.skill';

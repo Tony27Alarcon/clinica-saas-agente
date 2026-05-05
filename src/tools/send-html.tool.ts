@@ -5,6 +5,55 @@ import { KapsoService } from '../services/kapso.service';
 import { MediaService } from '../services/media.service';
 
 /**
+ * Sanitiza HTML antes de subirlo. Quita vectores de script y handlers de eventos
+ * inline. No es un sanitizer industrial (DOMPurify) — es un guardarraíl mínimo:
+ * el LLM emite HTML que será visto por el paciente al abrir el adjunto, así que
+ * no queremos que un prompt injection bote JS arbitrario.
+ *
+ * Quita:
+ *   - `<script>...</script>` (bloques completos)
+ *   - `<iframe>...</iframe>` y otros embebibles ejecutables
+ *   - `on*="..."` / `on*='...'` (handlers inline: onclick, onerror, onload, …)
+ *   - `javascript:` y `data:text/html` en hrefs/src
+ */
+export function sanitizeHtmlForUpload(html: string): { html: string; stripped: string[] } {
+    const stripped: string[] = [];
+    let out = html;
+
+    const scriptRe = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+    if (scriptRe.test(out)) {
+        stripped.push('script');
+        out = out.replace(scriptRe, '');
+    }
+
+    const iframeRe = /<iframe\b[^>]*>[\s\S]*?<\/iframe\s*>/gi;
+    if (iframeRe.test(out)) {
+        stripped.push('iframe');
+        out = out.replace(iframeRe, '');
+    }
+
+    const objectRe = /<(object|embed)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
+    if (objectRe.test(out)) {
+        stripped.push('object/embed');
+        out = out.replace(objectRe, '');
+    }
+
+    const onAttrRe = /\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+    if (onAttrRe.test(out)) {
+        stripped.push('on*-handlers');
+        out = out.replace(onAttrRe, '');
+    }
+
+    const jsUrlRe = /(href|src|action)\s*=\s*("javascript:[^"]*"|'javascript:[^']*'|"data:text\/html[^"]*"|'data:text\/html[^']*')/gi;
+    if (jsUrlRe.test(out)) {
+        stripped.push('js-url');
+        out = out.replace(jsUrlRe, '$1="#"');
+    }
+
+    return { html: out, stripped };
+}
+
+/**
  * Tool: sendHtmlDocument
  *
  * Permite al agente redactar un archivo HTML y enviarlo al usuario por WhatsApp
@@ -61,7 +110,13 @@ export const createSendHtmlDocumentTool = (
                     ? filename
                     : `${filename}.html`;
 
-                const buffer = Buffer.from(html, 'utf-8');
+                const { html: safeHtml, stripped } = sanitizeHtmlForUpload(html);
+                if (stripped.length > 0) {
+                    logger.warn(
+                        `[Tool] sendHtmlDocument: sanitización quitó ${stripped.join(', ')} antes de subir`
+                    );
+                }
+                const buffer = Buffer.from(safeHtml, 'utf-8');
                 const folder = `html/${folderHint}`;
 
                 const publicUrl = await MediaService.uploadToSupabase(

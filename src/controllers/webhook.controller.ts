@@ -966,10 +966,12 @@ export class WebhookController {
             );
         }
 
-        // Equipo comercial que puede recibir notifyStaff. TODO: mover a tabla
-        // de config o a clinicas.staff de la company platform con staff_role='admin'.
-        // Por ahora leemos el staff de la platform directamente.
-        const platformStaff = await ClinicasDbService.listStaff(company.id, false);
+        // Equipo comercial que puede recibir notifyStaff: solo asesores marcados
+        // como `staff_role='admin'` en la company platform. El resto del equipo
+        // (owner, staff) NO recibe escalamientos comerciales de Bruno.
+        const platformStaff = await ClinicasDbService.listStaff(
+            company.id, false, { staffRole: 'admin' }
+        );
         const advisors = platformStaff
             .filter((s: any) => s.phone)
             .map((s: any) => ({
@@ -980,7 +982,7 @@ export class WebhookController {
             }));
 
         if (advisors.length === 0) {
-            logger.warn(`[SuperAdmin] La company platform ${company.id} no tiene staff con phone — notifyStaff quedará deshabilitada`);
+            logger.warn(`[SuperAdmin] La company platform ${company.id} no tiene staff con staff_role='admin' y phone — notifyStaff quedará deshabilitada. Marca al menos un asesor con UPDATE clinicas.staff SET staff_role='admin' WHERE id=...;`);
         }
 
         const assignedAdvisor = advisors[0] || {

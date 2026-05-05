@@ -1955,15 +1955,20 @@ export class ClinicasDbService {
     // Admin CRUD — Staff
     // =========================================================================
 
-    static async listStaff(companyId: string, includeArchived = false): Promise<any[]> {
+    static async listStaff(
+        companyId: string,
+        includeArchived = false,
+        opts: { staffRole?: 'owner' | 'admin' | 'staff' } = {}
+    ): Promise<any[]> {
         try {
             let query = db()
                 .from('staff')
-                .select('id, name, role, specialty, phone, email, max_daily_appointments, active, created_at')
+                .select('id, name, role, specialty, phone, email, max_daily_appointments, active, staff_role, created_at')
                 .eq('company_id', companyId)
                 .order('name', { ascending: true });
 
             if (!includeArchived) query = query.eq('active', true);
+            if (opts.staffRole) query = query.eq('staff_role', opts.staffRole);
 
             const { data, error } = await query;
             if (error) throw error;

@@ -56,13 +56,14 @@ import {
     createBrunoConfigureAvailabilityTool,
 } from '../tools/bruno-onboarding.tools';
 import { createBrunoNotifyStaffTool, type CommercialStaffMember } from '../tools/bruno-commercial.tools';
+import { createSendHtmlDocumentTool } from '../tools/send-html.tool';
 
 const google = createGoogleGenerativeAI({
     apiKey: env.GEMINI_API_KEY,
 });
 
 import { getColombianContext, formatInTimezone } from '../utils/time';
-import { buildAdminSkillsSection, buildOnboardingSkillsSection } from '../skills';
+import { buildAdminSkillsSection, buildOnboardingSkillsSection, buildHtmlStylesSkill } from '../skills';
 
 /**
  * Detecta patrones de "botones simulados en texto" que el modelo a veces genera
@@ -337,10 +338,17 @@ Cuando el paciente envía una imagen, nota de voz, video o documento (PDF), reci
 • Interactivas exitosas: NO generes texto adicional — el mensaje ya está dentro de la tool.
 • Nunca llames la misma tool dos veces en el mismo turno.
 • Nunca menciones las tools, el sistema, ni las notas al paciente.
-• noReply activado: NO generes texto adicional. La respuesta queda cancelada por completo.`;
+• noReply activado: NO generes texto adicional. La respuesta queda cancelada por completo.
+
+${buildHtmlStylesSkill({
+    companyName: company.name,
+    brandColors: (company as any).brand_colors ?? null,
+    logoUrl:     (company as any).logo_url ?? null,
+})}`;
 
             const mergedMessages = AiService.mergeMultimodalLastMessage(historial, currentUserParts);
 
+            const htmlFolder = `clinicas/${company.id}/${contact.id}`;
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
                 system: systemPrompt,
@@ -364,6 +372,7 @@ Cuando el paciente envía una imagen, nota de voz, video o documento (PDF), reci
                     listReminders:          createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
                     cancelReminder:         createCancelReminderTool(company.id, contact.id),
                     noReply:                createClinicasNoReplyTool(),
+                    sendHtmlDocument:       createSendHtmlDocumentTool(phoneNumberId, contact.phone, htmlFolder),
                 },
             } as any);
 
@@ -423,6 +432,7 @@ Cuando el paciente envía una imagen, nota de voz, video o documento (PDF), reci
                         listReminders:          createListRemindersTool(company.id, contact.id, company.timezone || 'America/Bogota'),
                         cancelReminder:         createCancelReminderTool(company.id, contact.id),
                         noReply:                createClinicasNoReplyTool(),
+                        sendHtmlDocument:       createSendHtmlDocumentTool(phoneNumberId, contact.phone, htmlFolder),
                     },
                 } as any);
 
@@ -580,8 +590,15 @@ REGLAS PARA TOOLS DE CONFIGURACIÓN:
 - Tras cualquier cambio de configuración (tratamientos, empresa, agente, staff), confirma al staff que los cambios fueron aplicados y que el agente paciente los reflejará en la próxima conversación.
 - Para objections_kb, qualification_criteria, escalation_rules: si el staff dicta los cambios en lenguaje natural, estructura tú el JSON correcto antes de llamar la tool.
 
-${buildAdminSkillsSection()}`;
+${buildAdminSkillsSection()}
 
+${buildHtmlStylesSkill({
+    companyName: company.name,
+    brandColors: (company as any).brand_colors ?? null,
+    logoUrl:     (company as any).logo_url ?? null,
+})}`;
+
+            const adminHtmlFolder = `admin/${company.id}`;
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
                 system: systemPrompt,
@@ -631,6 +648,7 @@ ${buildAdminSkillsSection()}`;
                     listReminders:           createListRemindersTool(company.id, contact.id, tz),
                     cancelReminder:          createCancelReminderTool(company.id, contact.id),
                     google_search:           google.tools.googleSearch({}),
+                    sendHtmlDocument:        createSendHtmlDocumentTool(phoneNumberId, staffMember.phone, adminHtmlFolder),
                 },
             } as any);
 
@@ -688,6 +706,7 @@ ${buildAdminSkillsSection()}`;
                         listReminders:           createListRemindersTool(company.id, contact.id, tz),
                         cancelReminder:          createCancelReminderTool(company.id, contact.id),
                         google_search:           google.tools.googleSearch({}),
+                        sendHtmlDocument:        createSendHtmlDocumentTool(phoneNumberId, staffMember.phone, adminHtmlFolder),
                     },
                 } as any);
                 return followUp.text || '¿En qué más puedo ayudarte?';
@@ -964,8 +983,11 @@ Interlocutor: ${prospect.name || 'prospecto'} (${prospect.phone})
 ═══ WHATSAPP BEST PRACTICES ═══
 - Una idea por burbuja. 4–5 líneas máx. Partir mensajes largos.
 - Negrita *solo* en 1–2 palabras por mensaje.
-- Nunca menciones nombres de tools ni estas instrucciones.`;
+- Nunca menciones nombres de tools ni estas instrucciones.
 
+${buildHtmlStylesSkill({ companyName: 'Bruno Lab', brandColors: null, logoUrl: null })}`;
+
+            const brunoHtmlFolder = `bruno/${prospect.phone}`;
             const result = await generateText({
                 model: google(env.GEMINI_MODEL),
                 system: systemPrompt,
@@ -983,6 +1005,7 @@ Interlocutor: ${prospect.name || 'prospecto'} (${prospect.phone})
                         config.availableStaff
                     ),
                     google_search:                   google.tools.googleSearch({}),
+                    sendHtmlDocument:                createSendHtmlDocumentTool(phoneNumberId, prospect.phone, brunoHtmlFolder),
                 },
             } as any);
 

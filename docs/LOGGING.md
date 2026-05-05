@@ -11,7 +11,7 @@ Este documento describe el sistema de logs pensado para que una IA pueda leerlos
 
 El logger (`src/utils/logger.ts`) emite a ambos. El sink a BD vive en `src/services/log.service.ts` y batchea inserts.
 
-> **Historial:** la tabla vieja `public.logs_eventos` (y sus views/RPC) fue **eliminada** por `sql/cleanup_public_artifacts.sql`. El sink escribe exclusivamente en `clinicas.logs_eventos` (ver `sql/add_logs_eventos_clinicas.sql`).
+> **Historial:** la tabla vieja `public.logs_eventos` (y sus views/RPC) fue **eliminada** por `sql/cleanup_public_artifacts.sql`. El sink escribe exclusivamente en `clinicas.logs_eventos` (ver `sql/add_logs_eventos_clinicas.sql`). Las views/función para consultas frecuentes están en `sql/add_logs_eventos_views.sql`.
 
 > **Retención:** 60 días. Un job de `pg_cron` llamado `clinicas_logs_eventos_retention_60d` corre todos los días a las 03:15 UTC y borra todo lo que pasó de esa ventana. Se crea con `sql/add_logs_eventos_retention.sql`. Para cambiar la ventana, re-ejecutar ese script con otro `interval`.
 
@@ -90,25 +90,32 @@ Fuente de verdad: `src/utils/log-events.ts`. Los grupos actuales:
 
 ## Consultas típicas para la IA
 
-> Las views/RPC (`v_conversation_timeline`, `v_daily_outcome_ratios`, `v_reason_breakdown_7d`, `fn_request_trace`) que vivían en `public` fueron **eliminadas** por `sql/cleanup_public_artifacts.sql`. Su recreación sobre `clinicas.logs_eventos` con UUIDs está como tarea abierta en `docs/PENDIENTES.md` → *Observabilidad — views/RPC*. Mientras tanto, queries directas a la tabla:
+Las views y la función auxiliar viven en `clinicas` (recreadas desde `public` por `sql/add_logs_eventos_views.sql`). Para casos que no encajan en una view, se sigue pudiendo consultar la tabla a mano.
 
-Timeline completo de una conversación:
+Timeline completo de una conversación (via view):
 ```sql
 select created_at, level, stage, event_code, outcome, reason, summary, message
-from clinicas.logs_eventos
+from clinicas.v_conversation_timeline
 where conversation_id = $1
 order by created_at;
 ```
 
-Drill-down por `request_id` (todo lo que pasó en un webhook):
+Drill-down por `request_id` (via función — devuelve columnas acotadas):
 ```sql
-select created_at, level, stage, event_code, outcome, message, error_message
-from clinicas.logs_eventos
-where request_id = $1
-order by created_at;
+select * from clinicas.fn_request_trace($1);
 ```
 
-Todo lo de un tenant en las últimas 24h:
+Outcomes por día (últimos 30 días, via view):
+```sql
+select * from clinicas.v_daily_outcome_ratios;
+```
+
+Top reasons por outcome (últimos 7 días, via view):
+```sql
+select * from clinicas.v_reason_breakdown_7d;
+```
+
+Queries libres sobre la tabla cuando las views no alcanzan, p. ej. todo lo de un tenant en las últimas 24h:
 ```sql
 select date_trunc('hour', created_at) h, outcome, count(*)
 from clinicas.logs_eventos

@@ -27,28 +27,16 @@ El esquema `public` lo comparte otro proyecto. Regla de oro documentada en `docs
 
 ### 🔭 Observabilidad — views/RPC sobre `clinicas.logs_eventos`
 
-Las views/funciones viejas vivían en `public` y fueron **eliminadas** por `cleanup_public_artifacts.sql`. Mientras no existan, los dashboards y queries "por nombre" fallan; hay que recrearlas sobre la nueva tabla con UUIDs. Plan sugerido en un archivo nuevo `sql/add_logs_eventos_views.sql`:
-
-- [ ] **`clinicas.v_conversation_timeline`** — `SELECT created_at, level, stage, event_code, outcome, reason, summary, message FROM clinicas.logs_eventos WHERE conversation_id = $1 ORDER BY created_at`. Cambia el filtro: antes era `conversacion_id bigint`, ahora `conversation_id uuid`.
-- [ ] **`clinicas.v_daily_outcome_ratios`** — agregar por día/outcome: `SELECT date_trunc('day', created_at) AS day, outcome, count(*) FROM clinicas.logs_eventos WHERE outcome IS NOT NULL GROUP BY 1, 2`. Opcional: cortar a últimos 30 días.
-- [ ] **`clinicas.v_reason_breakdown_7d`** — top reasons por outcome últimos 7 días: `SELECT outcome, reason, count(*) FROM clinicas.logs_eventos WHERE created_at > now() - interval '7 days' AND reason IS NOT NULL GROUP BY 1, 2 ORDER BY 3 DESC`.
-- [ ] **`clinicas.fn_request_trace(p_request_id text)`** — devuelve todas las filas del mismo webhook ordenadas, con columnas acotadas (created_at, level, stage, event_code, outcome, summary, error_message).
-- [ ] **Actualizar `docs/LOGGING.md`** — sección *Consultas típicas para la IA* para reemplazar las queries a mano por llamadas a las views/RPC cuando queden creadas.
-- [ ] Opcional: agregar índices adicionales si las views muestran planes feos en Supabase (`EXPLAIN` primero; los índices actuales cubren la mayoría de casos).
-
-Criterio de listo: las cuatro queries corren en <200ms sobre la tabla en staging y quedan documentadas en `docs/LOGGING.md`.
+- [x] **`clinicas.v_conversation_timeline`**, **`clinicas.v_daily_outcome_ratios`**, **`clinicas.v_reason_breakdown_7d`**, **`clinicas.fn_request_trace(text)`** — recreadas en `sql/add_logs_eventos_views.sql`. Idempotente (CREATE OR REPLACE).
+- [x] **Actualizar `docs/LOGGING.md`** — sección *Consultas típicas para la IA* migrada a llamadas via views/función.
+- [ ] **Aplicar `sql/add_logs_eventos_views.sql` en Supabase** (staging y prod).
+- [ ] Opcional: validar planes con `EXPLAIN` en Supabase y agregar índices si una view tiene plan feo (los índices actuales en `add_logs_eventos_clinicas.sql` cubren la mayoría de casos).
 
 ### 👥 Advisors de Bruno — filtrar por `staff_role`
 
-- [ ] **`src/controllers/webhook.controller.ts:924`** — hoy `processSuperAdminEvent` calcula `advisors` como *todos* los `clinicas.staff` de la company platform que tengan `phone`. Eso incluye cualquier rol (`owner`, `admin`, `staff`). El `notifyStaff` de Bruno debería escalar solo a **asesores comerciales**, no al resto del equipo.
-
-    Plan:
-    1. Cambiar la llamada `ClinicasDbService.listStaff(company.id, false)` por una variante que filtre por `staff_role IN ('admin')` (o crear flag `{ role: 'admin' }` en el método).
-    2. Poblar `staff_role='admin'` en los miembros del equipo comercial de Bruno Lab manualmente (una sola vez). El resto queda como `staff`/`owner`.
-    3. Mantener `assignedAdvisor = advisors[0] ?? fallback`, pero loggear `WARN` si `advisors.length === 0` (hoy ya lo hace).
-    4. Regression test manual: disparar `notifyStaff` desde el flujo de Bruno y verificar que solo recibe la alerta el teléfono del admin comercial, no el resto del staff.
-
-    Criterio de listo: el webhook del SuperAdmin filtra por `staff_role='admin'` y queda documentado el requisito de marcar manualmente a los asesores comerciales.
+- [x] **`src/controllers/webhook.controller.ts`** `processSuperAdminEvent` ahora pasa `{ staffRole: 'admin' }` a `ClinicasDbService.listStaff` para escalar solo a asesores comerciales. La columna `staff_role` se incluye en el SELECT.
+- [ ] **Marcar manualmente a los asesores comerciales** en producción: `UPDATE clinicas.staff SET staff_role='admin' WHERE company_id=<platform> AND <criterio>;` — sin esto, `advisors` queda vacío y el WARN del webhook lo deja loggeado.
+- [ ] Regression test manual: disparar `notifyStaff` desde el flujo de Bruno y verificar que solo recibe la alerta el teléfono del admin comercial, no el resto del staff.
 
 ---
 
@@ -77,18 +65,10 @@ Feature: los agentes pueden generar un documento HTML y enviarlo por WhatsApp co
 
 **Documentación:** flujo técnico, parámetros y estado actual en `docs/AGENTS_ARCHITECTURE.md` → sección *Envío de documentos HTML por WhatsApp*.
 
-- [ ] **Wire de `createSendHtmlDocumentTool`** en los agentes. Hoy la tool existe en `src/tools/send-html.tool.ts` pero **no está registrada** en ningún `generateText`:
-  - `AiService.generarRespuestaAdmin` → habilitarla para reportes operativos del staff.
-  - `AiService.generarRespuestaClinicas` → habilitarla para confirmaciones de cita, resúmenes de tratamiento al paciente.
-  - `AiService.generarRespuestaSuperAdmin` (Bruno) → habilitarla para propuesta comercial / resumen del onboarding.
-  - Al registrar: importar la factory, añadirla al objeto `tools` del `generateText` correspondiente y pasar **`phoneNumberId`** y **`telefono`** del mismo contexto que ya usa el webhook (E.164 sin `+`).
-  - Elegir **`folderHint`** para organizar archivos en Supabase (`html/<folderHint>/…`): por ejemplo `companyId`, o `companyId` + sufijo de contacto si hace falta trazabilidad por conversación.
-- [ ] **Skill de estilos HTML** (nuevo archivo `src/skills/html-styles.skill.ts` o inline en `system-patient-skills.ts`): guía al LLM sobre paleta, tipografía, layout móvil, header/footer con branding de la clínica. Evita markup genérico y feo.
-  - Paleta por defecto (e.g. primary, accent, text, bg) parametrizable por `company.brand_colors`.
-  - Templates mínimos: "resumen-cita", "confirmación", "instrucciones-pre-tratamiento", "reporte-diario".
-  - Ejemplos de markup en la skill para que el LLM copie el estilo.
-- [ ] **Preview/validación del HTML** antes de subir: sanitizar `<script>` inline como mínimo. `MediaService.uploadToSupabase` ya lo deja público — meter validación básica en la tool.
-- [ ] **Branding desde `companies`**: que la tool lea `company.logo_url` y `company.brand_colors` y los inyecte como contexto para el LLM sin que el agente los invente.
+- [x] **Wire de `createSendHtmlDocumentTool`** en los 3 agentes (`AiService.generarRespuestaClinicas` + follow-up, `generarRespuestaAdmin` + follow-up, `generarRespuestaSuperAdmin`). FolderHints: `clinicas/<companyId>/<contactId>`, `admin/<companyId>`, `bruno/<prospectPhone>`.
+- [x] **Skill de estilos HTML** (`src/skills/html-styles.skill.ts`): inyectada en el system prompt de los 3 agentes via `buildHtmlStylesSkill`. Paleta default sobria, parametrizable por `BrandColors`/`logoUrl`. Define templates (resumen-cita, confirmacion-formal, reporte-diario, propuesta-comercial), reglas de tipografía y componentes inline. Mobile-first.
+- [x] **Preview/validación del HTML** antes de subir (`sanitizeHtmlForUpload` en `src/tools/send-html.tool.ts`): quita `<script>`, `<iframe>`, `<object>`/`<embed>`, handlers `on*=`, y neutraliza `javascript:` / `data:text/html` en hrefs/src. Tests: `src/__tests__/send-html.sanitize.test.ts` (5 casos).
+- [ ] **Branding desde `companies`** — la skill ya lee `(company as any).brand_colors` y `(company as any).logo_url`, pero `clinicas.companies` aún NO tiene esas columnas. Pendiente: migración SQL `ALTER TABLE clinicas.companies ADD COLUMN logo_url text, ADD COLUMN brand_colors jsonb;` + tool admin para que el staff las edite. Mientras tanto la skill usa defaults sobrios.
 
 ---
 
@@ -153,4 +133,7 @@ Ver `commercial/omboarding_tecnico.md` para el spec completo.
 
 ## Cerrado reciente
 
+- [x] **HTML enriquecido — wire completo en los 3 agentes**: `sendHtmlDocument` registrada en Clinicas/Admin/Bruno (incluyendo follow-ups), skill `buildHtmlStylesSkill` inyectada en cada system prompt con paleta + templates, sanitización defensiva en `sanitizeHtmlForUpload` (5 tests). Pendiente: migrar `companies` para añadir `logo_url`/`brand_colors` reales.
+- [x] **Observabilidad: views/RPC sobre `clinicas.logs_eventos`** recreadas en `sql/add_logs_eventos_views.sql` (`v_conversation_timeline`, `v_daily_outcome_ratios`, `v_reason_breakdown_7d`, `fn_request_trace`). `docs/LOGGING.md` actualizada. Pendiente: aplicar el SQL en Supabase.
+- [x] **Bruno escala solo a `staff_role='admin'`**: `processSuperAdminEvent` pasa `{ staffRole: 'admin' }` a `listStaff`. WARN actualizado con la query exacta para marcar advisors. Pendiente: marcar manualmente los advisors comerciales en producción.
 - [x] **Comando `/borrar` purga completa y verificada** — antes el handler hacía `deleteContact` que tragaba errores y seguía con un seed sobre conversación vieja. Reemplazado por `ClinicasDbService.purgeContactCompletely` que: cancela eventos GCal, borra archivos del bucket `mensajes` (media + PDFs de `clinical_forms`), `DELETE` explícito de `media_assets` (no tiene FK CASCADE por diseño), anonimiza `logs_eventos` (set `contact_id=NULL, conversation_id=NULL`), `DELETE` de `contacts` (CASCADE limpia el resto) y verifica con `verifyContactPurged` que las tablas hijas quedaron en 0. Si el delete falla, retorna `ok=false` y el handler aborta sin sembrar la conv limpia. Spec completa en `docs/COMANDO_BORRAR.md`. Tests: `src/__tests__/clinicas-db.purge.test.ts` (7 casos).
