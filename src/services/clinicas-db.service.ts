@@ -13,6 +13,24 @@ import { GoogleCalendarService, GCalConfig } from './google-calendar.service';
  */
 const db = () => (supabase as any).schema('clinicas');
 
+/**
+ * Extrae el path interno del bucket `mensajes` a partir de una URL pública
+ * de Supabase Storage. Devuelve null si la URL no apunta a ese bucket.
+ * Ej: https://xxx.supabase.co/storage/v1/object/public/mensajes/foo/bar.jpg
+ *     → "foo/bar.jpg"
+ */
+function extractMensajesPath(url: string | null | undefined): string | null {
+    if (!url) return null;
+    const marker = '/storage/v1/object/public/mensajes/';
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    try {
+        return decodeURIComponent(url.slice(idx + marker.length));
+    } catch {
+        return url.slice(idx + marker.length);
+    }
+}
+
 export class ClinicasDbService {
 
     /**
@@ -275,7 +293,12 @@ export class ClinicasDbService {
 
     /**
      * Elimina el contacto de la clínica (para comando /borrar en testing).
-     * ON DELETE CASCADE en BD borra también sus conversaciones y mensajes.
+     * @deprecated Usa `purgeContactCompletely` para garantizar que no quede rastro.
+     * Esta versión confía en ON DELETE CASCADE pero NO toca:
+     *   - `media_assets` (sin FK por diseño, ver add_media_assets_clinicas.sql)
+     *   - `logs_eventos` (sin FK)
+     *   - Archivos en Supabase Storage
+     *   - Eventos en Google Calendar
      */
     static async deleteContact(companyId: string, phone: string): Promise<boolean> {
         try {
@@ -291,6 +314,257 @@ export class ClinicasDbService {
             logger.error(`[Clinicas] deleteContact: ${(error as Error).message}`);
             return false;
         }
+    }
+
+    /**
+     * Purga completa de un contacto y todo su rastro (para comando /borrar).
+     *
+     * Orden de borrado (cada paso es best-effort salvo el delete final):
+     *   1. Resolver contact_id por (company_id, phone). Si no existe → ok+noop.
+     *   2. Cancelar eventos de Google Calendar de citas activas (gcal_event_id).
+     *   3. Borrar archivos del bucket Storage `mensajes` referenciados por
+     *      `media_assets.storage_path` y `clinical_forms.pdf_url`.
+     *   4. DELETE `media_assets` por contact_id (no tiene FK CASCADE).
+     *   5. UPDATE `logs_eventos` SET contact_id=NULL, conversation_id=NULL
+     *      para preservar auditoría sin rastro identificable del usuario.
+     *   6. DELETE `contacts` → CASCADE limpia conversations, messages,
+     *      appointments, clinical_forms, contacts_notas, follow_ups,
+     *      scheduled_reminders, test_sessions.
+     *   7. Verificación: count en tablas hijas == 0.
+     *
+     * Retorna `{ ok, contactId, counts, warnings, error }`. Si el delete final
+     * (paso 6) falla, ok=false: el caller NO debe crear seed (la conversación
+     * vieja sigue viva).
+     */
+    static async purgeContactCompletely(
+        companyId: string,
+        phone: string
+    ): Promise<{
+        ok: boolean;
+        contactId: string | null;
+        counts: {
+            gcalEventsCancelled: number;
+            storageFilesRemoved: number;
+            mediaAssetsRows: number;
+            logsAnonymized: number;
+        };
+        warnings: string[];
+        error?: string;
+    }> {
+        const warnings: string[] = [];
+        const counts = {
+            gcalEventsCancelled: 0,
+            storageFilesRemoved: 0,
+            mediaAssetsRows: 0,
+            logsAnonymized: 0,
+        };
+
+        try {
+            // 1. Resolver contact_id
+            const { data: contact, error: lookupErr } = await db()
+                .from('contacts')
+                .select('id')
+                .eq('company_id', companyId)
+                .eq('phone', phone)
+                .maybeSingle();
+
+            if (lookupErr) throw lookupErr;
+            if (!contact) {
+                return { ok: true, contactId: null, counts, warnings: ['contact_not_found'] };
+            }
+            const contactId = (contact as any).id as string;
+
+            // 2. Cancelar eventos de Google Calendar (best-effort)
+            try {
+                const { data: appts } = await db()
+                    .from('appointments')
+                    .select('id, gcal_event_id, gcal_calendar_id')
+                    .eq('company_id', companyId)
+                    .eq('contact_id', contactId)
+                    .not('gcal_event_id', 'is', null);
+
+                for (const appt of ((appts as any[]) ?? [])) {
+                    if (!appt.gcal_event_id) continue;
+                    const calId = appt.gcal_calendar_id as string | undefined;
+                    const gcalCfg = calId
+                        ? await this.getGCalConfigByCalendarId(companyId, calId)
+                        : await this.getGCalConfigs(companyId).then(cs => cs[0] ?? null);
+                    if (!gcalCfg) {
+                        warnings.push(`gcal_config_missing_for_${appt.gcal_event_id}`);
+                        continue;
+                    }
+                    const refreshToken = gcalCfg.staffId
+                        ? await this.getStaffOAuthTokens(gcalCfg.staffId).then(t => t?.refreshToken)
+                        : undefined;
+                    try {
+                        await GoogleCalendarService.cancelAppointmentEvent(
+                            gcalCfg.calendarId,
+                            appt.gcal_event_id,
+                            refreshToken
+                        );
+                        counts.gcalEventsCancelled += 1;
+                    } catch (gcalErr) {
+                        warnings.push(`gcal_cancel_failed:${appt.gcal_event_id}:${(gcalErr as Error).message}`);
+                    }
+                }
+            } catch (apptErr) {
+                warnings.push(`appointments_lookup_failed:${(apptErr as Error).message}`);
+            }
+
+            // 3. Borrar archivos del bucket Storage `mensajes` (best-effort)
+            const pathsToRemove: string[] = [];
+            try {
+                const { data: assets } = await db()
+                    .from('media_assets')
+                    .select('storage_path, storage_bucket')
+                    .eq('company_id', companyId)
+                    .eq('contact_id', contactId);
+                for (const a of ((assets as any[]) ?? [])) {
+                    if (a.storage_path && (a.storage_bucket ?? 'mensajes') === 'mensajes') {
+                        pathsToRemove.push(a.storage_path);
+                    }
+                }
+            } catch (mediaErr) {
+                warnings.push(`media_assets_lookup_failed:${(mediaErr as Error).message}`);
+            }
+
+            try {
+                const { data: forms } = await db()
+                    .from('clinical_forms')
+                    .select('pdf_url')
+                    .eq('company_id', companyId)
+                    .eq('contact_id', contactId)
+                    .not('pdf_url', 'is', null);
+                for (const f of ((forms as any[]) ?? [])) {
+                    const path = extractMensajesPath(f.pdf_url as string);
+                    if (path) pathsToRemove.push(path);
+                }
+            } catch (formsErr) {
+                warnings.push(`clinical_forms_lookup_failed:${(formsErr as Error).message}`);
+            }
+
+            if (pathsToRemove.length > 0) {
+                try {
+                    const { data: removed, error: removeErr } = await supabase.storage
+                        .from('mensajes')
+                        .remove(pathsToRemove);
+                    if (removeErr) {
+                        warnings.push(`storage_remove_failed:${removeErr.message}`);
+                    } else {
+                        counts.storageFilesRemoved = (removed as any[] | null)?.length ?? pathsToRemove.length;
+                    }
+                } catch (storageErr) {
+                    warnings.push(`storage_remove_exception:${(storageErr as Error).message}`);
+                }
+            }
+
+            // 4. DELETE media_assets (sin FK CASCADE)
+            try {
+                const { count, error: maErr } = await db()
+                    .from('media_assets')
+                    .delete({ count: 'exact' })
+                    .eq('company_id', companyId)
+                    .eq('contact_id', contactId);
+                if (maErr) throw maErr;
+                counts.mediaAssetsRows = count ?? 0;
+            } catch (maErr) {
+                warnings.push(`media_assets_delete_failed:${(maErr as Error).message}`);
+            }
+
+            // 5. Anonimizar logs_eventos (preserva auditoría, quita PII de referencia)
+            try {
+                const { count, error: logErr } = await db()
+                    .from('logs_eventos')
+                    .update({ contact_id: null, conversation_id: null }, { count: 'exact' })
+                    .eq('company_id', companyId)
+                    .eq('contact_id', contactId);
+                if (logErr) throw logErr;
+                counts.logsAnonymized = count ?? 0;
+            } catch (logErr) {
+                warnings.push(`logs_eventos_anonymize_failed:${(logErr as Error).message}`);
+            }
+
+            // 6. DELETE contact → CASCADE
+            const { error: deleteErr } = await db()
+                .from('contacts')
+                .delete()
+                .eq('id', contactId);
+
+            if (deleteErr) {
+                logger.error(`[Clinicas] purgeContactCompletely: delete falló: ${deleteErr.message}`);
+                return {
+                    ok: false,
+                    contactId,
+                    counts,
+                    warnings,
+                    error: `contact_delete_failed:${deleteErr.message}`,
+                };
+            }
+
+            // 7. Verificación post-delete
+            const verification = await this.verifyContactPurged(companyId, contactId);
+            if (!verification.clean) {
+                warnings.push(`verification_failed:${verification.residue.join(',')}`);
+                return {
+                    ok: false,
+                    contactId,
+                    counts,
+                    warnings,
+                    error: `residue_after_delete:${verification.residue.join(',')}`,
+                };
+            }
+
+            return { ok: true, contactId, counts, warnings };
+        } catch (error) {
+            logger.error(`[Clinicas] purgeContactCompletely: ${(error as Error).message}`);
+            return {
+                ok: false,
+                contactId: null,
+                counts,
+                warnings,
+                error: (error as Error).message,
+            };
+        }
+    }
+
+    /**
+     * Verifica que no queden filas con contact_id en las tablas que deberían
+     * haberse limpiado vía CASCADE o borrado explícito. Excluye `logs_eventos`
+     * (anonimización deja contact_id=NULL, no borra la fila).
+     */
+    static async verifyContactPurged(
+        companyId: string,
+        contactId: string
+    ): Promise<{ clean: boolean; residue: string[] }> {
+        const tables = [
+            'contacts',
+            'conversations',
+            'appointments',
+            'clinical_forms',
+            'contacts_notas',
+            'follow_ups',
+            'scheduled_reminders',
+            'media_assets',
+        ];
+        const residue: string[] = [];
+        for (const table of tables) {
+            try {
+                const idCol = table === 'contacts' ? 'id' : 'contact_id';
+                const { count, error } = await db()
+                    .from(table)
+                    .select('*', { count: 'exact', head: true })
+                    .eq('company_id', companyId)
+                    .eq(idCol, contactId);
+                if (error) {
+                    residue.push(`${table}:lookup_failed`);
+                    continue;
+                }
+                if ((count ?? 0) > 0) residue.push(`${table}:${count}`);
+            } catch (err) {
+                residue.push(`${table}:exception`);
+            }
+        }
+        return { clean: residue.length === 0, residue };
     }
 
     // ─── Admin Agent: métodos de soporte ────────────────────────────────────────

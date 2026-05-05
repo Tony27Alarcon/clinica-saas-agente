@@ -539,16 +539,36 @@ export class WebhookController {
         }
 
         // Comando /borrar (testing)
-        // Elimina el estado local del contacto y pre-crea una conversación limpia
-        // con un mensaje seed para que el Step C5 NO reimporte el historial de Kapso.
+        // Purga COMPLETA del contacto + storage + Google Calendar + anonimiza
+        // logs. Solo si la purga es verificada como exitosa, pre-crea una
+        // conversación limpia con un mensaje seed para bloquear el import de
+        // Kapso en Step C5. Si la purga falla, NO se siembra (la conv vieja
+        // sigue viva y el seed se mezclaría con historial existente).
         if (typeof text === 'string' && text.trim().toLowerCase() === '/borrar') {
+            const purge = await ClinicasDbService.purgeContactCompletely(company.id, from);
+
+            if (!purge.ok) {
+                logger.event({
+                    code: LOG_EVENTS.PIPELINE_CONTACT_RESET,
+                    outcome: 'failed',
+                    reason: purge.error ?? 'purge_failed',
+                    summary: `Comando /borrar falló: ${purge.error ?? 'desconocido'}`,
+                    data: { companyId: company.id, counts: purge.counts, warnings: purge.warnings },
+                });
+                await KapsoService.enviarMensaje(
+                    from,
+                    `⚠️ *No se pudo borrar todo el rastro.* Razón: ${purge.error ?? 'desconocida'}. Avisa a soporte.`,
+                    phoneNumberId
+                );
+                return;
+            }
+
             logger.event({
                 code: LOG_EVENTS.PIPELINE_CONTACT_RESET,
                 outcome: 'ok',
-                summary: `Comando /borrar ejecutado: estado local del contacto reseteado`,
-                data: { companyId: company.id },
+                summary: `Comando /borrar ejecutado: purga completa verificada`,
+                data: { companyId: company.id, counts: purge.counts, warnings: purge.warnings },
             });
-            await ClinicasDbService.deleteContact(company.id, from);
 
             // Pre-crear contacto + conversación + seed para bloquear el import de Kapso
             try {
@@ -565,9 +585,12 @@ export class WebhookController {
                 logger.error('[Clinicas] /borrar: no se pudo pre-crear conversación limpia', seedErr);
             }
 
+            const detalle = purge.contactId
+                ? `(${purge.counts.gcalEventsCancelled} citas GCal, ${purge.counts.storageFilesRemoved} archivos, ${purge.counts.mediaAssetsRows} adjuntos, ${purge.counts.logsAnonymized} logs anonimizados)`
+                : '(no había contacto previo)';
             await KapsoService.enviarMensaje(
                 from,
-                '✅ *Historial local borrado.* El próximo mensaje inicia una conversación limpia sin historial previo.',
+                `✅ *Historial borrado por completo* ${detalle}. El próximo mensaje inicia una conversación limpia.`,
                 phoneNumberId
             );
             return;
