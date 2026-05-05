@@ -153,4 +153,4 @@ Ver `commercial/omboarding_tecnico.md` para el spec completo.
 
 ## Cerrado reciente
 
-_(vacío — empezar a llenar a medida que se tilda arriba)_
+- [x] **Comando `/borrar` purga completa y verificada** — antes el handler hacía `deleteContact` que tragaba errores y seguía con un seed sobre conversación vieja. Reemplazado por `ClinicasDbService.purgeContactCompletely` que: cancela eventos GCal, borra archivos del bucket `mensajes` (media + PDFs de `clinical_forms`), `DELETE` explícito de `media_assets` (no tiene FK CASCADE por diseño), anonimiza `logs_eventos` (set `contact_id=NULL, conversation_id=NULL`), `DELETE` de `contacts` (CASCADE limpia el resto) y verifica con `verifyContactPurged` que las tablas hijas quedaron en 0. Si el delete falla, retorna `ok=false` y el handler aborta sin sembrar la conv limpia. Spec completa en `docs/COMANDO_BORRAR.md`. Tests: `src/__tests__/clinicas-db.purge.test.ts` (7 casos).
