@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { ReminderDbService } from '../services/reminder-db.service';
+import { ReminderScheduler } from '../services/reminder-scheduler.service';
 
 /**
  * Tool: scheduleReminder
@@ -75,6 +76,9 @@ export const createScheduleReminderTool = (
                 companyTimezone,
                 rrule: args.rrule,
             });
+
+            // Notificar al scheduler para que reprograme si este reminder vence antes
+            ReminderScheduler.recalculate().catch(() => {});
 
             const tipoStr = args.rrule ? 'recurrente' : 'one-shot';
             logger.info(
