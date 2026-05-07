@@ -1995,4 +1995,96 @@ export class ClinicasDbService {
         }
         return data;
     }
+
+    // ─── Auto-link de canales pendientes ────────────────────────────────────────
+
+    /**
+     * Busca un canal con provider_id pendiente (placeholder "pending-...")
+     * para asociarlo automáticamente al phoneNumberId real de Kapso.
+     *
+     * Estrategia de matching:
+     *   1. Si se pasa `companyId`, busca el canal pendiente de esa company (callback explícito).
+     *   2. Si no, busca canales pendientes cuyo placeholder contenga el `ownerPhone`
+     *      (auto-detección desde el webhook — el owner envía un mensaje desde su propio número).
+     *
+     * Retorna null si no hay match o si hay ambigüedad (>1 canal pendiente sin companyId).
+     */
+    static async findPendingChannel(
+        opts: { companyId?: string; ownerPhone?: string }
+    ): Promise<{ channelId: string; companyId: string; companyName: string; slug: string } | null> {
+        try {
+            let query = db()
+                .from('channels')
+                .select(`
+                    id,
+                    provider_id,
+                    company:companies (
+                        id,
+                        name,
+                        slug,
+                        active
+                    )
+                `)
+                .eq('provider', 'whatsapp')
+                .eq('active', true)
+                .like('provider_id', 'pending-%');
+
+            if (opts.companyId) {
+                query = query.eq('company_id', opts.companyId);
+            }
+
+            const { data, error } = await query;
+            if (error) throw error;
+            if (!data || data.length === 0) return null;
+
+            // Si buscamos por companyId, debe haber exactamente 1
+            if (opts.companyId) {
+                const ch = data[0];
+                const co = ch.company as any;
+                if (!co?.active) return null;
+                return { channelId: ch.id, companyId: co.id, companyName: co.name, slug: co.slug };
+            }
+
+            // Sin companyId: filtrar por ownerPhone en el placeholder "pending-{phone}-{ts}"
+            // Nota: el phone en el placeholder puede tener código de país (ej: 573001234567)
+            // mientras que normalizePhone lo quita (→ 3001234567). Normalizamos ambos lados.
+            if (opts.ownerPhone) {
+                const phone = normalizePhone(opts.ownerPhone);
+                if (!phone) return null;
+                const matches = data.filter((ch: any) => {
+                    const parts = ch.provider_id.split('-');
+                    // pending-{phone}-{timestamp}
+                    if (parts.length < 3) return false;
+                    const storedPhone = normalizePhone(parts[1]);
+                    return storedPhone === phone;
+                });
+                if (matches.length !== 1) return null; // 0 o ambiguo
+                const ch = matches[0];
+                const co = ch.company as any;
+                if (!co?.active) return null;
+                return { channelId: ch.id, companyId: co.id, companyName: co.name, slug: co.slug };
+            }
+
+            return null;
+        } catch (error) {
+            logger.error(`[Clinicas] findPendingChannel: ${(error as Error).message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Asocia un phoneNumberId real de Kapso a un canal pendiente.
+     * Actualiza provider_id, marca como connected y opcionalmente guarda el phone_number.
+     */
+    static async linkChannelToPhone(
+        channelId: string,
+        phoneNumberId: string,
+        phoneNumber?: string
+    ): Promise<void> {
+        await this.updateChannelConnectionStatus(channelId, 'connected', {
+            providerId: phoneNumberId,
+            phoneNumber,
+        });
+        logger.info(`[Clinicas] linkChannelToPhone: canal ${channelId} → provider_id=${phoneNumberId}`);
+    }
 }

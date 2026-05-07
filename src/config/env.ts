@@ -106,6 +106,15 @@ export const env = {
      * resuelve el tenant a esta company, se activa el agente SuperAdmin (Bruno).
      */
     BRUNO_LAB_COMPANY_ID: process.env.BRUNO_LAB_COMPANY_ID || '',
+
+    /**
+     * URL base pública del servidor (sin trailing slash).
+     * Se usa para construir callback_url y webhook_url en los links de onboarding.
+     * Ej: https://clinica-saas-agente-production.up.railway.app
+     *
+     * Si no se configura, se intenta derivar de GOOGLE_OAUTH_REDIRECT_URI.
+     */
+    WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL || '',
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
@@ -116,7 +125,7 @@ const optionalKeys = [
     'GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REDIRECT_URI',
     'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
     'ADMIN_PORTAL_URL', 'KAPSO_ONBOARDING_URL', 'BRUNO_LAB_COMPANY_ID',
-    'BLOCKED_PHONES',
+    'BLOCKED_PHONES', 'WEBHOOK_BASE_URL',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

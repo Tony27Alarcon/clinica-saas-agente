@@ -446,7 +446,60 @@ export class WebhookController {
             return;
         }
 
-        // phoneNumberId no registrado en ninguna clínica — descartamos sin fallback.
+        // ── Auto-detección de canales pendientes ──────────────────────────
+        // Si el phoneNumberId no está registrado, puede ser el primer mensaje
+        // tras completar el embedded signup de Kapso. Intentamos asociar
+        // automáticamente buscando canales con provider_id "pending-{from}-...".
+        const pendingChannel = from
+            ? await ClinicasDbService.findPendingChannel({ ownerPhone: from })
+            : null;
+        if (pendingChannel) {
+            logger.info(
+                `[AutoLink] phoneNumberId ${phoneNumberId} auto-asociado a ` +
+                `"${pendingChannel.companyName}" (canal ${pendingChannel.channelId})`
+            );
+
+            await ClinicasDbService.linkChannelToPhone(pendingChannel.channelId, phoneNumberId);
+
+            // Re-intentar el lookup — ahora sí debería matchear
+            const linkedCompany = await ClinicasDbService.getCompanyByWaPhone(phoneNumberId);
+            if (linkedCompany) {
+                logger.event({
+                    code: LOG_EVENTS.ROUTE_TENANT_MATCHED,
+                    outcome: 'ok',
+                    summary: `Tenant auto-vinculado: "${linkedCompany.name}" (primer webhook post-Kapso)`,
+                    data: { companyId: linkedCompany.id, companyName: linkedCompany.name, phoneNumberId, autoLinked: true },
+                });
+
+                // Procesar el evento normalmente como si el canal ya existiera
+                const direction = event.direction || event.message?.direction;
+                if (direction && direction !== 'inbound') {
+                    await WebhookController.processOutgoingEvent(event);
+                    return;
+                }
+
+                const isPlatform =
+                    linkedCompany.kind === 'platform' ||
+                    (env.BRUNO_LAB_COMPANY_ID && linkedCompany.id === env.BRUNO_LAB_COMPANY_ID);
+
+                if (isPlatform) {
+                    await WebhookController.processSuperAdminEvent({
+                        event, company: linkedCompany,
+                        from, senderName, text, phoneNumberId, messageId, messageType,
+                    });
+                    return;
+                }
+
+                await WebhookController.processClinicasEvent({
+                    event, company: linkedCompany,
+                    from, senderName, text, phoneNumberId, messageId, messageType,
+                    safeKapsoUrl, metaDirectUrl, mediaId,
+                });
+                return;
+            }
+        }
+
+        // phoneNumberId no registrado y sin canal pendiente matcheable — descartar.
         logger.event({
             code: LOG_EVENTS.ROUTE_TENANT_UNKNOWN,
             outcome: 'skipped',

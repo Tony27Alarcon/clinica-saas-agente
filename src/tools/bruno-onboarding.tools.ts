@@ -174,6 +174,29 @@ export const createBrunoSendKapsoLinkTool = (
             url.searchParams.set('company_id', company_id);
             url.searchParams.set('slug', company.slug);
 
+            // Construir callback_url para que Kapso notifique el phoneNumberId
+            // real tras completar el embedded signup.
+            // Fuente de baseUrl: WEBHOOK_BASE_URL (explícita) → GOOGLE_OAUTH_REDIRECT_URI (derivada)
+            let serverBaseUrl = env.WEBHOOK_BASE_URL;
+            if (!serverBaseUrl && env.GOOGLE_OAUTH_REDIRECT_URI) {
+                try {
+                    const parsed = new URL(env.GOOGLE_OAUTH_REDIRECT_URI);
+                    serverBaseUrl = `${parsed.protocol}//${parsed.host}`;
+                } catch { /* derivación falló, seguimos sin callback */ }
+            }
+
+            if (serverBaseUrl) {
+                const callbackUrl = new URL(`${serverBaseUrl}/webhook/kapso/connect`);
+                callbackUrl.searchParams.set('company_id', company_id);
+                if (env.KAPSO_WEBHOOK_SECRET) {
+                    callbackUrl.searchParams.set('secret', env.KAPSO_WEBHOOK_SECRET);
+                } else if (env.INTERNAL_API_SECRET) {
+                    callbackUrl.searchParams.set('secret', env.INTERNAL_API_SECRET);
+                }
+                url.searchParams.set('callback_url', callbackUrl.toString());
+                url.searchParams.set('webhook_url', `${serverBaseUrl}/webhook`);
+            }
+
             const mensaje =
                 `Último paso: conectar tu WhatsApp Business. Toma ~3 minutos.\n\n` +
                 `🔗 ${url.toString()}\n\n` +

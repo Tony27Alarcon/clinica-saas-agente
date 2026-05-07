@@ -6,7 +6,7 @@ import { WebhookController } from './controllers/webhook.controller';
 import { OAuth2Client } from 'google-auth-library';
 import { ClinicasDbService } from './services/clinicas-db.service';
 import { PromptRebuildService } from './services/prompt-rebuild.service';
-import { ReminderService } from './services/reminder.service';
+import { ReminderScheduler } from './services/reminder-scheduler.service';
 
 // ============================================================================
 // Wiring del sink de persistencia: cada log emitido por el logger se buffer-ea
@@ -219,6 +219,162 @@ app.get('/auth/google/callback', async (req, res) => {
     }
 });
 
+// ─── Kapso Onboarding Callback ──────────────────────────────────────────────
+
+/**
+ * Callback que Kapso (o un admin) invoca tras completar el embedded signup.
+ * Recibe el phoneNumberId real y lo asocia al canal pendiente de la clínica.
+ *
+ * POST /webhook/kapso/connect
+ * Body: { company_id: UUID, phone_number_id: string, phone_number?: string }
+ * Auth: x-internal-secret O x-kapso-secret
+ *
+ * También acepta query params (para configurar como redirect URL en Kapso):
+ * GET /webhook/kapso/connect?company_id=...&phone_number_id=...
+ */
+app.post('/webhook/kapso/connect', async (req, res) => {
+    const secret = req.headers['x-internal-secret'] || req.headers['x-kapso-secret'] || req.body?.secret;
+    const validSecret =
+        (env.INTERNAL_API_SECRET && secret === env.INTERNAL_API_SECRET) ||
+        (env.KAPSO_WEBHOOK_SECRET && secret === env.KAPSO_WEBHOOK_SECRET);
+
+    if (!validSecret) {
+        res.status(401).json({ ok: false, error: 'No autorizado' });
+        return;
+    }
+
+    const companyId = req.body?.company_id;
+    const phoneNumberId = req.body?.phone_number_id;
+    const phoneNumber = req.body?.phone_number; // E.164 opcional
+
+    if (!companyId || !phoneNumberId) {
+        res.status(400).json({ ok: false, error: 'Campos requeridos: company_id, phone_number_id' });
+        return;
+    }
+
+    try {
+        // Verificar que no exista ya otro canal con ese provider_id (evitar duplicados)
+        const existing = await ClinicasDbService.getCompanyByWaPhone(phoneNumberId);
+        if (existing) {
+            if (existing.id === companyId) {
+                res.json({ ok: true, already_connected: true, message: 'Canal ya conectado a esta empresa' });
+            } else {
+                res.status(409).json({ ok: false, error: `phoneNumberId ya asociado a otra empresa: ${existing.name}` });
+            }
+            return;
+        }
+
+        // Buscar canal pendiente de esta company
+        const pending = await ClinicasDbService.findPendingChannel({ companyId });
+        if (!pending) {
+            res.status(404).json({ ok: false, error: `No hay canal pendiente para company ${companyId}` });
+            return;
+        }
+
+        // Asociar el phoneNumberId real
+        await ClinicasDbService.linkChannelToPhone(pending.channelId, phoneNumberId, phoneNumber);
+
+        logger.info(
+            `[Kapso Connect] Canal ${pending.channelId} de "${pending.companyName}" ` +
+            `conectado con phoneNumberId=${phoneNumberId}`
+        );
+
+        res.json({
+            ok: true,
+            channel_id: pending.channelId,
+            company_id: companyId,
+            company_name: pending.companyName,
+            phone_number_id: phoneNumberId,
+            message: 'Canal conectado exitosamente. Los mensajes de WhatsApp ahora se enrutarán a esta clínica.',
+        });
+    } catch (err: any) {
+        logger.error(`[Kapso Connect] Error: ${err.message}`);
+        res.status(500).json({ ok: false, error: err.message });
+    }
+});
+
+// Versión GET para uso como redirect URL en el flujo de Kapso
+app.get('/webhook/kapso/connect', async (req, res) => {
+    const { company_id, phone_number_id, phone_number, secret } = req.query;
+
+    const validSecret =
+        (env.INTERNAL_API_SECRET && secret === env.INTERNAL_API_SECRET) ||
+        (env.KAPSO_WEBHOOK_SECRET && secret === env.KAPSO_WEBHOOK_SECRET);
+
+    if (!validSecret) {
+        res.status(401).send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <h2>❌ No autorizado</h2>
+            <p>El link de conexión es inválido o expiró.</p>
+            </body></html>
+        `);
+        return;
+    }
+
+    if (!company_id || !phone_number_id) {
+        res.status(400).send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <h2>⚠️ Parámetros faltantes</h2>
+            <p>Se requiere company_id y phone_number_id.</p>
+            </body></html>
+        `);
+        return;
+    }
+
+    try {
+        const existing = await ClinicasDbService.getCompanyByWaPhone(phone_number_id as string);
+        if (existing && existing.id === company_id) {
+            res.send(`
+                <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+                <h2 style="color:#22c55e">✅ WhatsApp ya conectado</h2>
+                <p>Tu número ya está vinculado a <strong>${existing.name}</strong>.</p>
+                <p style="color:#6b7280;font-size:14px">Puedes cerrar esta ventana.</p>
+                </body></html>
+            `);
+            return;
+        }
+
+        const pending = await ClinicasDbService.findPendingChannel({ companyId: company_id as string });
+        if (!pending) {
+            res.status(404).send(`
+                <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+                <h2>⚠️ Canal no encontrado</h2>
+                <p>No se encontró un canal pendiente para esta clínica. Contacta soporte.</p>
+                </body></html>
+            `);
+            return;
+        }
+
+        await ClinicasDbService.linkChannelToPhone(
+            pending.channelId,
+            phone_number_id as string,
+            phone_number as string | undefined
+        );
+
+        logger.info(
+            `[Kapso Connect GET] Canal ${pending.channelId} de "${pending.companyName}" ` +
+            `conectado con phoneNumberId=${phone_number_id}`
+        );
+
+        res.send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px;max-width:480px;margin:0 auto">
+            <h2 style="color:#22c55e">✅ ¡WhatsApp conectado!</h2>
+            <p>El número fue vinculado correctamente a <strong>${pending.companyName}</strong>.</p>
+            <p>Los mensajes de WhatsApp ahora serán atendidos por el asistente de tu clínica.</p>
+            <p style="color:#6b7280;font-size:14px">Puedes cerrar esta ventana.</p>
+            </body></html>
+        `);
+    } catch (err: any) {
+        logger.error(`[Kapso Connect GET] Error: ${err.message}`);
+        res.status(500).send(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+            <h2>❌ Error del servidor</h2>
+            <p>No se pudo completar la conexión. Intenta nuevamente.</p>
+            </body></html>
+        `);
+    }
+});
+
 // ─── Provisioning de clínica (interno) ──────────────────────────────────────
 
 /**
@@ -307,16 +463,14 @@ const server = app.listen(PORT, () => {
         logger.warn(`[Startup] processRebuildQueue falló: ${(err as Error).message}`)
     );
 
-    // Scheduler de recordatorios: cada 60s revisa si hay recordatorios pendientes
-    // y activa el agente correspondiente de forma proactiva.
-    // Usa UPDATE atómico (claim_due_reminders RPC) para garantizar idempotencia.
-    setInterval(() => {
-        ReminderService.checkAndFire().catch(err =>
-            logger.error('[Scheduler] checkAndFire error no capturado', err)
-        );
-    }, 60_000);
+    // Scheduler de recordatorios: smart timer que calcula cuándo vence el
+    // próximo reminder en vez de hacer polling cada 60s (1,440 queries/día).
+    // Cap máximo de 5min para detectar reminders creados externamente.
+    ReminderScheduler.start().catch(err =>
+        logger.error('[Scheduler] ReminderScheduler.start falló', err)
+    );
 
-    logger.info('Scheduler de recordatorios activo (intervalo: 60s).');
+    logger.info('Scheduler de recordatorios activo (smart timer).');
 });
 
 // ============================================================================
@@ -333,6 +487,9 @@ async function shutdown(signal: string) {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.warn(`Recibido ${signal}, iniciando shutdown gracioso...`);
+
+    // 0. Detener smart timer de reminders.
+    ReminderScheduler.stop();
 
     // 1. Dejar de aceptar nuevas conexiones HTTP.
     server.close((err) => {
