@@ -54,6 +54,14 @@ export const LOG_EVENTS = {
     AI_TOOL_CALLED:            'ai.tool.called',
     AI_TOOL_FAILED:            'ai.tool.failed',
     AI_NOREPLY_DECIDED:        'ai.noreply.decided',
+    /** Segunda llamada forzada porque la primera no generó texto tras tool calls. */
+    AI_FOLLOWUP_FORCED:        'ai.followup.forced',
+
+    // --- Prompt Rebuild ------------------------------------------------------
+    /** Rebuild del system_prompt completado tras cambio de config. */
+    PROMPT_REBUILD_OK:         'prompt.rebuild.ok',
+    /** Rebuild del system_prompt falló (fire-and-forget, no rompe pipeline). */
+    PROMPT_REBUILD_FAILED:     'prompt.rebuild.failed',
 
     // --- Kapso (salida WhatsApp) ---------------------------------------------
     KAPSO_SEND_OK:             'kapso.send.ok',
@@ -122,6 +130,10 @@ export const LOG_REASONS = {
     AI_PROVIDER_ERROR:           'ai_provider_error',
     AI_TOOL_NOT_FOUND:           'ai_tool_not_found',
     AI_NOREPLY_GUARDRAIL:        'ai_noreply_guardrail',
+    AI_EMPTY_AFTER_RETRY:        'ai_empty_after_retry',
+
+    // --- Prompt Rebuild -------------------------------------------------------
+    PROMPT_REBUILD_ERROR:        'prompt_rebuild_error',
 
     // --- Kapso ----------------------------------------------------------------
     KAPSO_24H_WINDOW_CLOSED:     'kapso_24h_window_closed',

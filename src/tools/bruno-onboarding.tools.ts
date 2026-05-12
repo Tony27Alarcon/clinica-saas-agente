@@ -20,6 +20,7 @@ import { ClinicasDbService } from '../services/clinicas-db.service';
 import { KapsoService } from '../services/kapso.service';
 import { GoogleCalendarService } from '../services/google-calendar.service';
 import { PromptRebuildService } from '../services/prompt-rebuild.service';
+import { LOG_EVENTS } from '../utils/log-events';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -415,7 +416,8 @@ export const createBrunoConfigureCompanyTool = () => tool({
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] configure_company: ${company_id}`);
             PromptRebuildService.rebuildPromptForCompany(company_id)
-                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras configure_company: ${e.message}`));
+                .then(() => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_OK, outcome: 'ok', summary: `[Bruno] Rebuild tras configure_company (${company_id})` }))
+                .catch((e: Error) => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_FAILED, outcome: 'failed', summary: `[Bruno] Rebuild falló tras configure_company: ${e.message}`, error: e }));
             return result;
         } catch (err: any) {
             logger.error(`[Bruno Tool] configure_company error: ${err.message}`);
@@ -462,7 +464,8 @@ export const createBrunoConfigureAgentTool = () => tool({
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] configure_agent: ${company_id}`);
             PromptRebuildService.rebuildPromptForCompany(company_id)
-                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras configure_agent: ${e.message}`));
+                .then(() => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_OK, outcome: 'ok', summary: `[Bruno] Rebuild tras configure_agent (${company_id})` }))
+                .catch((e: Error) => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_FAILED, outcome: 'failed', summary: `[Bruno] Rebuild falló tras configure_agent: ${e.message}`, error: e }));
             return result;
         } catch (err: any) {
             logger.error(`[Bruno Tool] configure_agent error: ${err.message}`);
@@ -504,7 +507,8 @@ export const createBrunoAddTreatmentTool = () => tool({
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] add_treatment: ${result.data?.id} (${args.name}) para company ${company_id}`);
             PromptRebuildService.rebuildPromptForCompany(company_id)
-                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras add_treatment: ${e.message}`));
+                .then(() => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_OK, outcome: 'ok', summary: `[Bruno] Rebuild tras add_treatment (${company_id})` }))
+                .catch((e: Error) => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_FAILED, outcome: 'failed', summary: `[Bruno] Rebuild falló tras add_treatment: ${e.message}`, error: e }));
             return result;
         } catch (err: any) {
             logger.error(`[Bruno Tool] add_treatment error: ${err.message}`);
@@ -546,7 +550,8 @@ export const createBrunoCompleteOnboardingTool = () => tool({
 
             // Rebuild final del prompt con toda la config
             PromptRebuildService.rebuildPromptForCompany(company_id)
-                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras complete_onboarding: ${e.message}`));
+                .then(() => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_OK, outcome: 'ok', summary: `[Bruno] Rebuild final tras complete_onboarding (${company_id})` }))
+                .catch((e: Error) => logger.event({ code: LOG_EVENTS.PROMPT_REBUILD_FAILED, outcome: 'failed', summary: `[Bruno] Rebuild falló tras complete_onboarding: ${e.message}`, error: e }));
 
             logger.info(`[Bruno Tool] complete_onboarding: ${company_id} (${treatments.length} tratamientos)`);
             return {

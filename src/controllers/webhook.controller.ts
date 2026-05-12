@@ -982,10 +982,15 @@ export class WebhookController {
     }): Promise<void> {
         const { event, company, from, senderName, text, phoneNumberId, messageId, messageType } = ctx;
 
-        logger.enrichContext({ companyId: company.id });
+        logger.enrichContext({ companyId: company.id, contacto: from, messageId, tipo: messageType });
 
         if (!from || !text) {
-            logger.debug('[SuperAdmin] Evento ignorado (sin remitente o texto)');
+            logger.event({
+                code: LOG_EVENTS.WEBHOOK_IGNORED_EMPTY,
+                outcome: 'skipped',
+                reason: LOG_REASONS.EMPTY_EVENT,
+                summary: '[SuperAdmin] Evento ignorado: sin remitente o texto',
+            });
             return;
         }
 
@@ -1036,7 +1041,12 @@ export class WebhookController {
         if (messageId) {
             const already = await ClinicasDbService.hasMessageByKapsoId(messageId);
             if (already) {
-                logger.debug('[SuperAdmin] messageId ya procesado — skip');
+                logger.event({
+                    code: LOG_EVENTS.WEBHOOK_DEDUPED,
+                    outcome: 'skipped',
+                    reason: LOG_REASONS.DUPLICATE_MESSAGE_ID,
+                    summary: `[SuperAdmin] messageId ${messageId} ya procesado`,
+                });
                 return;
             }
         }
@@ -1076,11 +1086,24 @@ export class WebhookController {
                 await logger.stage('H', 'superadmin.KapsoService.enviarMensaje', async () => {
                     await KapsoService.enviarMensaje(from, respuesta, phoneNumberId);
                 });
+                logger.event({
+                    code: LOG_EVENTS.KAPSO_SEND_OK,
+                    outcome: 'ok',
+                    summary: `[SuperAdmin] Respuesta enviada (${respuesta.length} chars)`,
+                    data: { responseLength: respuesta.length },
+                });
             } catch (sendError) {
-                logger.error('[SuperAdmin] Fallo al enviar (respuesta ya en DB)', sendError);
+                logger.event({
+                    code: LOG_EVENTS.KAPSO_SEND_FAILED,
+                    outcome: 'failed',
+                    reason: LOG_REASONS.KAPSO_API_ERROR,
+                    summary: '[SuperAdmin] Fallo al enviar respuesta por Kapso (ya en DB)',
+                    error: sendError,
+                    data: { responseLength: respuesta.length },
+                });
             }
         } else {
-            logger.info('[SuperAdmin] Sin texto a enviar (tool interactiva)');
+            logger.info('[SuperAdmin] Sin texto a enviar (tool interactiva o follow-up)');
         }
     }
 
