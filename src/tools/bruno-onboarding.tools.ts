@@ -19,6 +19,7 @@ import { env } from '../config/env';
 import { ClinicasDbService } from '../services/clinicas-db.service';
 import { KapsoService } from '../services/kapso.service';
 import { GoogleCalendarService } from '../services/google-calendar.service';
+import { PromptRebuildService } from '../services/prompt-rebuild.service';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -375,6 +376,187 @@ export const createBrunoConfigureAvailabilityTool = () => tool({
             }
         } catch (err: any) {
             logger.error(`[Bruno Tool] configure_availability error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+
+// ─── Tool 5: configure_company ──────────────────────────────────────────────
+
+/**
+ * Tool: configure_company
+ *
+ * Actualiza perfil de la empresa recién creada: dirección, horarios de atención
+ * y zona horaria. Bloque 2 del onboarding conversacional.
+ * Dispara rebuild del prompt del agente paciente.
+ */
+export const createBrunoConfigureCompanyTool = () => tool({
+    description:
+        'Actualiza el perfil de la empresa del prospecto: dirección, horarios de atención y zona horaria. ' +
+        'Invocar en el bloque 2 del setup, después de start_onboarding. ' +
+        'El campo schedule es un array de bloques: [{days:["lun","vie"], open:"09:00", close:"18:00"}].',
+
+    inputSchema: z.object({
+        company_id: z.string().uuid().describe('UUID retornado por start_onboarding'),
+        address:    z.string().optional().describe('Dirección física del consultorio'),
+        schedule:   z.array(z.object({
+            days:  z.array(z.string()).describe('Días: lun, mar, mie, jue, vie, sab, dom'),
+            open:  z.string().describe('Hora de apertura HH:MM'),
+            close: z.string().describe('Hora de cierre HH:MM'),
+        })).optional().describe('Bloques de horario de atención'),
+        timezone: z.string().optional().describe('Zona horaria IANA (ej: America/Bogota)'),
+    }),
+
+    execute: async (args) => {
+        try {
+            const { company_id, ...data } = args;
+            const result = await ClinicasDbService.updateCompanyProfile(company_id, data);
+            if (!result.ok) return result;
+            logger.info(`[Bruno Tool] configure_company: ${company_id}`);
+            PromptRebuildService.rebuildPromptForCompany(company_id)
+                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras configure_company: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Bruno Tool] configure_company error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+
+// ─── Tool 6: configure_agent ────────────────────────────────────────────────
+
+/**
+ * Tool: configure_agent
+ *
+ * Configura la personalidad y comportamiento del agente de pacientes de la
+ * clínica recién creada. Bloques 3 y 6 del onboarding conversacional.
+ * Dispara rebuild del system_prompt compilado.
+ */
+export const createBrunoConfigureAgentTool = () => tool({
+    description:
+        'Configura el agente de pacientes: nombre, tono, personalidad, descripción de la clínica, ' +
+        'instrucciones de reserva, temas prohibidos y base de objeciones. ' +
+        'Invocar en el bloque 3 (personalidad) y opcionalmente bloque 6 (objeciones). ' +
+        'El system_prompt se regenera automáticamente — no enviarlo directamente.',
+
+    inputSchema: z.object({
+        company_id:           z.string().uuid().describe('UUID retornado por start_onboarding'),
+        name:                 z.string().optional().describe('Nombre del agente (ej: Valentina, Sofía, Andrea)'),
+        tone:                 z.enum(['formal', 'amigable', 'casual']).optional().describe('Tono de voz del agente'),
+        persona_description:  z.string().optional().describe('Descripción breve de la personalidad del agente'),
+        clinic_description:   z.string().optional().describe('Descripción general de la clínica para el agente'),
+        booking_instructions: z.string().optional().describe('Instrucciones específicas para el proceso de reserva'),
+        prohibited_topics:    z.array(z.string()).optional().describe('Temas que el agente debe rechazar (ej: diagnósticos, pagos directos)'),
+        objections_kb:        z.array(z.object({
+            objection: z.string(),
+            response:  z.string(),
+        })).optional().describe('Base de conocimiento de objeciones y respuestas sugeridas'),
+    }),
+
+    execute: async (args) => {
+        try {
+            const { company_id, ...data } = args;
+            const result = await ClinicasDbService.updateAgentConfig(company_id, data);
+            if (!result.ok) return result;
+            logger.info(`[Bruno Tool] configure_agent: ${company_id}`);
+            PromptRebuildService.rebuildPromptForCompany(company_id)
+                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras configure_agent: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Bruno Tool] configure_agent error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+
+// ─── Tool 7: add_treatment ──────────────────────────────────────────────────
+
+/**
+ * Tool: add_treatment
+ *
+ * Crea un tratamiento en la clínica recién creada. Bloque 4 del onboarding.
+ * Se puede invocar múltiples veces (uno por tratamiento).
+ * Dispara rebuild del prompt para que el agente paciente conozca el catálogo.
+ */
+export const createBrunoAddTreatmentTool = () => tool({
+    description:
+        'Crea un tratamiento/servicio en la clínica del prospecto. Invocar una vez por cada tratamiento ' +
+        'en el bloque 4 del setup. Requiere al menos el nombre. El agente paciente se actualiza automáticamente.',
+
+    inputSchema: z.object({
+        company_id:               z.string().uuid().describe('UUID retornado por start_onboarding'),
+        name:                     z.string().min(1).max(200).describe('Nombre del tratamiento'),
+        description:              z.string().optional().describe('Descripción breve del tratamiento'),
+        price_min:                z.number().nonnegative().optional().describe('Precio mínimo'),
+        price_max:                z.number().nonnegative().optional().describe('Precio máximo'),
+        duration_min:             z.number().int().positive().optional().describe('Duración en minutos'),
+        category:                 z.string().optional().describe('Categoría (ej: facial, corporal, capilar, dental)'),
+        preparation_instructions: z.string().optional().describe('Instrucciones de preparación previa'),
+    }),
+
+    execute: async (args) => {
+        try {
+            const { company_id, ...data } = args;
+            const result = await ClinicasDbService.createTreatment(company_id, data);
+            if (!result.ok) return result;
+            logger.info(`[Bruno Tool] add_treatment: ${result.data?.id} (${args.name}) para company ${company_id}`);
+            PromptRebuildService.rebuildPromptForCompany(company_id)
+                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras add_treatment: ${e.message}`));
+            return result;
+        } catch (err: any) {
+            logger.error(`[Bruno Tool] add_treatment error: ${err.message}`);
+            return { ok: false, error: err.message };
+        }
+    },
+});
+
+
+// ─── Tool 8: complete_onboarding ────────────────────────────────────────────
+
+/**
+ * Tool: complete_onboarding
+ *
+ * Marca el onboarding como completado y activa el agente de pacientes.
+ * Valida que exista al menos 1 tratamiento antes de completar.
+ * Dispara rebuild final del prompt compilado.
+ */
+export const createBrunoCompleteOnboardingTool = () => tool({
+    description:
+        'Marca el onboarding de la clínica como completado y activa el agente de pacientes. ' +
+        'Invocar SOLO al final, cuando todos los bloques del setup estén listos y el prospecto confirme. ' +
+        'Requiere al menos 1 tratamiento registrado.',
+
+    inputSchema: z.object({
+        company_id: z.string().uuid().describe('UUID retornado por start_onboarding'),
+    }),
+
+    execute: async ({ company_id }) => {
+        try {
+            // Validar mínimos
+            const treatments = await ClinicasDbService.listAllTreatments(company_id, false);
+            if (treatments.length === 0) {
+                return { ok: false, error: 'Se necesita al menos 1 tratamiento registrado antes de completar el onboarding.' };
+            }
+
+            const result = await ClinicasDbService.completeOnboarding(company_id);
+            if (!result.ok) return result;
+
+            // Rebuild final del prompt con toda la config
+            PromptRebuildService.rebuildPromptForCompany(company_id)
+                .catch((e: Error) => logger.error(`[Bruno Tool] rebuildPrompt tras complete_onboarding: ${e.message}`));
+
+            logger.info(`[Bruno Tool] complete_onboarding: ${company_id} (${treatments.length} tratamientos)`);
+            return {
+                ok: true,
+                company_id,
+                treatments_count: treatments.length,
+                message: 'Onboarding completado. El agente de pacientes está activo y listo para atender.',
+            };
+        } catch (err: any) {
+            logger.error(`[Bruno Tool] complete_onboarding error: ${err.message}`);
             return { ok: false, error: err.message };
         }
     },
