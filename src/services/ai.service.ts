@@ -543,6 +543,22 @@ Cuando el paciente envía una imagen, nota de voz, video o documento (PDF), reci
                     return '';
                 }
 
+                // Si el follow-up también ejecutó tools sin texto, tercera llamada SIN tools
+                if (!followUp.text) {
+                    const followUpMsgs = (followUp as any).response?.messages || [];
+                    logger.info(`[IA Clinicas] Follow-up sin texto. Forzando llamada final sin tools...`);
+                    const final = await generateText({
+                        model: google(env.GEMINI_MODEL),
+                        system: systemPrompt,
+                        messages: [...mergedMessages, ...intermediateMessages, ...followUpMsgs],
+                        temperature: 0.7,
+                    });
+                    if (final.text) {
+                        logger.info(`[IA Clinicas] Llamada sin tools generó texto: "${final.text.substring(0, 80)}..."`);
+                        return final.text;
+                    }
+                }
+
                 return followUp.text || '¿En qué más puedo ayudarte?';
             }
 
@@ -1118,13 +1134,13 @@ Comercial:
                 tools: {
                     // Onboarding (en orden de uso)
                     start_onboarding:                createBrunoStartOnboardingTool(prospect.phone, phoneNumberId),
-                    configure_company:               createBrunoConfigureCompanyTool(),
-                    configure_agent:                 createBrunoConfigureAgentTool(),
-                    add_treatment:                   createBrunoAddTreatmentTool(),
+                    configure_company:               createBrunoConfigureCompanyTool(prospect.phone),
+                    configure_agent:                 createBrunoConfigureAgentTool(prospect.phone),
+                    add_treatment:                   createBrunoAddTreatmentTool(prospect.phone),
                     connect_google_calendar_owner:   createBrunoConnectGoogleCalendarTool(prospect.phone, phoneNumberId),
-                    configure_availability:          createBrunoConfigureAvailabilityTool(),
+                    configure_availability:          createBrunoConfigureAvailabilityTool(prospect.phone),
                     send_kapso_connection_link:      createBrunoSendKapsoLinkTool(prospect.phone, phoneNumberId),
-                    complete_onboarding:             createBrunoCompleteOnboardingTool(),
+                    complete_onboarding:             createBrunoCompleteOnboardingTool(prospect.phone),
                     // Comercial
                     notifyStaff:                     createBrunoNotifyStaffTool(
                         phoneNumberId,
@@ -1151,13 +1167,13 @@ Comercial:
                     maxSteps: 10,
                     tools: {
                         start_onboarding:                createBrunoStartOnboardingTool(prospect.phone, phoneNumberId),
-                        configure_company:               createBrunoConfigureCompanyTool(),
-                        configure_agent:                 createBrunoConfigureAgentTool(),
-                        add_treatment:                   createBrunoAddTreatmentTool(),
+                        configure_company:               createBrunoConfigureCompanyTool(prospect.phone),
+                        configure_agent:                 createBrunoConfigureAgentTool(prospect.phone),
+                        add_treatment:                   createBrunoAddTreatmentTool(prospect.phone),
                         connect_google_calendar_owner:   createBrunoConnectGoogleCalendarTool(prospect.phone, phoneNumberId),
-                        configure_availability:          createBrunoConfigureAvailabilityTool(),
+                        configure_availability:          createBrunoConfigureAvailabilityTool(prospect.phone),
                         send_kapso_connection_link:      createBrunoSendKapsoLinkTool(prospect.phone, phoneNumberId),
-                        complete_onboarding:             createBrunoCompleteOnboardingTool(),
+                        complete_onboarding:             createBrunoCompleteOnboardingTool(prospect.phone),
                         notifyStaff:                     createBrunoNotifyStaffTool(
                             phoneNumberId,
                             config.assignedAdvisor,
@@ -1167,6 +1183,23 @@ Comercial:
                 } as any);
                 followUpResult = followUp;
                 resultText = followUp.text || '';
+
+                // Si el follow-up también ejecutó tools sin texto, forzar tercera
+                // llamada SIN tools para que el modelo genere texto obligatoriamente.
+                if (!resultText) {
+                    const followUpMsgs = (followUp as any).response?.messages || [];
+                    logger.info(`[IA SuperAdmin] Follow-up sin texto. Forzando llamada final sin tools...`);
+                    const final = await generateText({
+                        model: google(env.GEMINI_MODEL),
+                        system: systemPrompt,
+                        messages: [...historial, ...intermediateMessages, ...followUpMsgs],
+                        temperature: 0.6,
+                    });
+                    resultText = final.text || '';
+                    if (resultText) {
+                        logger.info(`[IA SuperAdmin] Llamada sin tools generó texto: "${resultText.substring(0, 80)}..."`);
+                    }
+                }
             }
 
             const durationMs = Date.now() - aiStart;
@@ -1175,7 +1208,7 @@ Comercial:
             );
 
             if (!resultText) {
-                logger.warn(`[IA SuperAdmin] Respuesta vacía tras retry. finishReason=${result.finishReason}`);
+                logger.warn(`[IA SuperAdmin] Respuesta vacía tras todos los retries. finishReason=${result.finishReason}`);
                 return '¿Seguimos? Contame qué necesitas.';
             }
 

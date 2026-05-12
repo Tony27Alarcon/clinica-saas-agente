@@ -24,6 +24,28 @@ import { LOG_EVENTS } from '../utils/log-events';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Valida el company_id del LLM: si existe en BD lo usa, si no hace fallback
+ * buscando la company del owner por teléfono. Esto protege contra modelos
+ * ligeros (ej: flash-lite) que confunden UUIDs entre tool calls.
+ */
+async function resolveCompanyId(llmCompanyId: string, ownerPhone: string): Promise<string> {
+    // 1. Verificar que el company_id del LLM sea válido
+    const exists = await ClinicasDbService.getCompanyById(llmCompanyId);
+    if (exists) return llmCompanyId;
+
+    // 2. Fallback: buscar por owner phone
+    logger.warn(`[Bruno Tool] company_id "${llmCompanyId}" no existe. Buscando por owner phone...`);
+    const found = await ClinicasDbService.findPendingOnboardingByOwner(ownerPhone);
+    if (found?.id) {
+        logger.info(`[Bruno Tool] Resuelto via owner: ${found.id} (${found.name})`);
+        return found.id;
+    }
+
+    // 3. Sin fallback — devolver el original para que el error sea claro
+    return llmCompanyId;
+}
+
 const SLUG_MAX_LEN = 40;
 
 /**
@@ -295,7 +317,7 @@ export const createBrunoConnectGoogleCalendarTool = (
  * Una sola tool con `action` en lugar de cuatro tools distintas, para que el
  * LLM mantenga el contexto entre operaciones del mismo bloque.
  */
-export const createBrunoConfigureAvailabilityTool = () => tool({
+export const createBrunoConfigureAvailabilityTool = (ownerPhone: string) => tool({
     description:
         'Gestiona bloques de tiempo OCUPADO en el Google Calendar del owner. ' +
         'La disponibilidad se deduce por contraste: todo lo que NO esté bloqueado es libre. ' +
@@ -322,8 +344,9 @@ export const createBrunoConfigureAvailabilityTool = () => tool({
 
     execute: async (args) => {
         try {
-            const company = await ClinicasDbService.getCompanyById(args.company_id);
-            if (!company) return { ok: false, error: `Company ${args.company_id} no encontrada` };
+            const resolvedId = await resolveCompanyId(args.company_id, ownerPhone);
+            const company = await ClinicasDbService.getCompanyById(resolvedId);
+            if (!company) return { ok: false, error: `Company ${resolvedId} no encontrada` };
 
             const tokens = await ClinicasDbService.getStaffOAuthTokens(args.staff_id);
             if (!tokens?.refreshToken) {
@@ -392,7 +415,7 @@ export const createBrunoConfigureAvailabilityTool = () => tool({
  * y zona horaria. Bloque 2 del onboarding conversacional.
  * Dispara rebuild del prompt del agente paciente.
  */
-export const createBrunoConfigureCompanyTool = () => tool({
+export const createBrunoConfigureCompanyTool = (ownerPhone: string) => tool({
     description:
         'Actualiza el perfil de la empresa del prospecto: dirección, horarios de atención y zona horaria. ' +
         'Invocar en el bloque 2 del setup, después de start_onboarding. ' +
@@ -411,7 +434,8 @@ export const createBrunoConfigureCompanyTool = () => tool({
 
     execute: async (args) => {
         try {
-            const { company_id, ...data } = args;
+            const company_id = await resolveCompanyId(args.company_id, ownerPhone);
+            const { company_id: _, ...data } = args;
             const result = await ClinicasDbService.updateCompanyProfile(company_id, data);
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] configure_company: ${company_id}`);
@@ -436,7 +460,7 @@ export const createBrunoConfigureCompanyTool = () => tool({
  * clínica recién creada. Bloques 3 y 6 del onboarding conversacional.
  * Dispara rebuild del system_prompt compilado.
  */
-export const createBrunoConfigureAgentTool = () => tool({
+export const createBrunoConfigureAgentTool = (ownerPhone: string) => tool({
     description:
         'Configura el agente de pacientes: nombre, tono, personalidad, descripción de la clínica, ' +
         'instrucciones de reserva, temas prohibidos y base de objeciones. ' +
@@ -459,7 +483,8 @@ export const createBrunoConfigureAgentTool = () => tool({
 
     execute: async (args) => {
         try {
-            const { company_id, ...data } = args;
+            const company_id = await resolveCompanyId(args.company_id, ownerPhone);
+            const { company_id: _, ...data } = args;
             const result = await ClinicasDbService.updateAgentConfig(company_id, data);
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] configure_agent: ${company_id}`);
@@ -484,7 +509,7 @@ export const createBrunoConfigureAgentTool = () => tool({
  * Se puede invocar múltiples veces (uno por tratamiento).
  * Dispara rebuild del prompt para que el agente paciente conozca el catálogo.
  */
-export const createBrunoAddTreatmentTool = () => tool({
+export const createBrunoAddTreatmentTool = (ownerPhone: string) => tool({
     description:
         'Crea un tratamiento/servicio en la clínica del prospecto. Invocar una vez por cada tratamiento ' +
         'en el bloque 4 del setup. Requiere al menos el nombre. El agente paciente se actualiza automáticamente.',
@@ -502,7 +527,8 @@ export const createBrunoAddTreatmentTool = () => tool({
 
     execute: async (args) => {
         try {
-            const { company_id, ...data } = args;
+            const company_id = await resolveCompanyId(args.company_id, ownerPhone);
+            const { company_id: _, ...data } = args;
             const result = await ClinicasDbService.createTreatment(company_id, data);
             if (!result.ok) return result;
             logger.info(`[Bruno Tool] add_treatment: ${result.data?.id} (${args.name}) para company ${company_id}`);
@@ -527,7 +553,7 @@ export const createBrunoAddTreatmentTool = () => tool({
  * Valida que exista al menos 1 tratamiento antes de completar.
  * Dispara rebuild final del prompt compilado.
  */
-export const createBrunoCompleteOnboardingTool = () => tool({
+export const createBrunoCompleteOnboardingTool = (ownerPhone: string) => tool({
     description:
         'Marca el onboarding de la clínica como completado y activa el agente de pacientes. ' +
         'Invocar SOLO al final, cuando todos los bloques del setup estén listos y el prospecto confirme. ' +
@@ -537,8 +563,9 @@ export const createBrunoCompleteOnboardingTool = () => tool({
         company_id: z.string().uuid().describe('UUID retornado por start_onboarding'),
     }),
 
-    execute: async ({ company_id }) => {
+    execute: async ({ company_id: rawCompanyId }) => {
         try {
+            const company_id = await resolveCompanyId(rawCompanyId, ownerPhone);
             // Validar mínimos
             const treatments = await ClinicasDbService.listAllTreatments(company_id, false);
             if (treatments.length === 0) {

@@ -115,6 +115,19 @@ export const env = {
      * Si no se configura, se intenta derivar de GOOGLE_OAUTH_REDIRECT_URI.
      */
     WEBHOOK_BASE_URL: process.env.WEBHOOK_BASE_URL || '',
+
+    // ─── Debug/Testing (solo desarrollo local) ───────────────────────────────
+    /**
+     * Teléfono para simular mensajes entrantes en /debug/simulate.
+     * El agente responderá a este WhatsApp real. Formato: solo dígitos (ej: 573117391515).
+     */
+    DEBUG_PHONE_NUMBER: process.env.DEBUG_PHONE_NUMBER || '',
+
+    /**
+     * UUID de la company a usar en los endpoints /debug/*.
+     * Debe ser una company activa en clinicas.companies.
+     */
+    DEBUG_COMPANY_ID: process.env.DEBUG_COMPANY_ID || '',
 };
 
 // SUPPORT_PHONE_NUMBER es opcional; GOOGLE_* son opcionales (solo activan GCal si están presentes).
@@ -126,6 +139,7 @@ const optionalKeys = [
     'KAPSO_API_URL', 'KAPSO_API_TOKEN', 'KAPSO_API_BASE_URL', 'INTERNAL_API_SECRET',
     'ADMIN_PORTAL_URL', 'KAPSO_ONBOARDING_URL', 'BRUNO_LAB_COMPANY_ID',
     'BLOCKED_PHONES', 'WEBHOOK_BASE_URL',
+    'DEBUG_PHONE_NUMBER', 'DEBUG_COMPANY_ID',
 ];
 const missing = Object.entries(env).filter(([k, v]) => !v && !optionalKeys.includes(k));
 if (missing.length > 0) {

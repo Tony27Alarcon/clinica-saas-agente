@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { logger, addLogSink } from './utils/logger';
 import { LogService } from './services/log.service';
 import { WebhookController } from './controllers/webhook.controller';
+import { handleDebugSimulate, handleDebugHistory, handleDebugReset } from './controllers/debug.controller';
 import { OAuth2Client } from 'google-auth-library';
 import { ClinicasDbService } from './services/clinicas-db.service';
 import { PromptRebuildService } from './services/prompt-rebuild.service';
@@ -64,6 +65,14 @@ app.post('/webhook', WebhookController.handleKapsoWebhook);
 
 // Webhook for outgoing messages sent from mobile / Kapso dashboard
 app.post('/webhook/outgoing', WebhookController.handleOutgoingWebhook);
+
+// ─── Debug endpoints (solo si DEBUG_PHONE_NUMBER está configurado) ───────────
+if (env.DEBUG_PHONE_NUMBER) {
+    app.post('/debug/simulate', handleDebugSimulate);
+    app.get('/debug/history', handleDebugHistory);
+    app.post('/debug/reset', handleDebugReset);
+    logger.info('Debug endpoints activos: /debug/simulate, /debug/history, /debug/reset');
+}
 
 // ─── Google OAuth 2.0 (Google Calendar del staff) ────────────────────────────
 

@@ -1905,7 +1905,12 @@ export class ClinicasDbService {
      */
     static async findPendingOnboardingByOwner(ownerPhone: string): Promise<any | null> {
         try {
-            const phone = normalizePhone(ownerPhone);
+            const normalized = normalizePhone(ownerPhone);
+            // Buscar por ambas variantes: phone tal cual viene y normalizado (sin código país).
+            // provisionClinic guarda el phone raw; normalizePhone puede stripear el prefijo 57.
+            const phonesToTry = [ownerPhone, normalized].filter(Boolean) as string[];
+            const uniquePhones = [...new Set(phonesToTry)];
+
             const { data, error } = await db()
                 .from('staff')
                 .select(`
@@ -1916,7 +1921,7 @@ export class ClinicasDbService {
                         country_code, onboarding_completed_at, active, referred_by
                     )
                 `)
-                .eq('phone', phone)
+                .in('phone', uniquePhones)
                 .eq('staff_role', 'owner')
                 .eq('active', true)
                 .limit(1)
