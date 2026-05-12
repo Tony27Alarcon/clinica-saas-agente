@@ -83,7 +83,8 @@ Fuente de verdad: `src/utils/log-events.ts`. Los grupos actuales:
 | Webhook | `webhook.*` | `webhook.received`, `webhook.deduped`, `webhook.fallback.sent`, `webhook.outbound.saved`, `webhook.ignored.empty` |
 | Routing | `route.*` | `route.tenant.matched`, `route.tenant.unknown`, `route.admin.detected` |
 | Pipeline | `pipeline.*` | `pipeline.stage.*`, `pipeline.loop.detected`, `pipeline.contact.reset` |
-| IA | `ai.*` | `ai.response.generated`, `ai.response.failed`, `ai.tool.*`, `ai.noreply.decided` |
+| IA | `ai.*` | `ai.response.generated`, `ai.response.failed`, `ai.tool.called`, `ai.tool.failed`, `ai.noreply.decided`, `ai.followup.forced` |
+| Prompt | `prompt.*` | `prompt.rebuild.ok`, `prompt.rebuild.failed` |
 | Kapso | `kapso.*` | `kapso.send.ok`, `kapso.send.failed`, `kapso.mark_read` |
 | Reminders | `reminder.*` | `reminder.scheduled`, `reminder.triggered`, `reminder.failed` |
 | Sistema | `support.notified` | — |
@@ -117,6 +118,55 @@ where company_id = $1
 group by 1, 2
 order by 1 desc;
 ```
+
+## `logAiMetrics` — métricas de cada llamada a Gemini
+
+Helper en `src/services/ai.service.ts` que se ejecuta al final de cada `generateText()` en los 3 pipelines (clinicas, admin, superadmin). Emite:
+
+| Evento | Cuándo | Datos clave |
+|---|---|---|
+| `ai.tool.called` | Por cada tool invocada (agrupado por nombre) | `toolName`, `count` |
+| `ai.tool.failed` | Cuando una tool retorna `ok: false` o `error` | `toolName`, `error` |
+| `ai.followup.forced` | Cuando la primera llamada no generó texto y se forzó una segunda | `followUpToolCalls`, `hasText` |
+| `ai.response.generated` | Resumen final de la llamada | `durationMs`, `steps`, `toolCalls`, `toolCallsByName`, `failedToolCalls`, `responseLength`, `finishReason`, `followUp` |
+
+### Consulta: rendimiento de IA por pipeline
+
+```sql
+select
+  extra->>'pipeline' as pipeline,
+  avg((extra->>'durationMs')::int) as avg_ms,
+  avg((extra->>'toolCalls')::int) as avg_tools,
+  avg((extra->>'responseLength')::int) as avg_chars,
+  count(*) filter (where outcome = 'failed') as failures
+from clinicas.logs_eventos
+where event_code = 'ai.response.generated'
+  and created_at > now() - interval '7 days'
+group by 1;
+```
+
+### Consulta: tools que más fallan
+
+```sql
+select
+  extra->>'toolName' as tool,
+  extra->>'error' as error,
+  count(*)
+from clinicas.logs_eventos
+where event_code = 'ai.tool.failed'
+  and created_at > now() - interval '7 days'
+group by 1, 2
+order by 3 desc;
+```
+
+## `prompt.rebuild.*` — tracking de recompilación
+
+Cada vez que una tool modifica config que afecta al agente paciente (tratamientos, agente, empresa), dispara `PromptRebuildService.rebuildPromptForCompany()` en background. El resultado se logea como:
+
+- `prompt.rebuild.ok` — rebuild exitoso.
+- `prompt.rebuild.failed` — rebuild falló (fire-and-forget, no rompe el pipeline).
+
+Aplica tanto a tools de Bruno (onboarding) como a tools admin (CRUD).
 
 ## Cómo agregar un código nuevo
 

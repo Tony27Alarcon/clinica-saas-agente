@@ -40,17 +40,21 @@ companies.getByWaPhone(phoneNumberId)
 | **A quién atiende** | Prospectos del WhatsApp comercial de Bruno Lab. |
 | **Tenant** | Una sola `companies` con `kind='platform'` (Bruno Lab). |
 | **Quién lo invoca** | `WebhookController.processSuperAdminEvent` → `AiService.generarRespuestaSuperAdmin`. |
-| **System prompt** | Hardcoded en el método (basado en `commercial/BRUNO_AGENTE_COMERCIAL.md`). |
-| **Tools disponibles** | `start_onboarding`, `send_kapso_connection_link`, `connect_google_calendar_owner`, `configure_availability`, `notifyStaff`. |
-| **Archivos** | `src/tools/bruno-onboarding.tools.ts`, `src/tools/bruno-commercial.tools.ts`. |
+| **System prompt** | Hardcoded en el método. Prohibición explícita de llamadas/demos/derivación. |
+| **Tools disponibles (10)** | Onboarding: `start_onboarding`, `configure_company`, `configure_agent`, `add_treatment`, `connect_google_calendar_owner`, `configure_availability`, `send_kapso_connection_link`, `complete_onboarding`. Comercial: `notifyStaff`. |
+| **Archivos** | `src/tools/bruno-onboarding.tools.ts` (8 tools), `src/tools/bruno-commercial.tools.ts` (1 tool). |
 
 **Responsabilidades:**
-1. Califica al prospecto (§2 del playbook: tipo de negocio, volumen/dolor, decisor).
-2. Maneja objeciones (§9).
+1. Califica al prospecto (tipo de negocio, volumen/dolor, decisor).
+2. Maneja objeciones (precio, complejidad técnica, desconfianza).
 3. Cuando el prospecto acepta → **crea el tenant** via `start_onboarding` (única vía de creación de companies).
-4. Envía link de Kapso para conectar el WhatsApp Business del owner.
-5. Envía OAuth de Google Calendar y configura la disponibilidad bloqueando tiempo ocupado.
-6. Escala a humano via `notifyStaff` ante riesgo reputacional, caso Enterprise, o bloqueo técnico.
+4. Configura la empresa completa por chat: perfil (`configure_company`), agente (`configure_agent`), tratamientos (`add_treatment`).
+5. Envía link de Google Calendar OAuth y configura disponibilidad bloqueando tiempo ocupado.
+6. Envía link de Kapso para conectar el WhatsApp Business del owner.
+7. Marca onboarding completo (`complete_onboarding`) y activa el agente de pacientes.
+8. Escala a humano via `notifyStaff` ante riesgo reputacional, caso Enterprise, o bloqueo técnico.
+
+**Regla clave:** Bruno NO propone llamadas, demos ni reuniones. Todo el setup se hace por chat usando sus tools.
 
 **Detección:** `company.kind === 'platform'` o `company.id === env.BRUNO_LAB_COMPANY_ID`.
 
@@ -113,12 +117,16 @@ Se reconstruye cada vez que el admin toca `updateAgentConfig`, `createTreatment`
 
 ```
 prospecto → WhatsApp Bruno Lab (kind=platform)
-  → Bruno califica y cierra
-  → start_onboarding()          ── crea companies(kind='tenant') + agent + channel(pending) + staff(owner)
-  → setup conversacional (6 bloques)
+  → Bruno califica y cierra (3 preguntas de a una, propuesta, CTA)
+  → start_onboarding()          ── crea companies + agent + channel(pending) + staff(owner)
+  → configure_company()         ── dirección, horarios de atención
+  → configure_agent()           ── nombre, tono, personalidad, clínica
+  → add_treatment() × N         ── mín 1 tratamiento
+  → connect_google_calendar_owner() ── OAuth (opcional)
+  → configure_availability()    ── bloques ocupados (opcional)
   → send_kapso_connection_link  ── owner abre link, conecta su WA Business
+  → complete_onboarding()       ── valida ≥1 treatment, marca onboarding_completed_at
   → primer webhook al nuevo canal → channels.connected_at = now()
-  → Bruno marca onboarding_completed_at  (via completeOnboarding tool)
   → el tenant empieza a atender pacientes por su propio número
 ```
 
@@ -134,6 +142,16 @@ Si el prospecto retoma la conversación días después:
 3. El setup conversacional retoma donde quedó.
 
 No se guarda `active_company_id` en la conversación: la idempotencia de la tool hace innecesario el estado.
+
+### `resolveCompanyId` — protección contra UUIDs inventados
+
+Los modelos ligeros (ej: flash-lite) a veces confunden UUIDs entre tool calls. El helper `resolveCompanyId(llmCompanyId, ownerPhone)` en `bruno-onboarding.tools.ts` protege contra esto:
+
+1. Verifica que el `company_id` del LLM exista en BD.
+2. Si no, busca por `ownerPhone` via `findPendingOnboardingByOwner`.
+3. Si tampoco, devuelve el original para que el error sea claro.
+
+Todas las tools de onboarding (excepto `start_onboarding`) usan este helper.
 
 ---
 
@@ -172,8 +190,9 @@ UPDATE clinicas.companies
 |---|---|---|---|
 | Router webhook | `processSuperAdminEvent` | `processAdminEvent` | `processClinicasEvent` |
 | AI method | `generarRespuestaSuperAdmin` | `generarRespuestaAdmin` (+ `generarRespuestaOnboarding`) | `generarRespuestaClinicas` |
-| Tools | `bruno-onboarding.tools.ts` + `bruno-commercial.tools.ts` | `clinicas-admin.tools.ts` | `clinicas.tools.ts` |
-| System prompt | Hardcoded (basado en playbook) | Hardcoded (método) | Compilado en BD via `PromptCompilerService` |
+| Tools | `bruno-onboarding.tools.ts` (8) + `bruno-commercial.tools.ts` (1) | `clinicas-admin.tools.ts` | `clinicas.tools.ts` |
+| System prompt | Hardcoded (anti-llamada, 7 fases) | Hardcoded (método) | Compilado en BD via `PromptCompilerService` |
+| Temp / maxSteps | 0.6 / 25 | 0.5 / 25 | 0.7 / 25 |
 
 ---
 

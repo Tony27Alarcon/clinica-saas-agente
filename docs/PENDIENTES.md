@@ -3,7 +3,7 @@
 > Checklist de lo que falta para cerrar features en curso.
 > **Regla:** cada ítem se tilda al cerrarlo y se mueve a la sección "Cerrado reciente" (última semana). Items más viejos se purgan o se archivan en CHANGELOG.
 
-Última actualización: 2026-04-17 (tarde)
+Última actualización: 2026-05-12
 
 ---
 
@@ -113,6 +113,13 @@ Ver `commercial/omboarding_tecnico.md` para el spec completo.
 - [x] Tool `send_kapso_connection_link`.
 - [x] Tool `connect_google_calendar_owner` con OAuth.
 - [x] Tool `configure_availability` (modelo invertido: bloquea lo ocupado).
+- [x] Tool `configure_company` (dirección, horarios, timezone).
+- [x] Tool `configure_agent` (nombre, tono, personalidad, objeciones).
+- [x] Tool `add_treatment` (crea tratamientos en el onboarding).
+- [x] Tool `complete_onboarding` (valida ≥1 treatment, marca completado, rebuild).
+- [x] `resolveCompanyId` — protección contra UUIDs inventados por modelos ligeros.
+- [x] System prompt anti-llamada (prohibiciones explícitas de demos/calls/derivación).
+- [x] Logging estructurado: `logAiMetrics` en los 3 pipelines, eventos de rebuild, SuperAdmin con paridad de eventos vs pacientes.
 - [x] Campos en `companies`: timezone, country_code, onboarding_completed_at (ver `sql/add_bruno_onboarding_fields.sql`).
 - [ ] **Aplicar `sql/add_bruno_onboarding_fields.sql`** a Supabase (si aún no).
 - [ ] **Decisión pendiente:** normalizar `timezone` a IANA (`America/Bogota` no `Medellin/Colombia`).
